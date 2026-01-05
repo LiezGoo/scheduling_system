@@ -4,15 +4,25 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
-return Application::configure(basePath: dirname(__DIR__))
-    ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
-        health: '/up',
-    )
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
-    })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();
+// Herd's PHP launcher expects the required file to populate $__herd_closure; define it
+// explicitly so Herd doesn't try to call an undefined variable. The closure simply returns
+// the normal Laravel application instance.
+$__herd_closure = static function () {
+    return Application::configure(basePath: dirname(__DIR__))
+        ->withRouting(
+            web: __DIR__.'/../routes/web.php',
+            commands: __DIR__.'/../routes/console.php',
+            health: '/up',
+        )
+        ->withMiddleware(function (Middleware $middleware): void {
+            $middleware->alias([
+                'role' => \App\Http\Middleware\RoleMiddleware::class,
+            ]);
+        })
+        ->withExceptions(function (Exceptions $exceptions): void {
+            //
+        })
+        ->create();
+};
+
+return $__herd_closure();
