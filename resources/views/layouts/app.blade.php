@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="user-id" content="{{ auth()->id() }}">
     <title>@yield('page-title', 'Dashboard') | SorSU Scheduling System</title>
     <link rel="icon" href="{{ asset('images/logo.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,7 +13,7 @@
     <link href="{{ asset('css/app-layout.css') }}" rel="stylesheet">
 </head>
 
-<body class="app-shell">
+<body class="app-shell sidebar-collapsed">
     @php
         $role = auth()->user()->role ?? '';
         $rolePaths = [
@@ -41,9 +43,9 @@
             [
                 'label' => 'User & Role Management',
                 'icon' => 'fa-solid fa-users-gear',
-                'anchor' => 'user-management',
+                'href' => route('admin.users.index'),
                 'roles' => ['admin'],
-                'pattern' => 'admin/dashboard*',
+                'pattern' => 'admin/users*',
             ],
             [
                 'label' => 'Faculty Load Management',
@@ -55,8 +57,15 @@
             [
                 'label' => 'Program Management',
                 'icon' => 'fa-solid fa-diagram-project',
+                'href' => route('admin.programs.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/programs*',
+            ],
+            [
+                'label' => 'Program Management',
+                'icon' => 'fa-solid fa-diagram-project',
                 'anchor' => 'program-management',
-                'roles' => ['admin', 'department_head', 'program_head'],
+                'roles' => ['department_head', 'program_head'],
                 'pattern' => $currentPattern,
             ],
             [
@@ -97,10 +106,37 @@
             </div>
 
             <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-link text-white position-relative nav-icon" type="button"
-                    aria-label="Notifications">
-                    <i class="fa-regular fa-bell"></i>
-                </button>
+                <!-- Notification Bell -->
+                <div class="dropdown">
+                    <button class="btn btn-link text-white position-relative nav-icon" type="button"
+                        id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                        aria-label="Notifications">
+                        <i class="fa-regular fa-bell" id="notificationBellIcon"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                            id="notificationBadge" style="display: none; font-size: 0.65rem;">
+                            0
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown shadow-lg"
+                        aria-labelledby="notificationDropdown" style="width: 380px; max-width: 90vw;">
+                        <li class="dropdown-header d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="fw-bold">Notifications</span>
+                            <button class="btn btn-link btn-sm text-decoration-none p-0" id="markAllReadBtn"
+                                style="font-size: 0.8rem;">
+                                Mark all as read
+                            </button>
+                        </li>
+                        <li>
+                            <hr class="dropdown-divider m-0">
+                        </li>
+                        <div id="notificationList" style="max-height: 400px; overflow-y: auto;">
+                            <li class="px-3 py-4 text-center text-muted">
+                                <i class="fa-regular fa-bell-slash mb-2" style="font-size: 2rem; opacity: 0.5;"></i>
+                                <p class="mb-0 small">No notifications</p>
+                            </li>
+                        </div>
+                    </ul>
+                </div>
 
                 <button class="btn btn-link text-white d-flex align-items-center gap-2" type="button"
                     data-bs-toggle="modal" data-bs-target="#userProfileModal" aria-label="User profile">
@@ -118,7 +154,9 @@
                     @foreach ($menuItems as $item)
                         @if (in_array($role, $item['roles'], true))
                             @php
-                                $href = $baseDashboardRoute . '#' . $item['anchor'];
+                                $href = isset($item['href'])
+                                    ? $item['href']
+                                    : $baseDashboardRoute . '#' . $item['anchor'];
                                 $isActive = request()->is($item['pattern']);
                             @endphp
                             <a class="nav-link d-flex align-items-center gap-2 {{ $isActive ? 'active' : '' }}"
@@ -175,7 +213,7 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <p class="text-muted small mb-1">Full Name</p>
-                                <p class="fw-semibold mb-0">{{ $user->name ?? 'N/A' }}</p>
+                                <p class="fw-semibold mb-0">{{ $user->full_name ?? 'N/A' }}</p>
                             </div>
                             <div class="col-12 col-md-6">
                                 <p class="text-muted small mb-1">Email</p>
@@ -225,7 +263,25 @@
             const toggle = document.getElementById('sidebarToggle');
             const navLinks = Array.from(document.querySelectorAll('#appSidebar [data-bs-toggle="tooltip"]'));
             const lgBreakpoint = 992; // Bootstrap lg breakpoint
+            const SIDEBAR_STATE_KEY = 'sidebar-state';
             let tooltipInstances = [];
+
+            const applyStoredSidebarState = () => {
+                const stored = localStorage.getItem(SIDEBAR_STATE_KEY);
+                body.classList.remove('sidebar-open', 'sidebar-collapsed');
+                if (stored === 'open') {
+                    body.classList.add('sidebar-open');
+                } else {
+                    body.classList.add('sidebar-collapsed');
+                }
+            };
+
+            const persistSidebarState = () => {
+                const state = window.innerWidth < lgBreakpoint ?
+                    (body.classList.contains('sidebar-open') ? 'open' : 'collapsed') :
+                    (body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+                localStorage.setItem(SIDEBAR_STATE_KEY, state);
+            };
 
             const enableTooltips = () => {
                 if (tooltipInstances.length) return;
@@ -269,14 +325,29 @@
                 } else {
                     body.classList.toggle('sidebar-collapsed');
                 }
+                persistSidebarState();
                 setLayout();
             };
 
             toggle?.addEventListener('click', toggleSidebar);
+            toggle?.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                }
+            });
+
             window.addEventListener('resize', setLayout);
-            document.addEventListener('DOMContentLoaded', setLayout);
+
+            document.addEventListener('DOMContentLoaded', () => {
+                applyStoredSidebarState();
+                setLayout();
+            });
         })();
     </script>
+
+    <!-- Notification System -->
+    <script src="{{ asset('js/notifications.js') }}"></script>
+
     @stack('scripts')
 </body>
 

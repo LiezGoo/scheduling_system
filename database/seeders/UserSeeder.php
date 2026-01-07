@@ -13,7 +13,8 @@ class UserSeeder extends Seeder
     DB::table('users')->updateOrInsert(
         ['email' => 'yourliez15@gmail.com'],
         [
-            'name' => 'Admin User',
+            'first_name' => 'Admin',
+            'last_name' => 'User',
             'email_verified_at' => now(),
             'password' => Hash::make('password'),
             'role' => 'admin',
@@ -25,7 +26,8 @@ class UserSeeder extends Seeder
     DB::table('users')->updateOrInsert(
         ['email' => 'departmenthead@gmail.com'],
         [
-            'name' => 'Department Head User',
+            'first_name' => 'Department Head',
+            'last_name' => 'User',
             'email_verified_at' => now(),
             'password' => Hash::make('password'),
             'role' => 'department_head',

@@ -10,20 +10,22 @@
                     <div class="card-body">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                             <div>
-                                <h5 class="mb-1">Welcome, {{ Auth::user()->name }}!</h5>
+                                <h5 class="mb-1">Welcome, {{ Auth::user()->first_name }}!</h5>
                                 <p class="text-muted mb-0">Role: Administrator</p>
                             </div>
                             <span class="badge bg-primary-subtle text-primary">System Overview</span>
                         </div>
                         <div class="row g-3 mt-1">
                             <div class="col-12 col-md-6 col-xl-3">
-                                <div class="card border-0 shadow-sm h-100" id="user-management">
-                                    <div class="card-body text-center">
-                                        <i class="fa-solid fa-users-gear fa-2x text-primary mb-2"></i>
-                                        <h6 class="mb-1">Manage Users</h6>
-                                        <p class="text-muted small mb-0">Roles, permissions, and access</p>
+                                <a href="{{ route('admin.users.index') }}" class="text-decoration-none">
+                                    <div class="card border-0 shadow-sm h-100 hover-card" id="user-management">
+                                        <div class="card-body text-center">
+                                            <i class="fa-solid fa-users-gear fa-2x text-primary mb-2"></i>
+                                            <h6 class="mb-1 text-dark">Manage Users</h6>
+                                            <p class="text-muted small mb-0">Roles, permissions, and access</p>
+                                        </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                             <div class="col-12 col-md-6 col-xl-3" id="faculty-load">
                                 <div class="card border-0 shadow-sm h-100">
@@ -58,4 +60,15 @@
             </div>
         </div>
     </div>
+
+    <style>
+        .hover-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hover-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1rem rgba(102, 0, 0, 0.15) !important;
+        }
+    </style>
 @endsection
