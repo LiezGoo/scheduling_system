@@ -14,6 +14,10 @@ class ProgramController extends Controller
      */
     public function index(Request $request)
     {
+        // Get per_page value with validation
+        $perPage = $request->input('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 15;
+
         // Placeholder data containers (to be replaced with real queries)
         $programs = null; // Can be a LengthAwarePaginator in real implementation
         $departments = [];

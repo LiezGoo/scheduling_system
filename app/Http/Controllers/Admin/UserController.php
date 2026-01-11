@@ -39,8 +39,12 @@ class UserController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Get per page value (default 15)
+        $perPage = $request->input('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 15;
+
         // Get filtered users
-        $users = $query->orderBy('created_at', 'desc')->paginate(15)->appends($request->query());
+        $users = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
 
         // Get all roles for filter dropdown
         $roles = User::getAllRoles();

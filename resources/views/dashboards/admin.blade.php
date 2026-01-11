@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('page-title', 'Admin Dashboard')
+@section('page-title', 'Home')
 
 @section('content')
     <div class="container-fluid">
@@ -10,8 +10,8 @@
                     <div class="card-body">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                             <div>
-                                <h5 class="mb-1">Welcome, {{ Auth::user()->first_name }}!</h5>
-                                <p class="text-muted mb-0">Role: Administrator</p>
+                                <h5 class="mb-1">Welcome, {{ Auth::user()->full_name }}!</h5>
+                                <p class="text-muted mb-0">Role: Admin</p>
                             </div>
                             <span class="badge bg-primary-subtle text-primary">System Overview</span>
                         </div>
@@ -36,14 +36,36 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-12 col-md-6 col-xl-3" id="subject-management">
+                                <a href="{{ route('admin.subjects.index') }}" class="text-decoration-none">
+                                    <div class="card border-0 shadow-sm h-100 hover-card">
+                                        <div class="card-body text-center">
+                                            <i class="fa-solid fa-book fa-2x text-info mb-2"></i>
+                                            <h6 class="mb-1 text-dark">Subjects</h6>
+                                            <p class="text-muted small mb-0">Manage academic subjects</p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
                             <div class="col-12 col-md-6 col-xl-3" id="program-management">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-body text-center">
-                                        <i class="fa-solid fa-diagram-project fa-2x text-info mb-2"></i>
+                                        <i class="fa-solid fa-diagram-project fa-2x text-secondary mb-2"></i>
                                         <h6 class="mb-1">Programs</h6>
                                         <p class="text-muted small mb-0">Track departments and programs</p>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="col-12 col-md-6 col-xl-3" id="room-management">
+                                <a href="{{ route('admin.rooms.index') }}" class="text-decoration-none">
+                                    <div class="card border-0 shadow-sm h-100 hover-card">
+                                        <div class="card-body text-center">
+                                            <i class="fa-solid fa-door-open fa-2x text-danger mb-2"></i>
+                                            <h6 class="mb-1 text-dark">Rooms</h6>
+                                            <p class="text-muted small mb-0">Manage campus rooms</p>
+                                        </div>
+                                    </div>
+                                </a>
                             </div>
                             <div class="col-12 col-md-6 col-xl-3" id="schedule-generation">
                                 <div class="card border-0 shadow-sm h-100">

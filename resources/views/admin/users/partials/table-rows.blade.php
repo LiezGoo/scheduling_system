@@ -21,20 +21,25 @@
         </td>
         <td>
             <div class="d-flex justify-content-center gap-2">
-                <button type="button" class="btn btn-sm btn-outline-primary edit-user-btn"
-                    data-user-id="{{ $user->id }}" title="Edit User">
+                <button type="button" class="btn btn-sm btn-outline-secondary view-user-btn"
+                    data-user-id="{{ $user->id }}" title="View" aria-label="View User Details">
+                    <i class="fa-regular fa-eye"></i>
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-warning edit-user-btn"
+                    data-user-id="{{ $user->id }}" title="Edit" aria-label="Edit User">
                     <i class="fa-solid fa-pencil"></i>
                 </button>
 
-                <button type="button" class="btn btn-sm btn-outline-warning toggle-status-btn"
+                <button type="button" class="btn btn-sm btn-outline-info toggle-status-btn"
                     data-user-id="{{ $user->id }}" data-current-status="{{ $user->status }}" title="Toggle Status"
-                    {{ $user->id === auth()->id() ? 'disabled' : '' }}>
+                    aria-label="Toggle User Status" {{ $user->id === auth()->id() ? 'disabled' : '' }}>
                     <i class="fa-solid fa-toggle-{{ $user->status === 'active' ? 'on' : 'off' }}"></i>
                 </button>
 
                 <button type="button" class="btn btn-sm btn-outline-danger delete-user-btn"
-                    data-user-id="{{ $user->id }}" data-user-name="{{ $user->full_name }}" title="Delete User"
-                    {{ $user->id === auth()->id() ? 'disabled' : '' }}>
+                    data-user-id="{{ $user->id }}" data-user-name="{{ $user->full_name }}" title="Delete"
+                    aria-label="Delete User" {{ $user->id === auth()->id() ? 'disabled' : '' }}>
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>

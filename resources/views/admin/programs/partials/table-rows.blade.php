@@ -6,16 +6,16 @@
         <td>
             <div class="d-flex justify-content-center gap-2">
                 <button type="button" class="btn btn-sm btn-outline-secondary view-program-btn"
-                    data-program-id="{{ $program->id }}" title="View Details" aria-label="View Program Details">
+                    data-program-id="{{ $program->id }}" title="View" aria-label="View Program Details">
                     <i class="fa-regular fa-eye"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-primary edit-program-btn"
-                    data-program-id="{{ $program->id }}" title="Edit Program" aria-label="Edit Program">
+                <button type="button" class="btn btn-sm btn-outline-warning edit-program-btn"
+                    data-program-id="{{ $program->id }}" title="Edit" aria-label="Edit Program">
                     <i class="fa-solid fa-pencil"></i>
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-danger delete-program-btn"
-                    data-program-id="{{ $program->id }}" data-program-name="{{ $program->name }}"
-                    title="Delete Program" aria-label="Delete Program">
+                    data-program-id="{{ $program->id }}" data-program-name="{{ $program->name }}" title="Delete"
+                    aria-label="Delete Program">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>

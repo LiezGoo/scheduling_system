@@ -105,6 +105,24 @@
       applyFilters({ page: url.searchParams.get('page') || 1 });
     });
 
+    // Per-page selector
+    const perPageSelect = document.getElementById('programsPerPageSelect');
+    if (perPageSelect) {
+      perPageSelect.addEventListener('change', function () {
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams();
+
+        formData.forEach((value, key) => {
+          if (value && value.toString().trim() !== '') {
+            params.append(key, value.toString().trim());
+          }
+        });
+
+        params.set('per_page', this.value);
+        window.location.href = '?' + params.toString();
+      });
+    }
+
     // CRUD (AJAX endpoints assumed to exist at /admin/programs)
     // Create
     if (addForm && addProgramModal) {

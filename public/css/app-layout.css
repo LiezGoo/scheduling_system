@@ -280,3 +280,50 @@ body.sidebar-collapsed .sidebar-inner {
     font-size: 0.65rem;
     padding: 0.25em 0.5em;
 }
+
+/* Maroon Theme Buttons and Backgrounds */
+.btn-maroon {
+    background-color: var(--primary-color);
+    color: #ffffff;
+    border: 1px solid var(--primary-color);
+    transition: all 0.2s ease;
+}
+
+.btn-maroon:hover {
+    background-color: var(--primary-color-hover);
+    border-color: var(--primary-color-hover);
+    color: #ffffff;
+}
+
+.btn-maroon:focus {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #ffffff;
+    box-shadow: 0 0 0 0.25rem rgba(102, 0, 0, 0.25);
+}
+
+.btn-maroon:active {
+    background-color: #550000;
+    border-color: #550000;
+    color: #ffffff;
+}
+
+.bg-maroon {
+    background-color: var(--primary-color) !important;
+}
+
+.text-maroon {
+    color: var(--primary-color) !important;
+}
+
+/* Form Input Focus States with Maroon */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(102, 0, 0, 0.15);
+}
+
+/* Spinner Maroon */
+.spinner-border.text-maroon {
+    color: var(--primary-color) !important;
+}

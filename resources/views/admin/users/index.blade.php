@@ -81,12 +81,27 @@
                 </div>
 
                 <!-- Pagination -->
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div class="text-muted" id="usersSummary">
+                <div class="d-flex justify-content-between align-items-center mt-4 gap-3">
+                    <div class="text-muted small" id="usersSummary">
                         @include('admin.users.partials.summary')
                     </div>
-                    <div id="usersPagination">
-                        @include('admin.users.partials.pagination')
+                    <div class="d-flex align-items-center gap-3 ms-auto">
+                        <div id="usersPagination" class="d-flex">
+                            @include('admin.users.partials.pagination')
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="perPageSelect" class="text-muted small mb-0 text-nowrap">Per page:</label>
+                            <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;">
+                                <option value="10" {{ request('per_page', '15') == '10' ? 'selected' : '' }}>10</option>
+                                <option value="15" {{ request('per_page', '15') == '15' ? 'selected' : '' }}>15</option>
+                                <option value="25" {{ request('per_page', '15') == '25' ? 'selected' : '' }}>25
+                                </option>
+                                <option value="50" {{ request('per_page', '15') == '50' ? 'selected' : '' }}>50
+                                </option>
+                                <option value="100" {{ request('per_page', '15') == '100' ? 'selected' : '' }}>100
+                                </option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -97,12 +112,11 @@
     <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-maroon text-white">
+                <div class="modal-header">
                     <h5 class="modal-title" id="addUserModalLabel">
                         <i class="fa-solid fa-user-plus me-2"></i>Add New User
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="addUserForm" novalidate>
                     @csrf
@@ -114,7 +128,8 @@
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
-                            <label for="addLastName" class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <label for="addLastName" class="form-label">Last Name <span
+                                    class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="addLastName" name="last_name" required>
                             <div class="invalid-feedback"></div>
                         </div>
@@ -160,7 +175,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-maroon">
+                        <button type="submit" class="btn btn-primary">
                             <i class="fa-solid fa-save me-2"></i>Create User
                         </button>
                     </div>
@@ -173,12 +188,11 @@
     <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-maroon text-white">
+                <div class="modal-header">
                     <h5 class="modal-title" id="editUserModalLabel">
                         <i class="fa-solid fa-user-edit me-2"></i>Edit User
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="editUserForm" novalidate>
                     @csrf
@@ -236,7 +250,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-maroon">
+                        <button type="submit" class="btn btn-primary">
                             <i class="fa-solid fa-save me-2"></i>Update User
                         </button>
                     </div>
@@ -250,23 +264,95 @@
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header">
                     <h5 class="modal-title" id="deleteUserModalLabel">
                         <i class="fa-solid fa-triangle-exclamation me-2"></i>Confirm Deletion
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p>Are you sure you want to delete user <strong id="deleteUserName"></strong>?</p>
-                    <p class="text-danger mb-0">
+                    <p class="mb-0">
                         <i class="fa-solid fa-info-circle me-1"></i>This action cannot be undone.
                     </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <button type="button" class="btn btn-primary" id="confirmDeleteBtn">
                         <i class="fa-solid fa-trash me-2"></i>Delete User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View User Modal -->
+    <div class="modal fade" id="viewUserModal" tabindex="-1" aria-labelledby="viewUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="viewUserModalLabel">
+                        <i class="fa-solid fa-user-circle me-2"></i>User Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="avatar-circle mx-auto mb-3" id="viewUserAvatar"
+                            style="width: 80px; height: 80px; font-size: 32px;">
+                        </div>
+                        <h4 class="mb-1" id="viewUserFullName"></h4>
+                        <span class="badge status-badge" id="viewUserStatusBadge"></span>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-user me-2"></i>First Name
+                                </div>
+                                <div class="fw-semibold" id="viewUserFirstName"></div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-user me-2"></i>Last Name
+                                </div>
+                                <div class="fw-semibold" id="viewUserLastName"></div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-envelope me-2"></i>Email
+                                </div>
+                                <div class="fw-semibold" id="viewUserEmail"></div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-user-tag me-2"></i>Role
+                                </div>
+                                <div>
+                                    <span class="badge bg-info" id="viewUserRole"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fa-solid fa-times me-2"></i>Close
+                    </button>
+                    <button type="button" class="btn btn-primary" id="viewUserEditBtn">
+                        <i class="fa-solid fa-edit me-2"></i>Edit User
                     </button>
                 </div>
             </div>
@@ -278,7 +364,7 @@
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
+                <div class="modal-header">
                     <h5 class="modal-title" id="toggleStatusModalLabel">
                         <i class="fa-solid fa-exclamation-triangle me-2"></i>Confirm Status Change
                     </h5>
@@ -293,7 +379,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-warning" id="confirmToggleStatusBtn">
+                    <button type="button" class="btn btn-primary" id="confirmToggleStatusBtn">
                         <i class="fa-solid fa-toggle-on me-2"></i>Confirm
                     </button>
                 </div>
@@ -303,6 +389,57 @@
 
     <!-- Custom CSS -->
     <style>
+        /* Modal Header - Apply maroon background to ALL modals */
+        .modal-header {
+            background-color: #660000 !important;
+            color: #ffffff !important;
+            border-bottom: none;
+        }
+
+        .modal-header .modal-title {
+            font-weight: 600;
+            color: #ffffff !important;
+        }
+
+        .modal-header .modal-title i {
+            color: #ffffff !important;
+        }
+
+        /* Close button styling for dark backgrounds */
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+            opacity: 0.8;
+        }
+
+        .modal-header .btn-close:hover {
+            opacity: 1;
+        }
+
+        /* Primary action buttons within modals */
+        .modal .btn-primary {
+            background-color: #660000 !important;
+            border-color: #660000 !important;
+            color: #ffffff !important;
+        }
+
+        .modal .btn-primary:hover,
+        .modal .btn-primary:focus,
+        .modal .btn-primary:active {
+            background-color: #520000 !important;
+            border-color: #520000 !important;
+            color: #ffffff !important;
+        }
+
+        .modal .btn-primary:disabled {
+            background-color: #660000 !important;
+            border-color: #660000 !important;
+            opacity: 0.65;
+        }
+
+        /* ========================================
+                                                   UTILITY CLASSES
+                                                   ======================================== */
+
         .text-maroon {
             color: #660000 !important;
         }

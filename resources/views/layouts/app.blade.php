@@ -50,9 +50,9 @@
             [
                 'label' => 'Faculty Load Management',
                 'icon' => 'fa-solid fa-clipboard-list',
-                'anchor' => 'faculty-load',
+                'href' => route('admin.faculty-load.index'),
                 'roles' => ['admin', 'department_head', 'program_head', 'instructor'],
-                'pattern' => $currentPattern,
+                'pattern' => 'admin/faculty-load*',
             ],
             [
                 'label' => 'Program Management',
@@ -62,6 +62,13 @@
                 'pattern' => 'admin/programs*',
             ],
             [
+                'label' => 'Curriculum Management',
+                'icon' => 'fa-solid fa-layer-group',
+                'href' => route('admin.curriculum.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/curriculum*',
+            ],
+            [
                 'label' => 'Program Management',
                 'icon' => 'fa-solid fa-diagram-project',
                 'anchor' => 'program-management',
@@ -69,25 +76,25 @@
                 'pattern' => $currentPattern,
             ],
             [
-                'label' => 'Curriculum Management',
-                'icon' => 'fa-solid fa-book-open',
-                'anchor' => 'curriculum-management',
-                'roles' => ['admin', 'department_head', 'program_head'],
-                'pattern' => $currentPattern,
+                'label' => 'Subject Management',
+                'icon' => 'fa-solid fa-book',
+                'href' => route('admin.subjects.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/subjects*',
             ],
             [
                 'label' => 'Room Management',
                 'icon' => 'fa-solid fa-door-open',
-                'anchor' => 'room-management',
-                'roles' => ['admin', 'department_head'],
-                'pattern' => $currentPattern,
+                'href' => route('admin.rooms.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/rooms*',
             ],
             [
-                'label' => 'Schedule Generation',
+                'label' => 'Create Schedule',
                 'icon' => 'fa-solid fa-calendar-check',
                 'anchor' => 'schedule-generation',
-                'roles' => ['admin', 'department_head', 'program_head', 'instructor', 'student'],
-                'pattern' => $currentPattern,
+                'roles' => ['admin'],
+                'pattern' => 'admin/schedule*',
             ],
         ];
     @endphp
@@ -237,22 +244,25 @@
                     </div>
                 </div>
                 <div class="modal-footer d-flex justify-content-between align-items-center">
-                    <form method="POST" action="{{ route('logout') }}" class="m-0">
+                    <form id="logoutForm" method="POST" action="{{ route('logout') }}" class="m-0">
                         @csrf
                         <button type="submit" class="btn btn-sm btn-primary-theme d-flex align-items-center gap-2">
                             <i class="fa-solid fa-right-from-bracket"></i>
                             <span>Logout</span>
                         </button>
                     </form>
-                    <a href="{{ $profileEditUrl }}"
-                        class="btn btn-sm btn-primary-theme d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-primary-theme d-flex align-items-center gap-2"
+                        data-edit-profile-btn data-user-id="">
                         <i class="fa-solid fa-user-pen"></i>
                         <span>Edit Profile</span>
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Edit User Profile Modal -->
+    @include('modals.edit-user-profile')
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -347,6 +357,23 @@
 
     <!-- Notification System -->
     <script src="{{ asset('js/notifications.js') }}"></script>
+
+    <!-- Edit User Profile Modal -->
+    <script src="{{ asset('js/edit-user-profile.js') }}"></script>
+
+    <!-- Logout Handler -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutForm = document.getElementById('logoutForm');
+            if (logoutForm) {
+                logoutForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    // Ensure form is submitted with proper CSRF token
+                    this.submit();
+                });
+            }
+        });
+    </script>
 
     @stack('scripts')
 </body>

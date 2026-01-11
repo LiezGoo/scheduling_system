@@ -85,6 +85,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope: Get only active users
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE);
+    }
+
+    /**
      * Check if user is active
      */
     public function isActive(): bool
@@ -121,5 +129,59 @@ class User extends Authenticatable
     public function getFullNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->last_name}");
+    }
+
+    /**
+     * ========================================
+     * FACULTY LOAD MANAGEMENT RELATIONSHIPS
+     * ========================================
+     */
+
+    /**
+     * Get all subjects this user (instructor) can teach.
+     * Returns a many-to-many relationship through faculty_subjects pivot table.
+     */
+    public function facultySubjects()
+    {
+        return $this->belongsToMany(Subject::class, 'faculty_subjects')
+                    ->withPivot('max_sections', 'max_load_units')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Check if this user is an eligible instructor.
+     * Eligible roles: instructor, program_head, department_head
+     */
+    public function isEligibleInstructor(): bool
+    {
+        return in_array($this->role, [
+            self::ROLE_INSTRUCTOR,
+            self::ROLE_PROGRAM_HEAD,
+            self::ROLE_DEPARTMENT_HEAD,
+        ]);
+    }
+
+    /**
+     * Get all eligible instructors (can teach subjects).
+     * Scope for querying eligible instructors from the database.
+     */
+    public function scopeEligibleInstructors($query)
+    {
+        return $query->whereIn('role', [
+            self::ROLE_INSTRUCTOR,
+            self::ROLE_PROGRAM_HEAD,
+            self::ROLE_DEPARTMENT_HEAD,
+        ]);
+    }
+
+    /**
+     * Get subjects with faculty load constraints for this instructor.
+     * Useful for Schedule Generation module later.
+     */
+    public function getTeachableSubjectsWithConstraints()
+    {
+        return $this->facultySubjects()
+                    ->with('program')
+                    ->get();
     }
 }

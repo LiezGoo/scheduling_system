@@ -7,6 +7,9 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Examples\NotificationExampleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ProgramController;
+use App\Http\Controllers\Admin\RoomController;
+use App\Http\Controllers\Admin\FacultyLoadController;
+use App\Http\Controllers\Admin\ProgramSubjectController;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,6 +20,7 @@ use App\Http\Controllers\Admin\ProgramController;
 */
 
 Route::middleware(['guest'])->group(function () {
+    Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
 });
@@ -87,6 +91,35 @@ Route::middleware(['auth'])->group(function () {
 
         // Program Management
         Route::get('/programs', [ProgramController::class, 'index'])->name('programs.index');
+
+        // Curriculum Management
+        Route::get('/curriculum', [ProgramSubjectController::class, 'index'])->name('curriculum.index');
+        Route::post('/curriculum', [ProgramSubjectController::class, 'store'])->name('curriculum.store');
+
+        // Subject Management
+        Route::get('/subjects', [\App\Http\Controllers\Admin\SubjectController::class, 'index'])->name('subjects.index');
+        Route::post('/subjects', [\App\Http\Controllers\Admin\SubjectController::class, 'store'])->name('subjects.store');
+        Route::get('/subjects/{subject}', [\App\Http\Controllers\Admin\SubjectController::class, 'show'])->name('subjects.show');
+        Route::put('/subjects/{subject}', [\App\Http\Controllers\Admin\SubjectController::class, 'update'])->name('subjects.update');
+        Route::delete('/subjects/{subject}', [\App\Http\Controllers\Admin\SubjectController::class, 'destroy'])->name('subjects.destroy');
+
+        // Room Management
+        Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
+        Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
+        Route::get('/rooms/{room}', [RoomController::class, 'show'])->name('rooms.show');
+        Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
+        Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+
+        // Faculty Load Management
+        Route::get('/faculty-load', [FacultyLoadController::class, 'index'])->name('faculty-load.index');
+        Route::get('/faculty-load/{facultyLoadId}/details', [FacultyLoadController::class, 'getDetails'])->name('faculty-load.details');
+        Route::get('/faculty-load/{user}', [FacultyLoadController::class, 'show'])->name('faculty-load.show');
+        Route::post('/faculty-load/assign', [FacultyLoadController::class, 'assignSubject'])->name('faculty-load.assign');
+        Route::post('/faculty-load/update-constraints', [FacultyLoadController::class, 'updateConstraints'])->name('faculty-load.update-constraints');
+        Route::post('/faculty-load/remove', [FacultyLoadController::class, 'removeAssignment'])->name('faculty-load.remove');
+        Route::get('/faculty-load/api/unassigned', [FacultyLoadController::class, 'getUnassignedInstructors'])->name('faculty-load.api.unassigned');
+        Route::get('/faculty-load/api/subject/{subject}/instructors', [FacultyLoadController::class, 'getSubjectInstructors'])->name('faculty-load.api.subject-instructors');
+        Route::get('/faculty-load/api/summary', [FacultyLoadController::class, 'getSummary'])->name('faculty-load.api.summary');
     });
 
     // Department Head Dashboard

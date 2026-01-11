@@ -10,7 +10,7 @@
                     <div class="card-body">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                             <div>
-                                <h5 class="mb-1">Welcome, {{ Auth::user()->first_name }}!</h5>
+                                <h5 class="mb-1">Welcome, {{ Auth::user()->full_name }}!</h5>
                                 <p class="text-muted mb-0">Role: Department Head</p>
                             </div>
                             <span class="badge bg-success-subtle text-success">Department Overview</span>

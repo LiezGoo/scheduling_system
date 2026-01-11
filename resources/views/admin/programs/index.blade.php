@@ -7,7 +7,9 @@
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <p class="text-muted mb-0"><i class="bi bi-graph"></i>Manage academic programs and departments</p>
+                <p class="text-muted mb-0"><i class="fa-solid fa-diagram-project"></i> Manage academic programs and
+                    departments
+                </p>
             </div>
             <button type="button" class="btn btn-primary-theme d-flex align-items-center gap-2" data-bs-toggle="modal"
                 data-bs-target="#addProgramModal">
@@ -73,12 +75,22 @@
                     </table>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
                     <div class="text-muted" id="programsSummary">
                         @include('admin.programs.partials.summary')
                     </div>
-                    <div id="programsPagination">
-                        @include('admin.programs.partials.pagination')
+                    <div class="d-flex align-items-center gap-2">
+                        <div id="programsPagination">
+                            @include('admin.programs.partials.pagination')
+                        </div>
+                        <label for="programsPerPageSelect" class="text-muted small mb-0">Per page:</label>
+                        <select id="programsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
+                            <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
+                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                            <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                        </select>
                     </div>
                 </div>
             </div>

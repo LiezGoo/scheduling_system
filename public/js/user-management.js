@@ -3,12 +3,13 @@
  * Handles AJAX operations for user CRUD
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     // Initialize Bootstrap modals
     const addUserModal = new bootstrap.Modal(document.getElementById('addUserModal'));
+    const viewUserModal = new bootstrap.Modal(document.getElementById('viewUserModal'));
     const editUserModal = new bootstrap.Modal(document.getElementById('editUserModal'));
     const deleteUserModal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
     const toggleStatusModal = new bootstrap.Modal(document.getElementById('toggleStatusModal'));
@@ -111,10 +112,21 @@ document.addEventListener('DOMContentLoaded', function() {
         applyFilters({ page });
     });
 
+    // Per-page selector
+    const perPageSelect = document.getElementById('perPageSelect');
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', function () {
+            const url = new URL(window.location);
+            url.searchParams.set('per_page', this.value);
+            url.searchParams.set('page', 1); // Reset to first page
+            window.location.href = url.toString();
+        });
+    }
+
     // Add User Form Submission
     const addUserForm = document.getElementById('addUserForm');
     if (addUserForm) {
-        addUserForm.addEventListener('submit', function(e) {
+        addUserForm.addEventListener('submit', function (e) {
             e.preventDefault();
             clearValidationErrors(addUserForm);
 
@@ -133,36 +145,109 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: formData
             })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', data.message);
+                        addUserModal.hide();
+                        addUserForm.reset();
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        if (data.errors) {
+                            displayValidationErrors(addUserForm, data.errors);
+                        } else {
+                            showToast('error', data.message || 'Failed to create user');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('error', 'An unexpected error occurred');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                });
+        });
+    }
+
+    // View User Button Click (using event delegation)
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.view-user-btn')) {
+            const button = e.target.closest('.view-user-btn');
+            const userId = button.getAttribute('data-user-id');
+            loadUserForView(userId);
+        }
+    });
+
+    // Load User Data for Viewing
+    function loadUserForView(userId) {
+        fetch(`/admin/users/${userId}`, {
+            method: 'GET',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            }
+        })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showToast('success', data.message);
-                    addUserModal.hide();
-                    addUserForm.reset();
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    if (data.errors) {
-                        displayValidationErrors(addUserForm, data.errors);
-                    } else {
-                        showToast('error', data.message || 'Failed to create user');
+                    const user = data.user;
+
+                    // Update avatar with first letter of first name
+                    const avatarElement = document.getElementById('viewUserAvatar');
+                    if (avatarElement && user.first_name) {
+                        avatarElement.textContent = user.first_name.charAt(0).toUpperCase();
                     }
+
+                    // Update user details
+                    document.getElementById('viewUserFullName').textContent = user.full_name || `${user.first_name} ${user.last_name}`;
+                    document.getElementById('viewUserFirstName').textContent = user.first_name || 'N/A';
+                    document.getElementById('viewUserLastName').textContent = user.last_name || 'N/A';
+                    document.getElementById('viewUserEmail').textContent = user.email || 'N/A';
+
+                    // Update role badge
+                    const roleElement = document.getElementById('viewUserRole');
+                    if (roleElement) {
+                        const roleLabel = user.role_label || user.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        roleElement.textContent = roleLabel;
+                    }
+
+                    // Update status badge
+                    const statusBadge = document.getElementById('viewUserStatusBadge');
+                    if (statusBadge) {
+                        statusBadge.textContent = user.status.charAt(0).toUpperCase() + user.status.slice(1);
+                        statusBadge.className = 'badge status-badge ' + (user.status === 'active' ? 'bg-success' : 'bg-danger');
+                    }
+
+                    // Store user ID for edit button
+                    document.getElementById('viewUserEditBtn').setAttribute('data-user-id', user.id);
+
+                    viewUserModal.show();
+                } else {
+                    showToast('error', 'Failed to load user data');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 showToast('error', 'An unexpected error occurred');
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
             });
-        });
     }
 
+    // Edit button in View Modal
+    document.getElementById('viewUserEditBtn').addEventListener('click', function() {
+        const userId = this.getAttribute('data-user-id');
+        viewUserModal.hide();
+        // Wait for view modal to close before opening edit modal
+        setTimeout(() => {
+            loadUserData(userId);
+        }, 300);
+    });
+
     // Edit User Button Click (using event delegation)
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.closest('.edit-user-btn')) {
             const button = e.target.closest('.edit-user-btn');
             const userId = button.getAttribute('data-user-id');
@@ -179,37 +264,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Accept': 'application/json',
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const user = data.user;
-                document.getElementById('editUserId').value = user.id;
-                document.getElementById('editFirstName').value = user.first_name;
-                document.getElementById('editLastName').value = user.last_name;
-                document.getElementById('editEmail').value = user.email;
-                document.getElementById('editRole').value = user.role;
-                document.getElementById('editStatus').value = user.status;
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const user = data.user;
+                    document.getElementById('editUserId').value = user.id;
+                    document.getElementById('editFirstName').value = user.first_name;
+                    document.getElementById('editLastName').value = user.last_name;
+                    document.getElementById('editEmail').value = user.email;
+                    document.getElementById('editRole').value = user.role;
+                    document.getElementById('editStatus').value = user.status;
 
-                // Clear password fields
-                document.getElementById('editPassword').value = '';
-                document.getElementById('editPasswordConfirmation').value = '';
+                    // Clear password fields
+                    document.getElementById('editPassword').value = '';
+                    document.getElementById('editPasswordConfirmation').value = '';
 
-                clearValidationErrors(document.getElementById('editUserForm'));
-                editUserModal.show();
-            } else {
-                showToast('error', 'Failed to load user data');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'An unexpected error occurred');
-        });
+                    clearValidationErrors(document.getElementById('editUserForm'));
+                    editUserModal.show();
+                } else {
+                    showToast('error', 'Failed to load user data');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'An unexpected error occurred');
+            });
     }
 
     // Edit User Form Submission
     const editUserForm = document.getElementById('editUserForm');
     if (editUserForm) {
-        editUserForm.addEventListener('submit', function(e) {
+        editUserForm.addEventListener('submit', function (e) {
             e.preventDefault();
             clearValidationErrors(editUserForm);
 
@@ -230,37 +315,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('success', data.message);
-                    editUserModal.hide();
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    if (data.errors) {
-                        displayValidationErrors(editUserForm, data.errors);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', data.message);
+                        editUserModal.hide();
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
                     } else {
-                        showToast('error', data.message || 'Failed to update user');
+                        if (data.errors) {
+                            displayValidationErrors(editUserForm, data.errors);
+                        } else {
+                            showToast('error', data.message || 'Failed to update user');
+                        }
                     }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('error', 'An unexpected error occurred');
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-            });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('error', 'An unexpected error occurred');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                });
         });
     }
 
     // Toggle Status Button Click (using event delegation)
     let userToToggle = null;
     let buttonToToggle = null;
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.closest('.toggle-status-btn')) {
             const button = e.target.closest('.toggle-status-btn');
             if (button.disabled) return;
@@ -289,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Confirm Toggle Status Button
     const confirmToggleStatusBtn = document.getElementById('confirmToggleStatusBtn');
     if (confirmToggleStatusBtn) {
-        confirmToggleStatusBtn.addEventListener('click', function() {
+        confirmToggleStatusBtn.addEventListener('click', function () {
             if (!userToToggle || !buttonToToggle) return;
 
             toggleUserStatus(userToToggle, buttonToToggle);
@@ -311,30 +396,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-HTTP-Method-Override': 'PATCH'
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', data.message);
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            } else {
-                showToast('error', data.message || 'Failed to toggle status');
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', data.message);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showToast('error', data.message || 'Failed to toggle status');
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = originalBtnContent;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'An unexpected error occurred');
                 buttonElement.disabled = false;
                 buttonElement.innerHTML = originalBtnContent;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'An unexpected error occurred');
-            buttonElement.disabled = false;
-            buttonElement.innerHTML = originalBtnContent;
-        });
+            });
     }
 
     // Delete User Button Click (using event delegation)
     let userToDelete = null;
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.closest('.delete-user-btn')) {
             const button = e.target.closest('.delete-user-btn');
             if (button.disabled) return;
@@ -350,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Confirm Delete Button
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
     if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', function() {
+        confirmDeleteBtn.addEventListener('click', function () {
             if (!userToDelete) return;
 
             const originalBtnText = this.innerHTML;
@@ -364,26 +449,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Accept': 'application/json',
                 }
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('success', data.message);
-                    deleteUserModal.hide();
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    showToast('error', data.message || 'Failed to delete user');
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', data.message);
+                        deleteUserModal.hide();
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        showToast('error', data.message || 'Failed to delete user');
+                        this.disabled = false;
+                        this.innerHTML = originalBtnText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('error', 'An unexpected error occurred');
                     this.disabled = false;
                     this.innerHTML = originalBtnText;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('error', 'An unexpected error occurred');
-                this.disabled = false;
-                this.innerHTML = originalBtnText;
-            });
+                });
         });
     }
 
@@ -409,6 +494,25 @@ document.addEventListener('DOMContentLoaded', function() {
         form.querySelectorAll('.invalid-feedback').forEach(feedback => {
             feedback.textContent = '';
         });
+    }
+
+    // Helper: Format Date Time
+    function formatDateTime(dateString) {
+        if (!dateString) return 'N/A';
+
+        try {
+            const date = new Date(dateString);
+            const options = {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return date.toLocaleDateString('en-US', options);
+        } catch (error) {
+            return dateString;
+        }
     }
 
     // Helper: Show Toast Notification
@@ -445,18 +549,18 @@ document.addEventListener('DOMContentLoaded', function() {
         toast.show();
 
         // Remove toast element after it's hidden
-        toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.addEventListener('hidden.bs.toast', function () {
             toastElement.remove();
         });
     }
 
     // Reset modals on close
-    document.getElementById('addUserModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('addUserModal').addEventListener('hidden.bs.modal', function () {
         addUserForm.reset();
         clearValidationErrors(addUserForm);
     });
 
-    document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function () {
         editUserForm.reset();
         clearValidationErrors(editUserForm);
     });
