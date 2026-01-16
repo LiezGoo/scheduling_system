@@ -64,6 +64,20 @@
                             Please select a room type.
                         </div>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="capacity" class="form-label fw-bold">Capacity</label>
+                        <input type="number" class="form-control" id="capacity" name="capacity" placeholder="e.g., 40"
+                            min="1">
+                        <small class="form-text text-muted">Maximum number of students</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="floor_level" class="form-label fw-bold">Floor Level</label>
+                        <input type="number" class="form-control" id="floor_level" name="floor_level"
+                            placeholder="e.g., 1">
+                        <small class="form-text text-muted">Which floor is this room located on?</small>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer border-top-0">

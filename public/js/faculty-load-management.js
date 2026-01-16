@@ -70,9 +70,10 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('viewSubjectName').textContent = data.subject.subject_name;
         document.getElementById('viewSubjectCode').textContent = data.subject.subject_code;
         document.getElementById('viewProgramName').textContent = data.program.program_name;
-        document.getElementById('viewUnits').textContent = data.subject.units;
-        document.getElementById('viewMaxSections').textContent = data.max_sections;
-        document.getElementById('viewMaxLoadUnits').textContent = data.max_load_units || 'Same as subject units';
+        document.getElementById('viewLectureHours').textContent = data.lecture_hours || 0;
+        document.getElementById('viewLabHours').textContent = data.lab_hours || 0;
+        document.getElementById('viewComputedUnits').textContent = data.computed_units || '0.00';
+        document.getElementById('viewMaxLoadUnits').textContent = data.max_load_units || 'No limit';
         document.getElementById('viewStatus').textContent = 'Active';
         document.getElementById('viewAssignedDate').textContent = formatDate(data.created_at);
 
@@ -107,9 +108,13 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('editFacultyLoadId').value = data.id;
         document.getElementById('editFacultyDisplay').value = `${data.faculty.full_name} (${data.faculty.school_id})`;
         document.getElementById('editSubjectDisplay').value = `${data.subject.subject_code} - ${data.subject.subject_name}`;
-        document.getElementById('editMaxSections').value = data.max_sections;
+        document.getElementById('editLectureHours').value = data.lecture_hours || 0;
+        document.getElementById('editLabHours').value = data.lab_hours || 0;
         document.getElementById('editMaxLoadUnits').value = data.max_load_units || '';
-        document.getElementById('editNotes').value = data.notes || '';
+
+        // Update computed units display
+        const units = calculateTeachingUnits(data.lecture_hours || 0, data.lab_hours || 0);
+        document.getElementById('editComputedUnits').textContent = units;
     }
 
     // Remove Faculty Load
@@ -329,6 +334,102 @@ document.addEventListener('DOMContentLoaded', function () {
     // =========================================
     // UTILITY FUNCTIONS
     // =========================================
+
+    /**
+     * Calculate teaching units based on lecture and lab hours
+     * Lecture: 1 hour = 1 unit
+     * Lab: 3 hours = 1 unit
+     */
+    function calculateTeachingUnits(lectureHours, labHours) {
+        const lectureUnits = lectureHours * 1;
+        const labUnits = labHours / 3;
+        return (lectureUnits + labUnits).toFixed(2);
+    }
+
+    /**
+     * Validate lab hours divisibility by 3
+     */
+    function validateLabHours(labHours) {
+        if (labHours > 0 && labHours % 3 !== 0) {
+            return {
+                valid: false,
+                message: 'Laboratory hours must be divisible by 3'
+            };
+        }
+        return { valid: true, message: '' };
+    }
+
+    /**
+     * Update computed units display
+     */
+    function updateComputedUnits(lectureInput, labInput, displayElement) {
+        const lectureHours = parseInt(lectureInput.value) || 0;
+        const labHours = parseInt(labInput.value) || 0;
+        const units = calculateTeachingUnits(lectureHours, labHours);
+        displayElement.textContent = units;
+    }
+
+    // =========================================
+    // REAL-TIME UNIT CALCULATION
+    // =========================================
+
+    // Assign Modal - Unit Calculation
+    const assignLectureHours = document.getElementById('assignLectureHours');
+    const assignLabHours = document.getElementById('assignLabHours');
+    const assignComputedUnits = document.getElementById('assignComputedUnits');
+
+    if (assignLectureHours && assignLabHours && assignComputedUnits) {
+        assignLectureHours.addEventListener('input', function() {
+            updateComputedUnits(assignLectureHours, assignLabHours, assignComputedUnits);
+        });
+
+        assignLabHours.addEventListener('input', function() {
+            updateComputedUnits(assignLectureHours, assignLabHours, assignComputedUnits);
+
+            // Validate lab hours divisibility
+            const validation = validateLabHours(parseInt(this.value) || 0);
+            if (!validation.valid) {
+                this.setCustomValidity(validation.message);
+                this.classList.add('is-invalid');
+                const feedback = this.nextElementSibling;
+                if (feedback && feedback.classList.contains('invalid-feedback')) {
+                    feedback.textContent = validation.message;
+                }
+            } else {
+                this.setCustomValidity('');
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+
+    // Edit Modal - Unit Calculation
+    const editLectureHours = document.getElementById('editLectureHours');
+    const editLabHours = document.getElementById('editLabHours');
+    const editComputedUnits = document.getElementById('editComputedUnits');
+
+    if (editLectureHours && editLabHours && editComputedUnits) {
+        editLectureHours.addEventListener('input', function() {
+            updateComputedUnits(editLectureHours, editLabHours, editComputedUnits);
+        });
+
+        editLabHours.addEventListener('input', function() {
+            updateComputedUnits(editLectureHours, editLabHours, editComputedUnits);
+
+            // Validate lab hours divisibility
+            const validation = validateLabHours(parseInt(this.value) || 0);
+            if (!validation.valid) {
+                this.setCustomValidity(validation.message);
+                this.classList.add('is-invalid');
+                const feedback = this.nextElementSibling;
+                if (feedback && feedback.classList.contains('invalid-feedback')) {
+                    feedback.textContent = validation.message;
+                }
+            } else {
+                this.setCustomValidity('');
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
 
     function showAlert(type, message) {
         const alertId = `alert-${Date.now()}`;

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Room;
-use App\Models\Building;
 use App\Models\RoomType;
+use App\Models\Building;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +16,7 @@ class RoomController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Room::with(['building', 'roomType']);
+        $query = Room::with(['roomType', 'building']);
 
         // Filter by search (room code or name)
         if ($request->filled('search')) {
@@ -27,14 +27,14 @@ class RoomController extends Controller
             });
         }
 
-        // Filter by building
-        if ($request->filled('building_id')) {
-            $query->where('building_id', $request->building_id);
-        }
-
         // Filter by room type
         if ($request->filled('room_type_id')) {
             $query->where('room_type_id', $request->room_type_id);
+        }
+
+        // Filter by building
+        if ($request->filled('building_id')) {
+            $query->where('building_id', $request->building_id);
         }
 
         // Get per page value (default 15)
@@ -44,9 +44,9 @@ class RoomController extends Controller
         // Get filtered rooms
         $rooms = $query->orderBy('room_code')->paginate($perPage)->appends($request->query());
 
-        // Get all buildings and room types for filter dropdowns
-        $buildings = Building::orderBy('building_name')->get();
+        // Get all room types and buildings for filter dropdowns
         $roomTypes = RoomType::orderBy('type_name')->get();
+        $buildings = Building::orderBy('building_name')->get();
 
         if ($request->ajax()) {
             return response()->json([
@@ -56,7 +56,7 @@ class RoomController extends Controller
             ]);
         }
 
-        return view('admin.rooms.index', compact('rooms', 'buildings', 'roomTypes'));
+        return view('admin.rooms.index', compact('rooms', 'roomTypes', 'buildings'));
     }
 
     /**
@@ -64,7 +64,7 @@ class RoomController extends Controller
      */
     public function show(Room $room)
     {
-        $room->load(['building', 'roomType']);
+        $room->load(['roomType', 'building']);
 
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->expectsJson()) {
@@ -76,9 +76,10 @@ class RoomController extends Controller
                     'room_name' => $room->room_name,
                     'building_id' => $room->building_id,
                     'building_name' => $room->building->building_name ?? 'N/A',
-                    'building_code' => $room->building->building_code ?? null,
                     'room_type_id' => $room->room_type_id,
                     'type_name' => $room->roomType->type_name ?? 'N/A',
+                    'capacity' => $room->capacity,
+                    'floor_level' => $room->floor_level,
                     'created_at' => $room->created_at,
                     'updated_at' => $room->updated_at,
                 ]
@@ -98,6 +99,8 @@ class RoomController extends Controller
             'room_name' => 'required|string|max:255',
             'building_id' => 'required|exists:buildings,id',
             'room_type_id' => 'required|exists:room_types,id',
+            'capacity' => 'nullable|integer|min:1',
+            'floor_level' => 'nullable|integer',
         ]);
 
         try {
@@ -106,7 +109,7 @@ class RoomController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Room created successfully!',
-                'room' => $room->load(['building', 'roomType']),
+                'room' => $room->load(['roomType', 'building']),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -131,6 +134,8 @@ class RoomController extends Controller
             'room_name' => 'required|string|max:255',
             'building_id' => 'required|exists:buildings,id',
             'room_type_id' => 'required|exists:room_types,id',
+            'capacity' => 'nullable|integer|min:1',
+            'floor_level' => 'nullable|integer',
         ]);
 
         try {
@@ -139,7 +144,7 @@ class RoomController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Room updated successfully!',
-                'room' => $room->load(['building', 'roomType']),
+                'room' => $room->load(['roomType', 'building']),
             ]);
         } catch (\Exception $e) {
             return response()->json([

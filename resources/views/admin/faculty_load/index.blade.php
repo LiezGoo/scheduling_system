@@ -7,9 +7,8 @@
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <p class="text-muted mb-0">
-                    <i class="fa-solid fa-book-open me-2"></i>
-                    Manage teaching eligibility, subject assignments, and workload limits for faculty members
+                <p class="text-muted mb-0"><i class="fa-solid fa-book-open"></i> Manage academic programs and
+                    departments
                 </p>
             </div>
             <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#assignFacultyLoadModal">
@@ -85,39 +84,120 @@
             </div>
         </div>
 
+        <!-- Summary Statistics Cards -->
+        @if ($facultyLoads && $facultyLoads->count() > 0)
+            <div class="row g-3 mb-4">
+                <!-- Total Instructors Card -->
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-primary bg-opacity-10 rounded p-3">
+                                        <i class="fa-solid fa-chalkboard-user fa-2x text-primary"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="text-muted mb-1">Total Instructors</h6>
+                                    <h3 class="mb-0">{{ $summary['instructors_with_assignments'] ?? 0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Assignments Card -->
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-success bg-opacity-10 rounded p-3">
+                                        <i class="fa-solid fa-clipboard-list fa-2x text-success"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="text-muted mb-1">Total Assignments</h6>
+                                    <h3 class="mb-0">{{ $summary['total_faculty_assignments'] ?? 0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Eligible Instructors Card -->
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-info bg-opacity-10 rounded p-3">
+                                        <i class="fa-solid fa-users fa-2x text-info"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="text-muted mb-1">Eligible Faculty</h6>
+                                    <h3 class="mb-0">{{ $summary['total_eligible_instructors'] ?? 0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unassigned Instructors Card -->
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-warning bg-opacity-10 rounded p-3">
+                                        <i class="fa-solid fa-user-slash fa-2x text-warning"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="text-muted mb-1">Unassigned</h6>
+                                    <h3 class="mb-0">{{ $summary['instructors_without_assignments'] ?? 0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Faculty Load Table -->
         <div class="card shadow-sm">
             <div class="card-body">
-                @if ($facultyLoads->count() > 0)
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle" id="facultyLoadTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Faculty ID</th>
-                                    <th>Faculty Name</th>
-                                    <th>Role</th>
-                                    <th>Program</th>
-                                    <th>Subject Code</th>
-                                    <th>Subject Name</th>
-                                    <th>Units</th>
-                                    <th>Max Sections</th>
-                                    <th>Max Load Units</th>
-                                    <th class="text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="facultyLoadTableBody">
-                                @include('admin.faculty_load.partials.table-rows')
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="facultyLoadTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Faculty ID</th>
+                                <th>Faculty Name</th>
+                                <th>Role</th>
+                                <th>Program</th>
+                                <th>Subject Code</th>
+                                <th>Subject Name</th>
+                                <th class="text-center">Lecture Hrs</th>
+                                <th class="text-center">Lab Hrs</th>
+                                <th class="text-center">Units</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facultyLoadTableBody">
+                            @include('admin.faculty_load.partials.table-rows')
+                        </tbody>
+                    </table>
+                </div>
 
-                    <!-- Pagination & Per Page -->
-                    <div class="d-flex justify-content-between align-items-center mt-4 gap-3">
+                <!-- Pagination & Per Page -->
+                @if ($facultyLoads && $facultyLoads->count() > 0)
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
                         <div class="text-muted small" id="facultyLoadSummary">
                             @include('admin.faculty_load.partials.summary')
                         </div>
-                        <div class="d-flex align-items-center gap-3 ms-auto">
-                            <div id="facultyLoadPagination" class="d-flex">
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="facultyLoadPagination">
                                 @include('admin.faculty_load.partials.pagination')
                             </div>
                             <div class="d-flex align-items-center gap-2">
@@ -136,12 +216,6 @@
                                 </select>
                             </div>
                         </div>
-                    </div>
-                @else
-                    <!-- Empty State -->
-                    <div class="text-center py-5">
-                        <i class="fa-solid fa-inbox text-muted" style="font-size: 3rem;"></i>
-                        <h5 class="mt-3 text-muted">No faculty load assignments found</h5>
                     </div>
                 @endif
             </div>
@@ -205,24 +279,39 @@
                             <div class="invalid-feedback"></div>
                         </div>
 
-                        <!-- Max Sections -->
+                        <!-- Lecture Hours -->
                         <div class="mb-3">
-                            <label for="assignMaxSections" class="form-label">Max Sections <span
+                            <label for="assignLectureHours" class="form-label">Lecture Hours per Week <span
                                     class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="assignMaxSections" name="max_sections"
-                                min="1" max="10" value="3" required>
-                            <small class="form-text text-muted">Maximum number of sections this faculty can teach for this
-                                subject.</small>
+                            <input type="number" class="form-control" id="assignLectureHours" name="lecture_hours"
+                                min="0" max="40" value="0" required>
                             <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Laboratory Hours -->
+                        <div class="mb-3">
+                            <label for="assignLabHours" class="form-label">Laboratory Hours per Week <span
+                                    class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="assignLabHours" name="lab_hours"
+                                min="0" max="40" step="3" value="0" required>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Computed Units Display -->
+                        <div class="mb-3">
+                            <label class="form-label">Computed Teaching Units</label>
+                            <div class="alert alert-info mb-0">
+                                <strong id="assignComputedUnits">0.00</strong> units
+                            </div>
                         </div>
 
                         <!-- Max Load Units -->
                         <div class="mb-3">
-                            <label for="assignMaxLoadUnits" class="form-label">Max Load Units (Optional)</label>
+                            <label for="assignMaxLoadUnits" class="form-label">Max Total Load Units (Optional)</label>
                             <input type="number" class="form-control" id="assignMaxLoadUnits" name="max_load_units"
-                                min="1" max="30" placeholder="Leave empty to use subject units">
-                            <small class="form-text text-muted">Override for maximum load units. Leave empty to use subject
-                                units.</small>
+                                min="1" max="50" placeholder="Leave empty for no limit">
+                            <small class="form-text text-muted">Optional limit for total teaching units across all
+                                subjects</small>
                             <div class="invalid-feedback"></div>
                         </div>
                     </div>
@@ -265,24 +354,44 @@
                             <input type="text" class="form-control" id="editSubjectDisplay" readonly>
                         </div>
 
-                        <!-- Max Sections -->
+                        <!-- Lecture Hours -->
                         <div class="mb-3">
-                            <label for="editMaxSections" class="form-label">Max Sections <span
+                            <label for="editLectureHours" class="form-label">Lecture Hours per Week <span
                                     class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="editMaxSections" name="max_sections"
-                                min="1" max="10" required>
-                            <small class="form-text text-muted">Maximum number of sections this faculty can teach for this
-                                subject.</small>
+                            <input type="number" class="form-control" id="editLectureHours" name="lecture_hours"
+                                min="0" max="40" required>
+                            <small class="form-text text-muted">1 lecture hour = 1 teaching unit</small>
                             <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Laboratory Hours -->
+                        <div class="mb-3">
+                            <label for="editLabHours" class="form-label">Laboratory Hours per Week <span
+                                    class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="editLabHours" name="lab_hours"
+                                min="0" max="40" step="3" required>
+                            <small class="form-text text-muted">3 laboratory hours = 1 teaching unit (must be divisible by
+                                3)</small>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Computed Units Display -->
+                        <div class="mb-3">
+                            <label class="form-label">Computed Teaching Units</label>
+                            <div class="alert alert-info mb-0">
+                                <strong id="editComputedUnits">0.00</strong> units
+                            </div>
+                            <small class="form-text text-muted">Automatically calculated based on lecture and lab
+                                hours</small>
                         </div>
 
                         <!-- Max Load Units -->
                         <div class="mb-3">
-                            <label for="editMaxLoadUnits" class="form-label">Max Load Units (Optional)</label>
+                            <label for="editMaxLoadUnits" class="form-label">Max Total Load Units (Optional)</label>
                             <input type="number" class="form-control" id="editMaxLoadUnits" name="max_load_units"
-                                min="1" max="30" placeholder="Leave empty to use subject units">
-                            <small class="form-text text-muted">Override for maximum load units. Leave empty to use subject
-                                units.</small>
+                                min="1" max="50" placeholder="Leave empty for no limit">
+                            <small class="form-text text-muted">Optional limit for total teaching units across all
+                                subjects</small>
                             <div class="invalid-feedback"></div>
                         </div>
                     </div>
@@ -355,23 +464,33 @@
                             </div>
                         </div>
 
-                        <!-- Units -->
+                        <!-- Lecture Hours -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-calculator me-2"></i>Units
+                                    <i class="fa-solid fa-chalkboard-user me-2"></i>Lecture Hours
                                 </div>
-                                <div class="fw-semibold" id="viewUnits"></div>
+                                <div class="fw-semibold" id="viewLectureHours"></div>
                             </div>
                         </div>
 
-                        <!-- Max Sections -->
+                        <!-- Laboratory Hours -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-layer-group me-2"></i>Max Sections
+                                    <i class="fa-solid fa-flask me-2"></i>Laboratory Hours
                                 </div>
-                                <div class="fw-semibold" id="viewMaxSections"></div>
+                                <div class="fw-semibold" id="viewLabHours"></div>
+                            </div>
+                        </div>
+
+                        <!-- Computed Units -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-calculator me-2"></i>Teaching Units
+                                </div>
+                                <div class="fw-semibold text-primary" id="viewComputedUnits"></div>
                             </div>
                         </div>
 
@@ -379,7 +498,7 @@
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-scale-balanced me-2"></i>Max Load Units
+                                    <i class="fa-solid fa-scale-balanced me-2"></i>Max Total Load
                                 </div>
                                 <div class="fw-semibold" id="viewMaxLoadUnits"></div>
                             </div>
@@ -451,8 +570,8 @@
     <!-- Custom CSS -->
     <style>
         /* ========================================
-                                       GLOBAL MODAL STYLING - SorSU Theme
-                                       ======================================== */
+                                                                                               GLOBAL MODAL STYLING - SorSU Theme
+                                                                                               ======================================== */
 
         /* Modal Header - Apply maroon background to ALL modals */
         .modal-header {
@@ -502,8 +621,8 @@
         }
 
         /* ========================================
-                                       UTILITY CLASSES
-                                       ======================================== */
+                                                                                               UTILITY CLASSES
+                                                                                               ======================================== */
 
         .text-maroon {
             color: #660000 !important;

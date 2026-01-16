@@ -59,16 +59,7 @@
                     </div>
 
                     <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-bold" style="color: #660000; text-transform: uppercase; font-size: 0.85rem;">
-                                Building
-                            </h6>
-                            <p class="mb-0" style="font-size: 1.1rem;">
-                                ${room.building_name}
-                                ${room.building_code ? `<br><small class="text-muted">${room.building_code}</small>` : ''}
-                            </p>
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <h6 class="fw-bold" style="color: #660000; text-transform: uppercase; font-size: 0.85rem;">
                                 Room Type
                             </h6>
@@ -117,7 +108,6 @@
                         document.getElementById('edit_room_id').value = room.id;
                         document.getElementById('edit_room_code').value = room.room_code;
                         document.getElementById('edit_room_name').value = room.room_name;
-                        document.getElementById('edit_building_id').value = room.building_id;
                         document.getElementById('edit_room_type_id').value = room.room_type_id;
 
                         const editForm = document.getElementById('editRoomForm');

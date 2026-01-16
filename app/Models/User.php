@@ -144,8 +144,49 @@ class User extends Authenticatable
     public function facultySubjects()
     {
         return $this->belongsToMany(Subject::class, 'faculty_subjects')
-                    ->withPivot('max_sections', 'max_load_units')
+                    ->withPivot('lecture_hours', 'lab_hours', 'computed_units', 'max_load_units')
                     ->withTimestamps();
+    }
+
+    /**
+     * Calculate teaching units based on lecture and lab hours.
+     *
+     * CONVERSION RULES:
+     * - Lecture: 1 hour = 1 unit
+     * - Laboratory: 3 hours = 1 unit
+     *
+     * @param int $lectureHours
+     * @param int $labHours
+     * @return float
+     */
+    public static function calculateTeachingUnits(int $lectureHours = 0, int $labHours = 0): float
+    {
+        $lectureUnits = $lectureHours * 1;
+        $labUnits = $labHours / 3;
+
+        return round($lectureUnits + $labUnits, 2);
+    }
+
+    /**
+     * Get aggregated teaching load summary for this instructor.
+     * Returns total lecture hours, lab hours, and teaching units across all assignments.
+     *
+     * @return array
+     */
+    public function getTeachingLoadSummary(): array
+    {
+        $assignments = $this->facultySubjects()->get();
+
+        $totalLectureHours = $assignments->sum('pivot.lecture_hours');
+        $totalLabHours = $assignments->sum('pivot.lab_hours');
+        $totalUnits = $assignments->sum('pivot.computed_units');
+
+        return [
+            'total_lecture_hours' => $totalLectureHours,
+            'total_lab_hours' => $totalLabHours,
+            'total_teaching_units' => round($totalUnits, 2),
+            'assignment_count' => $assignments->count(),
+        ];
     }
 
     /**

@@ -81,29 +81,33 @@
                 </div>
 
                 <!-- Pagination -->
-                <div class="d-flex justify-content-between align-items-center mt-4 gap-3">
-                    <div class="text-muted small" id="usersSummary">
-                        @include('admin.users.partials.summary')
-                    </div>
-                    <div class="d-flex align-items-center gap-3 ms-auto">
-                        <div id="usersPagination" class="d-flex">
-                            @include('admin.users.partials.pagination')
+                @if ($users && $users->count() > 0)
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
+                        <div class="text-muted small" id="usersSummary">
+                            @include('admin.users.partials.summary')
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <label for="perPageSelect" class="text-muted small mb-0 text-nowrap">Per page:</label>
-                            <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;">
-                                <option value="10" {{ request('per_page', '15') == '10' ? 'selected' : '' }}>10</option>
-                                <option value="15" {{ request('per_page', '15') == '15' ? 'selected' : '' }}>15</option>
-                                <option value="25" {{ request('per_page', '15') == '25' ? 'selected' : '' }}>25
-                                </option>
-                                <option value="50" {{ request('per_page', '15') == '50' ? 'selected' : '' }}>50
-                                </option>
-                                <option value="100" {{ request('per_page', '15') == '100' ? 'selected' : '' }}>100
-                                </option>
-                            </select>
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="usersPagination">
+                                @include('admin.users.partials.pagination')
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="perPageSelect" class="text-muted small mb-0 text-nowrap">Per page:</label>
+                                <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;">
+                                    <option value="10" {{ request('per_page', '15') == '10' ? 'selected' : '' }}>10
+                                    </option>
+                                    <option value="15" {{ request('per_page', '15') == '15' ? 'selected' : '' }}>15
+                                    </option>
+                                    <option value="25" {{ request('per_page', '15') == '25' ? 'selected' : '' }}>25
+                                    </option>
+                                    <option value="50" {{ request('per_page', '15') == '50' ? 'selected' : '' }}>50
+                                    </option>
+                                    <option value="100" {{ request('per_page', '15') == '100' ? 'selected' : '' }}>100
+                                    </option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -272,7 +276,7 @@
                 </div>
                 <div class="modal-body">
                     <p>Are you sure you want to delete user <strong id="deleteUserName"></strong>?</p>
-                    <p class="mb-0">
+                    <p class="text-muted mb-0">
                         <i class="fa-solid fa-info-circle me-1"></i>This action cannot be undone.
                     </p>
                 </div>
@@ -437,8 +441,8 @@
         }
 
         /* ========================================
-                                                   UTILITY CLASSES
-                                                   ======================================== */
+                                                                   UTILITY CLASSES
+                                                                   ======================================== */
 
         .text-maroon {
             color: #660000 !important;

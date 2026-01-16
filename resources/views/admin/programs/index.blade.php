@@ -37,7 +37,7 @@
                                     @foreach ($departments as $dept)
                                         <option value="{{ $dept['id'] ?? $dept->id }}"
                                             {{ request('department') == ($dept['id'] ?? $dept->id) ? 'selected' : '' }}>
-                                            {{ $dept['name'] ?? $dept->name }}
+                                            {{ $dept['department_name'] ?? $dept->department_name }}
                                         </option>
                                     @endforeach
                                 @endisset
@@ -75,24 +75,28 @@
                     </table>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                    <div class="text-muted" id="programsSummary">
-                        @include('admin.programs.partials.summary')
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <div id="programsPagination">
-                            @include('admin.programs.partials.pagination')
+                @if (isset($programs) && $programs && $programs->count() > 0)
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+                        <div class="text-muted small" id="programsSummary">
+                            @include('admin.programs.partials.summary')
                         </div>
-                        <label for="programsPerPageSelect" class="text-muted small mb-0">Per page:</label>
-                        <select id="programsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
-                            <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                            <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
-                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                            <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
-                        </select>
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="programsPagination">
+                                @include('admin.programs.partials.pagination')
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="programsPerPageSelect" class="text-muted small mb-0">Per page:</label>
+                                <select id="programsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
+                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
+                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                                    <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                                    <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -114,13 +118,13 @@
                         <div class="mb-3">
                             <label for="addProgramCode" class="form-label">Program Code <span
                                     class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="addProgramCode" name="code" required>
+                            <input type="text" class="form-control" id="addProgramCode" name="program_code" required>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
                             <label for="addProgramName" class="form-label">Program Name <span
                                     class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="addProgramName" name="name" required>
+                            <input type="text" class="form-control" id="addProgramName" name="program_name" required>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
@@ -129,7 +133,8 @@
                                 <option value="">Select Department</option>
                                 @isset($departments)
                                     @foreach ($departments as $dept)
-                                        <option value="{{ $dept['id'] ?? $dept->id }}">{{ $dept['name'] ?? $dept->name }}
+                                        <option value="{{ $dept['id'] ?? $dept->id }}">
+                                            {{ $dept['department_name'] ?? $dept->department_name }}
                                         </option>
                                     @endforeach
                                 @endisset
@@ -164,17 +169,19 @@
                     @csrf
                     @method('PUT')
                     <input type="hidden" id="editProgramId" name="id">
-                    <div class="modal-body">
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <div class="mb-3">
                             <label for="editProgramCode" class="form-label">Program Code <span
                                     class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editProgramCode" name="code" required>
+                            <input type="text" class="form-control" id="editProgramCode" name="program_code"
+                                required>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
                             <label for="editProgramName" class="form-label">Program Name <span
                                     class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editProgramName" name="name" required>
+                            <input type="text" class="form-control" id="editProgramName" name="program_name"
+                                required>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="mb-3">
@@ -183,7 +190,8 @@
                                 <option value="">Select Department</option>
                                 @isset($departments)
                                     @foreach ($departments as $dept)
-                                        <option value="{{ $dept['id'] ?? $dept->id }}">{{ $dept['name'] ?? $dept->name }}
+                                        <option value="{{ $dept['id'] ?? $dept->id }}">
+                                            {{ $dept['department_name'] ?? $dept->department_name }}
                                         </option>
                                     @endforeach
                                 @endisset
@@ -207,7 +215,7 @@
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header bg-maroon text-white">
                     <h5 class="modal-title" id="deleteProgramModalLabel">
                         <i class="fa-solid fa-triangle-exclamation me-2"></i>Confirm Deletion
                     </h5>
@@ -216,12 +224,12 @@
                 </div>
                 <div class="modal-body">
                     <p>Are you sure you want to delete program <strong id="deleteProgramName"></strong>?</p>
-                    <p class="text-danger mb-0"><i class="fa-solid fa-info-circle me-1"></i>This action cannot be undone.
+                    <p class="text-muted mb-0"><i class="fa-solid fa-info-circle me-1"></i>This action cannot be undone.
                     </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteProgramBtn">
+                    <button type="button" class="btn btn-maroon" id="confirmDeleteProgramBtn">
                         <i class="fa-solid fa-trash me-2"></i>Delete Program
                     </button>
                 </div>

@@ -169,8 +169,8 @@
           if (!data.success) throw new Error('Load failed');
           const p = data.program;
           document.getElementById('editProgramId').value = p.id;
-          document.getElementById('editProgramCode').value = p.code || '';
-          document.getElementById('editProgramName').value = p.name || '';
+          document.getElementById('editProgramCode').value = p.program_code || '';
+          document.getElementById('editProgramName').value = p.program_name || '';
           const dept = document.getElementById('editProgramDepartment');
           if (dept) dept.value = p.department_id || '';
           clearValidationErrors(editForm);

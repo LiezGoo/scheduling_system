@@ -55,25 +55,18 @@
                 'pattern' => 'admin/faculty-load*',
             ],
             [
+                'label' => 'Department Management',
+                'icon' => 'fa-solid fa-building',
+                'href' => route('admin.departments.index'),
+                'roles' => ['admin', 'department_head'],
+                'pattern' => 'admin/departments',
+            ],
+            [
                 'label' => 'Program Management',
                 'icon' => 'fa-solid fa-diagram-project',
                 'href' => route('admin.programs.index'),
-                'roles' => ['admin'],
+                'roles' => ['admin', 'department_head', 'program_head'],
                 'pattern' => 'admin/programs*',
-            ],
-            [
-                'label' => 'Curriculum Management',
-                'icon' => 'fa-solid fa-layer-group',
-                'href' => route('admin.curriculum.index'),
-                'roles' => ['admin'],
-                'pattern' => 'admin/curriculum*',
-            ],
-            [
-                'label' => 'Program Management',
-                'icon' => 'fa-solid fa-diagram-project',
-                'anchor' => 'program-management',
-                'roles' => ['department_head', 'program_head'],
-                'pattern' => $currentPattern,
             ],
             [
                 'label' => 'Subject Management',
@@ -81,6 +74,13 @@
                 'href' => route('admin.subjects.index'),
                 'roles' => ['admin'],
                 'pattern' => 'admin/subjects*',
+            ],
+            [
+                'label' => 'Curriculum Management',
+                'icon' => 'fa-solid fa-layer-group',
+                'href' => route('admin.curriculum.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/curriculum*',
             ],
             [
                 'label' => 'Room Management',

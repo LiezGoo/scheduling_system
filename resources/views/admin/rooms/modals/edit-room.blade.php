@@ -39,19 +39,6 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="edit_building_id" class="form-label fw-bold">Building <span
-                                class="text-danger">*</span></label>
-                        <select class="form-select" id="edit_building_id" name="building_id" required>
-                            @foreach ($buildings as $building)
-                                <option value="{{ $building->id }}">{{ $building->building_name }}</option>
-                            @endforeach
-                        </select>
-                        <div class="invalid-feedback">
-                            Please select a building.
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
                         <label for="edit_room_type_id" class="form-label fw-bold">Room Type <span
                                 class="text-danger">*</span></label>
                         <select class="form-select" id="edit_room_type_id" name="room_type_id" required>

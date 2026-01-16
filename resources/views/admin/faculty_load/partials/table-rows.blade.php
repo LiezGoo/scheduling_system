@@ -35,16 +35,14 @@
         <td>{{ $load->program_name ?? 'N/A' }}</td>
         <td class="font-monospace">{{ $load->subject_code }}</td>
         <td>{{ Str::limit($load->subject_name, 30) }}</td>
-        <td class="text-center">{{ $load->units }}</td>
         <td class="text-center">
-            <span class="badge bg-info">{{ $load->max_sections }}</span>
+            <span class="badge bg-primary">{{ $load->lecture_hours ?? 0 }}</span>
         </td>
         <td class="text-center">
-            @if ($load->max_load_units)
-                <span class="badge bg-warning">{{ $load->max_load_units }}</span>
-            @else
-                <span class="text-muted">-</span>
-            @endif
+            <span class="badge bg-success">{{ $load->lab_hours ?? 0 }}</span>
+        </td>
+        <td class="text-center">
+            <span class="badge bg-warning text-dark">{{ number_format($load->computed_units ?? 0, 2) }}</span>
         </td>
         <td class="text-center">
             <div class="btn-group" role="group" aria-label="Faculty Load Actions">
@@ -66,7 +64,8 @@
     @empty
         <tr>
             <td colspan="10" class="text-center py-4">
-                <p class="text-muted mb-0">No faculty load records match your filters.</p>
+                <i class="fa-solid fa-chalkboard-user text-muted fa-3x mb-3"></i>
+                <p class="text-muted mb-0">No faculty load assignments found</p>
             </td>
         </tr>
     @endforelse

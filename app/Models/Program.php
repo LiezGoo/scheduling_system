@@ -4,17 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Program extends Model
 {
     protected $fillable = [
         'program_code',
         'program_name',
-        'id',
+        'department_id',
     ];
 
-    public function departments() {
-        return $this->belongsTo(Department::class);
+    /**
+     * Get the department that this program belongs to.
+     */
+    public function departments(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'department_id');
     }
 
     /**

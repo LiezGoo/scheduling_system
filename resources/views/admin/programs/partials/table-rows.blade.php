@@ -1,8 +1,8 @@
 @forelse($programs ?? [] as $program)
     <tr data-program-id="{{ $program->id }}">
-        <td class="fw-semibold">{{ $program->code }}</td>
-        <td>{{ $program->name }}</td>
-        <td>{{ $program->department->name ?? ($program->department_name ?? '—') }}</td>
+        <td class="fw-semibold">{{ $program->program_code }}</td>
+        <td>{{ $program->program_name }}</td>
+        <td>{{ $program->departments->department_name ?? '—' }}</td>
         <td>
             <div class="d-flex justify-content-center gap-2">
                 <button type="button" class="btn btn-sm btn-outline-secondary view-program-btn"

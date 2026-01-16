@@ -17,8 +17,8 @@ class ProgramSubjectController extends Controller
      */
     public function index(Request $request): View
     {
-        $programs = Program::orderBy('program_name')->get(['id', 'program_name']);
-        $subjects = Subject::orderBy('subject_code')->get(['id', 'subject_code', 'subject_name']);
+        $programs = Program::orderBy('program_name')->get();
+        $subjects = Subject::orderBy('subject_code')->get();
 
         $selectedProgramId = $request->integer('program_id') ?: $programs->first()?->id;
         $selectedProgram = $selectedProgramId
@@ -37,7 +37,7 @@ class ProgramSubjectController extends Controller
             ->mapToGroups(function ($subject) {
                 return [$subject->id => ["{$subject->pivot->year_level}|{$subject->pivot->semester}"]];
             })
-            ->map(fn ($group) => $group->unique()->values())
+            ->map(fn ($group) => collect($group)->unique()->values())
             ->toArray() ?? [];
 
         return view('admin.programs.curriculum', [

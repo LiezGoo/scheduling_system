@@ -6,10 +6,8 @@
     <div class="container-fluid py-4" id="curriculumPage">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
             <div>
-                <p class="text-muted text-uppercase small mb-1">Curriculum Management</p>
-                <h2 class="h4 mb-1">Manage program curricula and assigned subjects</h2>
-                <p class="text-muted mb-0">Select a program, choose a term, then bulk-assign subjects. Assigned subjects are
-                    grouped by year and semester.</p>
+                <p class="text-muted mb-0"><i class="fa fa-layer-group"></i> Manage program curricula and assigned subjects
+                </p>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <a href="#subjectSelection" class="btn btn-maroon" id="assignShortcutBtn">

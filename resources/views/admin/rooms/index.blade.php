@@ -7,7 +7,7 @@
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="col-md-6">
-                <p class="text-muted mb-0"><i class="fas fa-door-open me-2"></i>Manage campus rooms.</p>
+                <p class="text-muted mb-0"><i class="fas fa-door-open me-2"></i>Manage campus rooms</p>
             </div>
             <div class="col-md-6 text-end">
                 <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#addRoomModal">
@@ -68,25 +68,29 @@
                 </div>
 
                 <!-- Pagination -->
-                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                    <div class="text-muted">
-                        Showing {{ $rooms->firstItem() ?? 0 }} to {{ $rooms->lastItem() ?? 0 }} of
-                        {{ $rooms->total() }} rooms
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <div id="pagination-container">
-                            {{ $rooms->appends(request()->query())->links() }}
+                @if ($rooms && $rooms->count() > 0)
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+                        <div class="text-muted small">
+                            Showing {{ $rooms->firstItem() ?? 0 }} to {{ $rooms->lastItem() ?? 0 }} of
+                            {{ $rooms->total() }} rooms
                         </div>
-                        <label for="roomsPerPageSelect" class="text-muted small mb-0">Per page:</label>
-                        <select id="roomsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
-                            <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                            <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
-                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                            <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
-                        </select>
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="pagination-container">
+                                {{ $rooms->appends(request()->query())->links() }}
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="roomsPerPageSelect" class="text-muted small mb-0">Per page:</label>
+                                <select id="roomsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
+                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
+                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                                    <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                                    <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                @endif
             </div>
         </div>
 
@@ -98,9 +102,9 @@
         </div>
     </div>
 
-    @include('admin.rooms.modals.add-room', ['buildings' => $buildings, 'roomTypes' => $roomTypes])
+    @include('admin.rooms.modals.add-room', ['roomTypes' => $roomTypes, 'buildings' => $buildings])
     @include('admin.rooms.modals.view-room')
-    @include('admin.rooms.modals.edit-room', ['buildings' => $buildings, 'roomTypes' => $roomTypes])
+    @include('admin.rooms.modals.edit-room', ['roomTypes' => $roomTypes, 'buildings' => $buildings])
     @include('admin.rooms.modals.delete-room')
 
     <style>
@@ -198,7 +202,10 @@
                     if (data.success) {
                         document.getElementById('rooms-table-body').innerHTML = data.html;
                         document.getElementById('pagination-container').innerHTML = data.pagination;
-                        document.getElementById('empty-state').style.display = 'none';
+                        const emptyState = document.getElementById('empty-state');
+                        if (emptyState) {
+                            emptyState.style.display = 'none';
+                        }
                     }
                 })
                 .catch(error => console.error('Error:', error))
@@ -216,12 +223,16 @@
                 const roomName = btn.getAttribute('data-room-name');
                 const buildingId = btn.getAttribute('data-building-id');
                 const roomTypeId = btn.getAttribute('data-room-type-id');
+                const capacity = btn.getAttribute('data-capacity');
+                const floorLevel = btn.getAttribute('data-floor-level');
 
                 document.getElementById('edit_room_id').value = roomId;
                 document.getElementById('edit_room_code').value = roomCode;
                 document.getElementById('edit_room_name').value = roomName;
                 document.getElementById('edit_building_id').value = buildingId;
                 document.getElementById('edit_room_type_id').value = roomTypeId;
+                document.getElementById('edit_capacity').value = capacity || '';
+                document.getElementById('edit_floor_level').value = floorLevel || '';
 
                 // Clear previous validation
                 const editForm = document.getElementById('editRoomForm');
@@ -258,5 +269,27 @@
                 viewModal.show();
             }
         });
+
+        function loadRoomDetails(roomId) {
+            fetch(`{{ url('admin/rooms') }}/${roomId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const room = data.room;
+                        document.getElementById('view_room_code').textContent = room.room_code;
+                        document.getElementById('view_room_name').textContent = room.room_name;
+                        document.getElementById('view_building_name').textContent = room.building_name;
+                        document.getElementById('view_room_type').textContent = room.type_name;
+                        document.getElementById('view_capacity').textContent = room.capacity || 'N/A';
+                        document.getElementById('view_floor_level').textContent = room.floor_level || 'N/A';
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
     </script>
 @endsection

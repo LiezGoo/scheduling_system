@@ -45,18 +45,20 @@ class FacultyLoadService
     }
 
     /**
-     * Assign a subject to an instructor with load constraints.
+     * Assign a subject to an instructor with lecture and lab hours.
      *
      * @param int $userId The user (instructor) ID
      * @param int $subjectId The subject ID
-     * @param int $maxSections Maximum sections for this subject
+     * @param int $lectureHours Number of lecture hours per week
+     * @param int $labHours Number of laboratory hours per week
      * @param int|null $maxLoadUnits Optional override for max load units
      * @return array Status and message
      */
     public function assignSubjectToInstructor(
         int $userId,
         int $subjectId,
-        int $maxSections = 3,
+        int $lectureHours = 0,
+        int $labHours = 0,
         ?int $maxLoadUnits = null
     ): array {
         try {
@@ -72,6 +74,22 @@ class FacultyLoadService
             // Validate subject exists
             $subject = Subject::findOrFail($subjectId);
 
+            // Validate at least one type of hours is provided
+            if ($lectureHours <= 0 && $labHours <= 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Either lecture hours or laboratory hours must be greater than zero.',
+                ];
+            }
+
+            // Validate lab hours divisibility by 3
+            if ($labHours > 0 && $labHours % 3 !== 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Laboratory hours must be divisible by 3.',
+                ];
+            }
+
             // Check if assignment already exists
             $exists = DB::table('faculty_subjects')
                         ->where('user_id', $userId)
@@ -85,15 +103,20 @@ class FacultyLoadService
                 ];
             }
 
-            // Create assignment with constraints
+            // Calculate teaching units
+            $computedUnits = User::calculateTeachingUnits($lectureHours, $labHours);
+
+            // Create assignment with hours and computed units
             $user->facultySubjects()->attach($subjectId, [
-                'max_sections' => $maxSections,
+                'lecture_hours' => $lectureHours,
+                'lab_hours' => $labHours,
+                'computed_units' => $computedUnits,
                 'max_load_units' => $maxLoadUnits,
             ]);
 
             return [
                 'success' => true,
-                'message' => "{$user->full_name} has been assigned to {$subject->subject_name}.",
+                'message' => "{$user->full_name} has been assigned to {$subject->subject_name} ({$computedUnits} units).",
             ];
         } catch (\Exception $e) {
             return [
@@ -104,30 +127,53 @@ class FacultyLoadService
     }
 
     /**
-     * Update load constraints for an instructor-subject assignment.
+     * Update teaching hours for an instructor-subject assignment.
      *
      * @param int $userId The user ID
      * @param int $subjectId The subject ID
-     * @param int $maxSections Updated max sections
+     * @param int $lectureHours Updated lecture hours
+     * @param int $labHours Updated laboratory hours
      * @param int|null $maxLoadUnits Updated max load units override
      * @return array Status and message
      */
     public function updateLoadConstraints(
         int $userId,
         int $subjectId,
-        int $maxSections,
+        int $lectureHours = 0,
+        int $labHours = 0,
         ?int $maxLoadUnits = null
     ): array {
         try {
             $user = User::findOrFail($userId);
             $subject = Subject::findOrFail($subjectId);
 
+            // Validate at least one type of hours is provided
+            if ($lectureHours <= 0 && $labHours <= 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Either lecture hours or laboratory hours must be greater than zero.',
+                ];
+            }
+
+            // Validate lab hours divisibility by 3
+            if ($labHours > 0 && $labHours % 3 !== 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Laboratory hours must be divisible by 3.',
+                ];
+            }
+
+            // Calculate teaching units
+            $computedUnits = User::calculateTeachingUnits($lectureHours, $labHours);
+
             // Update the pivot table
             $updated = DB::table('faculty_subjects')
                          ->where('user_id', $userId)
                          ->where('subject_id', $subjectId)
                          ->update([
-                             'max_sections' => $maxSections,
+                             'lecture_hours' => $lectureHours,
+                             'lab_hours' => $labHours,
+                             'computed_units' => $computedUnits,
                              'max_load_units' => $maxLoadUnits,
                              'updated_at' => now(),
                          ]);
@@ -141,12 +187,12 @@ class FacultyLoadService
 
             return [
                 'success' => true,
-                'message' => "Load constraints updated for {$user->full_name} - {$subject->subject_name}.",
+                'message' => "Teaching hours updated for {$user->full_name} - {$subject->subject_name} ({$computedUnits} units).",
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => "Error updating constraints: {$e->getMessage()}",
+                'message' => "Error updating teaching hours: {$e->getMessage()}",
             ];
         }
     }
@@ -190,6 +236,19 @@ class FacultyLoadService
                    ->facultySubjects()
                    ->with('program')
                    ->get();
+    }
+
+    /**
+     * Get aggregated teaching load summary for an instructor.
+     * Returns total lecture hours, lab hours, and teaching units.
+     *
+     * @param int $userId The user ID
+     * @return array Aggregated load summary
+     */
+    public function getInstructorLoadSummary(int $userId): array
+    {
+        $user = User::findOrFail($userId);
+        return $user->getTeachingLoadSummary();
     }
 
     /**

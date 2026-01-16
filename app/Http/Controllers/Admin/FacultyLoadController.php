@@ -150,7 +150,9 @@ class FacultyLoadController extends Controller
                     'id' => $load->program_id,
                     'program_name' => $load->program_name,
                 ],
-                'max_sections' => $load->max_sections,
+                'lecture_hours' => $load->lecture_hours ?? 0,
+                'lab_hours' => $load->lab_hours ?? 0,
+                'computed_units' => $load->computed_units ?? 0,
                 'max_load_units' => $load->max_load_units,
                 'created_at' => $load->created_at,
             ]);
@@ -203,29 +205,56 @@ class FacultyLoadController extends Controller
     }
 
     /**
-     * Assign a subject to an instructor with load constraints.
+     * Assign a subject to an instructor with teaching hours.
      */
     public function assignSubject(Request $request)
     {
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
             'subject_id' => 'required|integer|exists:subjects,id',
-            'max_sections' => 'required|integer|min:1|max:10',
+            'lecture_hours' => 'required|integer|min:0|max:40',
+            'lab_hours' => 'required|integer|min:0|max:40',
             'max_load_units' => 'nullable|integer|min:1',
         ]);
+
+        // Custom validation: at least one must be greater than 0
+        if ($validated['lecture_hours'] <= 0 && $validated['lab_hours'] <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either lecture hours or laboratory hours must be greater than zero.',
+                'errors' => [
+                    'lecture_hours' => ['Either lecture hours or laboratory hours must be greater than zero.'],
+                    'lab_hours' => ['Either lecture hours or laboratory hours must be greater than zero.'],
+                ]
+            ], 422);
+        }
+
+        // Custom validation: lab hours must be divisible by 3
+        if ($validated['lab_hours'] > 0 && $validated['lab_hours'] % 3 !== 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Laboratory hours must be divisible by 3.',
+                'errors' => [
+                    'lab_hours' => ['Laboratory hours must be divisible by 3.'],
+                ]
+            ], 422);
+        }
 
         try {
             $result = $this->facultyLoadService->assignSubjectToInstructor(
                 $validated['user_id'],
                 $validated['subject_id'],
-                $validated['max_sections'],
-                $validated['max_load_units']
+                $validated['lecture_hours'],
+                $validated['lab_hours'],
+                $validated['max_load_units'] ?? null
             );
 
             if ($result['success']) {
                 Log::info("Subject assigned", [
                     'user_id' => $validated['user_id'],
                     'subject_id' => $validated['subject_id'],
+                    'lecture_hours' => $validated['lecture_hours'],
+                    'lab_hours' => $validated['lab_hours'],
                     'message' => $result['message'],
                 ]);
                 return response()->json(['success' => true, 'message' => $result['message']]);
@@ -239,36 +268,63 @@ class FacultyLoadController extends Controller
     }
 
     /**
-     * Update load constraints for an instructor-subject assignment.
+     * Update teaching hours for an instructor-subject assignment.
      */
     public function updateConstraints(Request $request)
     {
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
             'subject_id' => 'required|integer|exists:subjects,id',
-            'max_sections' => 'required|integer|min:1|max:10',
+            'lecture_hours' => 'required|integer|min:0|max:40',
+            'lab_hours' => 'required|integer|min:0|max:40',
             'max_load_units' => 'nullable|integer|min:1',
         ]);
+
+        // Custom validation: at least one must be greater than 0
+        if ($validated['lecture_hours'] <= 0 && $validated['lab_hours'] <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either lecture hours or laboratory hours must be greater than zero.',
+                'errors' => [
+                    'lecture_hours' => ['Either lecture hours or laboratory hours must be greater than zero.'],
+                    'lab_hours' => ['Either lecture hours or laboratory hours must be greater than zero.'],
+                ]
+            ], 422);
+        }
+
+        // Custom validation: lab hours must be divisible by 3
+        if ($validated['lab_hours'] > 0 && $validated['lab_hours'] % 3 !== 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Laboratory hours must be divisible by 3.',
+                'errors' => [
+                    'lab_hours' => ['Laboratory hours must be divisible by 3.'],
+                ]
+            ], 422);
+        }
 
         try {
             $result = $this->facultyLoadService->updateLoadConstraints(
                 $validated['user_id'],
                 $validated['subject_id'],
-                $validated['max_sections'],
-                $validated['max_load_units']
+                $validated['lecture_hours'],
+                $validated['lab_hours'],
+                $validated['max_load_units'] ?? null
             );
 
             if ($result['success']) {
-                Log::info("Load constraints updated", [
+                Log::info("Teaching hours updated", [
                     'user_id' => $validated['user_id'],
                     'subject_id' => $validated['subject_id'],
+                    'lecture_hours' => $validated['lecture_hours'],
+                    'lab_hours' => $validated['lab_hours'],
                 ]);
                 return response()->json(['success' => true, 'message' => $result['message']]);
             } else {
                 return response()->json(['success' => false, 'message' => $result['message']], 422);
             }
         } catch (\Exception $e) {
-            Log::error("Error updating constraints", ['error' => $e->getMessage()]);
+            Log::error("Error updating teaching hours", ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'An error occurred.'], 500);
         }
     }
@@ -343,12 +399,32 @@ class FacultyLoadController extends Controller
                     'name' => $instructor->full_name,
                     'role' => $instructor->role,
                     'role_label' => $instructor->getRoleLabel(),
-                    'max_sections' => $instructor->pivot->max_sections,
+                    'lecture_hours' => $instructor->pivot->lecture_hours ?? 0,
+                    'lab_hours' => $instructor->pivot->lab_hours ?? 0,
+                    'computed_units' => $instructor->pivot->computed_units ?? 0,
                     'max_load_units' => $instructor->pivot->max_load_units,
                 ]),
             ]);
         } catch (\Exception $e) {
             Log::error("Error fetching subject instructors", ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'An error occurred.'], 500);
+        }
+    }
+
+    /**
+     * Get instructor load summary with aggregated hours and units.
+     */
+    public function getInstructorSummary($userId)
+    {
+        try {
+            $summary = $this->facultyLoadService->getInstructorLoadSummary($userId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $summary,
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error fetching instructor summary", ['error' => $e->getMessage(), 'user_id' => $userId]);
             return response()->json(['success' => false, 'message' => 'An error occurred.'], 500);
         }
     }

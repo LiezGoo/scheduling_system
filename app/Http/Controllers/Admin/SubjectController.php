@@ -79,7 +79,7 @@ class SubjectController extends Controller
         $validated = $request->validate([
             'subject_code' => 'required|string|max:50|unique:subjects,subject_code',
             'subject_name' => 'required|string|max:255',
-            'program_id' => 'required|exists:programs,id',
+            'program_id' => 'nullable|exists:programs,id',
             'units' => 'required|numeric|min:0|max:10',
             'lecture_hours' => 'required|numeric|min:0|max:20',
             'lab_hours' => 'required|numeric|min:0|max:20',
@@ -116,7 +116,7 @@ class SubjectController extends Controller
                 Rule::unique('subjects', 'subject_code')->ignore($subject->id),
             ],
             'subject_name' => 'required|string|max:255',
-            'program_id' => 'required|exists:programs,id',
+            'program_id' => 'nullable|exists:programs,id',
             'units' => 'required|numeric|min:0|max:10',
             'lecture_hours' => 'required|numeric|min:0|max:20',
             'lab_hours' => 'required|numeric|min:0|max:20',

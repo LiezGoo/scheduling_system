@@ -2,7 +2,7 @@
 <div class="modal fade" id="deleteSubjectModal" tabindex="-1" aria-labelledby="deleteSubjectModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
+            <div class="modal-header bg-maroon text-white">
                 <h5 class="modal-title" id="deleteSubjectModalLabel">
                     <i class="fa-solid fa-exclamation-triangle me-2"></i>Confirm Deletion
                 </h5>
@@ -11,7 +11,7 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete the subject <strong id="delete_subject_name_display"></strong>?</p>
-                <p class="text-warning mb-0">
+                <p class="text-muted mb-0">
                     <i class="fa-solid fa-info-circle me-2"></i>
                     This action cannot be undone.
                 </p>
@@ -22,9 +22,9 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteSubjectBtn">
+                <button type="button" class="btn btn-maroon" id="confirmDeleteSubjectBtn">
                     <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                    <span class="btn-text">Delete</span>
+                    <span class="btn-text"><i class="fas fa-trash me-2"></i>Delete Subject</span>
                 </button>
             </div>
         </div>
@@ -83,7 +83,7 @@
                         } else {
                             deleteSubjectAlert.className = 'alert alert-danger';
                             deleteSubjectAlert.textContent = data.message ||
-                            'Failed to delete subject.';
+                                'Failed to delete subject.';
                             deleteSubjectAlert.classList.remove('d-none');
                         }
                     })

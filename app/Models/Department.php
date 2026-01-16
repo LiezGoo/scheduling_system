@@ -6,9 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class Department extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['department_code', 'department_name'];
 
-    public function programs() {
+    /**
+     * Get the programs that belong to this department.
+     */
+    public function programs()
+    {
         return $this->hasMany(Program::class);
     }
 }

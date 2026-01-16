@@ -36,21 +36,6 @@
                     </div>
 
                     <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <label for="edit_program_id" class="form-label">
-                                Program <span class="text-danger">*</span>
-                            </label>
-                            <select class="form-select" id="edit_program_id" name="program_id" required>
-                                <option value="">Select Program</option>
-                                @foreach ($programs as $program)
-                                    <option value="{{ $program->id }}">{{ $program->program_name }}</option>
-                                @endforeach
-                            </select>
-                            <div class="invalid-feedback">Please select a program.</div>
-                        </div>
-                    </div>
-
-                    <div class="row">
                         <div class="col-md-4 mb-3">
                             <label for="edit_units" class="form-label">
                                 Units <span class="text-danger">*</span>

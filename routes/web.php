@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Examples\NotificationExampleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacultyLoadController;
@@ -89,8 +90,19 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::patch('/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
 
+        // Department Management
+        Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+        Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+        Route::get('/departments/{department}', [DepartmentController::class, 'show'])->name('departments.show');
+        Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+        Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
+
         // Program Management
         Route::get('/programs', [ProgramController::class, 'index'])->name('programs.index');
+        Route::post('/programs', [ProgramController::class, 'store'])->name('programs.store');
+        Route::get('/programs/{program}', [ProgramController::class, 'show'])->name('programs.show');
+        Route::put('/programs/{program}', [ProgramController::class, 'update'])->name('programs.update');
+        Route::delete('/programs/{program}', [ProgramController::class, 'destroy'])->name('programs.destroy');
 
         // Curriculum Management
         Route::get('/curriculum', [ProgramSubjectController::class, 'index'])->name('curriculum.index');
