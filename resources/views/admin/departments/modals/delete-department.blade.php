@@ -20,7 +20,7 @@
                 <p class="fw-bold mb-3">
                     <span id="delete_department_name"></span>
                 </p>
-                <p class="text-danger mb-0">
+                <p class="text-muted mb-0">
                     <i class="fas fa-exclamation-triangle me-2"></i>This action cannot be undone.
                 </p>
 
@@ -28,7 +28,7 @@
             </div>
             <div class="modal-footer border-top-0">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="deleteDepartmentBtn"
+                <button type="button" class="btn btn-maroon" id="deleteDepartmentBtn"
                     onclick="submitDeleteDepartmentForm()">
                     <i class="fas fa-trash me-2"></i> <span id="deleteDepartmentBtnText">Delete Department</span>
                     <span id="deleteDepartmentSpinner" class="spinner-border spinner-border-sm ms-2" role="status"
@@ -65,17 +65,20 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDepartmentModal'));
                     modal.hide();
 
-                    // Show success message
-                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                    document.getElementById('delete-alert-message').textContent = data.message;
-                    alertDiv.style.display = 'block';
+                    // Show success message on main page
+                    const mainAlert = document.createElement('div');
+                    mainAlert.className = 'alert alert-success alert-dismissible fade show';
+                    mainAlert.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+                    document.querySelector('.container-fluid').insertBefore(mainAlert, document.querySelector(
+                        '.card'));
 
                     // Reload departments
-                    setTimeout(() => {
-                        const searchInput = document.getElementById('search');
-                        const event = new Event('input');
-                        searchInput.dispatchEvent(event);
-                    }, 1000);
+                    if (typeof fetchDepartments === 'function') {
+                        fetchDepartments();
+                    } else {
+                        location.reload();
+                    }
                 } else {
                     alertDiv.className = 'alert alert-danger alert-dismissible fade show';
                     document.getElementById('delete-alert-message').textContent = data.message ||
@@ -87,7 +90,7 @@
                 console.error('Error:', error);
                 alertDiv.className = 'alert alert-danger alert-dismissible fade show';
                 document.getElementById('delete-alert-message').textContent =
-                'An error occurred. Please try again.';
+                    'An error occurred. Please try again.';
                 alertDiv.style.display = 'block';
             })
             .finally(() => {

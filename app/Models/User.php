@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Notifications\ResetPasswordNotification;
 
 class User extends Authenticatable
 {
@@ -25,6 +26,7 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'is_active',
     ];
 
     /**
@@ -47,6 +49,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -93,6 +96,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope: Get only users with active accounts (is_active === true).
+     * SECURITY: Useful for queries that need to exclude deactivated users.
+     */
+    public function scopeAccountActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
      * Check if user is active
      */
     public function isActive(): bool
@@ -106,6 +118,60 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
+    }
+
+    /**
+     * Check if user account is active.
+     * SECURITY: Used by middleware to enforce access control.
+     */
+    public function isAccountActive(): bool
+    {
+        return $this->is_active === true;
+    }
+
+    /**
+     * Deactivate user account.
+     * SECURITY: This method immediately blocks user access via middleware.
+     *
+     * @return bool
+     */
+    public function deactivate(): bool
+    {
+        return $this->update(['is_active' => false]);
+    }
+
+    /**
+     * Reactivate user account.
+     *
+     * @return bool
+     */
+    public function reactivate(): bool
+    {
+        return $this->update(['is_active' => true]);
+    }
+
+    /**
+     * Send password reset notification
+     *
+     * SECURITY: This method is called by Laravel's password broker
+     * when a user requests a password reset.
+     *
+     * @param string $token
+     * @return void
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
+     * Get the e-mail address where password reset links are sent.
+     *
+     * @return string
+     */
+    public function getEmailForPasswordReset()
+    {
+        return $this->email;
     }
 
     /**

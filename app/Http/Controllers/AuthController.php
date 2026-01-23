@@ -29,6 +29,7 @@ class AuthController extends Controller
      *
      * Authenticates user credentials and redirects to role-specific dashboard.
      * Implements Laravel's authentication best practices with session regeneration.
+     * Includes security check for deactivated accounts.
      *
      * @param Request $request
      * @return \Illuminate\Http\RedirectResponse
@@ -45,11 +46,22 @@ class AuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
+            // SECURITY: Check if user is active before creating session
+            $user = Auth::user();
+
+            // Check both is_active (hard deactivation) and status (soft deactivation)
+            if (!$user->is_active || $user->status !== 'active') {
+                // Immediately logout the deactivated user
+                Auth::logout();
+
+                // Return with clear validation error
+                return back()->withErrors([
+                    'email' => 'Your account has been deactivated. Please contact the administrator.',
+                ])->onlyInput('email');
+            }
+
             // Regenerate session to prevent fixation attacks
             $request->session()->regenerate();
-
-            // Get authenticated user
-            $user = Auth::user();
 
             // Redirect to role-specific dashboard
             $redirectPath = match($user->role ?? 'student') {

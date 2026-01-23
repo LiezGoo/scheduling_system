@@ -13,20 +13,24 @@
             </span>
         </td>
         <td class="text-center">
-            <button class="btn btn-sm btn-outline-primary view-room-btn" data-room-id="{{ $room->id }}"
-                title="View Details">
-                <i class="fas fa-eye"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-warning edit-room-btn" data-room-id="{{ $room->id }}"
-                data-room-code="{{ $room->room_code }}" data-room-name="{{ $room->room_name }}"
-                data-building-id="{{ $room->building_id }}" data-room-type-id="{{ $room->room_type_id }}"
-                data-capacity="{{ $room->capacity }}" data-floor-level="{{ $room->floor_level }}" title="Edit">
-                <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-danger delete-room-btn" data-room-id="{{ $room->id }}"
-                data-room-name="{{ $room->room_name }}" title="Delete">
-                <i class="fas fa-trash"></i>
-            </button>
+            <div class="d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary view-room-btn"
+                    data-room-id="{{ $room->id }}" title="View" aria-label="View Room Details">
+                    <i class="fa-regular fa-eye"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-warning edit-room-btn"
+                    data-room-id="{{ $room->id }}" data-room-code="{{ $room->room_code }}"
+                    data-room-name="{{ $room->room_name }}" data-building-id="{{ $room->building_id }}"
+                    data-room-type-id="{{ $room->room_type_id }}" data-capacity="{{ $room->capacity }}"
+                    data-floor-level="{{ $room->floor_level }}" title="Edit" aria-label="Edit Room">
+                    <i class="fa-solid fa-pencil"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger delete-room-btn"
+                    data-room-id="{{ $room->id }}" data-room-name="{{ $room->room_name }}" title="Delete"
+                    aria-label="Delete Room">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
         </td>
     </tr>
 @empty

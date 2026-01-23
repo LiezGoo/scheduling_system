@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\AccountDeactivatedController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Examples\NotificationExampleController;
 use App\Http\Controllers\Admin\UserController;
@@ -11,6 +13,17 @@ use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacultyLoadController;
 use App\Http\Controllers\Admin\ProgramSubjectController;
+
+/*
+|--------------------------------------------------------------------------
+| Public Routes (No Authentication Required)
+|--------------------------------------------------------------------------
+| These routes are accessible without authentication.
+| Account deactivation page is explicitly available to show message
+| to deactivated users without middleware interference.
+*/
+
+Route::get('/account-deactivated', [AccountDeactivatedController::class, 'show'])->name('account-deactivated');
 
 /*
 |--------------------------------------------------------------------------
@@ -24,6 +37,18 @@ Route::middleware(['guest'])->group(function () {
     Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+
+    /**
+     * Password Reset Routes
+     *
+     * These routes allow unauthenticated users to request and complete password resets.
+     * Access is restricted to guests only via middleware.
+     * Deactivated users are prevented from resetting passwords via controller logic.
+     */
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPasswordForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
 
 /*

@@ -43,11 +43,18 @@
         </div>
 
         {{-- Remember Me Checkbox --}}
-        <div class="mb-4 form-check">
+        <div class="mb-2 form-check">
             <input type="checkbox" class="form-check-input" id="remember" name="remember">
             <label class="form-check-label" for="remember">
                 Remember me on this device.
             </label>
+        </div>
+
+        {{-- Forgot Password Link --}}
+        <div class="mb-4 text-end">
+            <a href="{{ route('password.request') }}" class="link-secondary text-decoration-none small">
+                <i class="fa-solid fa-question-circle me-1"></i> Forgot Password?
+            </a>
         </div>
 
         {{-- Submit Button --}}

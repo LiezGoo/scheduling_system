@@ -109,18 +109,20 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('addDepartmentModal'));
                     modal.hide();
 
-                    // Show success message
-                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                    document.getElementById('add-alert-message').textContent = data.message;
-                    alertDiv.style.display = 'block';
+                    // Show success message on main page
+                    const mainAlert = document.createElement('div');
+                    mainAlert.className = 'alert alert-success alert-dismissible fade show';
+                    mainAlert.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+                    document.querySelector('.container-fluid').insertBefore(mainAlert, document.querySelector(
+                        '.card'));
 
-                    // Reload departments
-                    setTimeout(() => {
-                        document.getElementById('search').value = '';
-                        document.getElementById('departmentPerPageSelect').value = 15;
-                        const event = new Event('change');
-                        document.getElementById('departmentPerPageSelect').dispatchEvent(event);
-                    }, 1000);
+                    // Reload departments - reset to page 1 to show the new department
+                    if (typeof fetchDepartments === 'function') {
+                        fetchDepartments(true);
+                    } else {
+                        location.reload();
+                    }
                 } else {
                     alertDiv.className = 'alert alert-danger alert-dismissible fade show';
                     document.getElementById('add-alert-message').textContent = data.message ||

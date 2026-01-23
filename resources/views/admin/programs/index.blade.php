@@ -237,6 +237,49 @@
         </div>
     </div>
 
+    <!-- View Program Modal -->
+    <div class="modal fade" id="viewProgramModal" tabindex="-1" aria-labelledby="viewProgramModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-maroon text-white">
+                    <h5 class="modal-title" id="viewProgramModalLabel">
+                        <i class="fa-regular fa-eye me-2"></i>Program Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-muted small">Program Code</label>
+                            <p class="form-control-plaintext border-bottom pb-2" id="viewProgramCode">—</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-muted small">Program Name</label>
+                            <p class="form-control-plaintext border-bottom pb-2" id="viewProgramName">—</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-muted small">Department</label>
+                            <p class="form-control-plaintext border-bottom pb-2" id="viewProgramDepartment">—</p>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold text-muted small">Created At</label>
+                            <p class="form-control-plaintext" id="viewProgramCreatedAt">—</p>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold text-muted small">Updated At</label>
+                            <p class="form-control-plaintext" id="viewProgramUpdatedAt">—</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('scripts')
         <script src="{{ asset('js/program-management.js') }}"></script>
     @endpush

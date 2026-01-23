@@ -97,7 +97,7 @@ class RoomController extends Controller
         $validated = $request->validate([
             'room_code' => 'required|string|max:50|unique:rooms,room_code',
             'room_name' => 'required|string|max:255',
-            'building_id' => 'required|exists:buildings,id',
+            'building_id' => 'nullable|exists:buildings,id',
             'room_type_id' => 'required|exists:room_types,id',
             'capacity' => 'nullable|integer|min:1',
             'floor_level' => 'nullable|integer',
@@ -132,7 +132,7 @@ class RoomController extends Controller
                 Rule::unique('rooms', 'room_code')->ignore($room->id),
             ],
             'room_name' => 'required|string|max:255',
-            'building_id' => 'required|exists:buildings,id',
+            'building_id' => 'nullable|exists:buildings,id',
             'room_type_id' => 'required|exists:room_types,id',
             'capacity' => 'nullable|integer|min:1',
             'floor_level' => 'nullable|integer',

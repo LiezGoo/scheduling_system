@@ -179,6 +179,29 @@
         .catch(() => showToast('error', 'Failed to load program'));
     });
 
+    // Load program for view
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.view-program-btn');
+      if (!btn) return;
+      const id = btn.getAttribute('data-program-id');
+      const viewProgramModalEl = document.getElementById('viewProgramModal');
+      const viewProgramModal = viewProgramModalEl ? new bootstrap.Modal(viewProgramModalEl) : null;
+      
+      fetch(`/admin/programs/${id}`, { headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' } })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.success) throw new Error('Load failed');
+          const p = data.program;
+          document.getElementById('viewProgramCode').textContent = p.program_code || '—';
+          document.getElementById('viewProgramName').textContent = p.program_name || '—';
+          document.getElementById('viewProgramDepartment').textContent = p.department_name || '—';
+          document.getElementById('viewProgramCreatedAt').textContent = p.created_at ? new Date(p.created_at).toLocaleString() : '—';
+          document.getElementById('viewProgramUpdatedAt').textContent = p.updated_at ? new Date(p.updated_at).toLocaleString() : '—';
+          viewProgramModal?.show();
+        })
+        .catch(() => showToast('error', 'Failed to load program details'));
+    });
+
     // Update
     if (editForm && editProgramModal) {
       editForm.addEventListener('submit', function (e) {

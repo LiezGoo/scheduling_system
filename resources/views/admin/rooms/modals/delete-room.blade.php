@@ -2,23 +2,21 @@
 <div class="modal fade" id="deleteRoomModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header border-bottom border-danger" style="background-color: #ffe5e5;">
-                <h5 class="modal-title" style="color: #dc3545; font-weight: 600;">
-                    <i class="fas fa-exclamation-triangle me-2"></i> Delete Room
+            <div class="modal-header" style="background-color: #660000; border: none;">
+                <h5 class="modal-title text-white" style="font-weight: 600;">
+                    <i class="fas fa-trash me-2"></i> Delete Room
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Warning!</strong> This action cannot be undone.
-                </div>
-
                 <p>Are you sure you want to delete the room <strong id="delete_room_name"></strong>?</p>
+                <p class="text-muted mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>This action cannot be undone.
+                </p>
             </div>
             <div class="modal-footer border-top-0">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="deleteRoomBtn" onclick="submitDeleteRoomForm()">
+                <button type="button" class="btn btn-maroon" id="deleteRoomBtn" onclick="submitDeleteRoomForm()">
                     <i class="fas fa-trash me-2"></i> <span id="deleteRoomBtnText">Delete Room</span>
                     <span id="deleteRoomSpinner" class="spinner-border spinner-border-sm ms-2" role="status"
                         aria-hidden="true" style="display: none;"></span>

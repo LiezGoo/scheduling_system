@@ -16,6 +16,13 @@ $__herd_closure = static function () {
             health: '/up',
         )
         ->withMiddleware(function (Middleware $middleware): void {
+            // Global middleware - runs on EVERY web request
+            // SECURITY: EnforceActiveUser enforces immediate access blocking for deactivated users
+            $middleware->web([
+                \App\Http\Middleware\EnforceActiveUser::class,
+            ]);
+
+            // Middleware aliases for route-specific application
             $middleware->alias([
                 'role' => \App\Http\Middleware\RoleMiddleware::class,
             ]);

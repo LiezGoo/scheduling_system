@@ -38,20 +38,6 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="building_id" class="form-label fw-bold">Building <span
-                                class="text-danger">*</span></label>
-                        <select class="form-select" id="building_id" name="building_id" required>
-                            <option value="">Select a building...</option>
-                            @foreach ($buildings as $building)
-                                <option value="{{ $building->id }}">{{ $building->building_name }}</option>
-                            @endforeach
-                        </select>
-                        <div class="invalid-feedback">
-                            Please select a building.
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
                         <label for="room_type_id" class="form-label fw-bold">Room Type <span
                                 class="text-danger">*</span></label>
                         <select class="form-select" id="room_type_id" name="room_type_id" required>
@@ -63,20 +49,6 @@
                         <div class="invalid-feedback">
                             Please select a room type.
                         </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="capacity" class="form-label fw-bold">Capacity</label>
-                        <input type="number" class="form-control" id="capacity" name="capacity" placeholder="e.g., 40"
-                            min="1">
-                        <small class="form-text text-muted">Maximum number of students</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="floor_level" class="form-label fw-bold">Floor Level</label>
-                        <input type="number" class="form-control" id="floor_level" name="floor_level"
-                            placeholder="e.g., 1">
-                        <small class="form-text text-muted">Which floor is this room located on?</small>
                     </div>
                 </form>
             </div>

@@ -19,29 +19,41 @@
         <!-- Filter Section -->
         <div class="card mb-4 border-0 shadow-sm">
             <div class="card-body">
-                <div class="row g-3">
+                <div class="row g-3 align-items-end">
                     <div class="col-md-4">
                         <label for="search" class="form-label small fw-bold">Search</label>
                         <input type="text" id="search" class="form-control" placeholder="Room code or name..."
-                            autocomplete="off">
+                            autocomplete="off" value="{{ request('search') }}">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="building_filter" class="form-label small fw-bold">Building</label>
                         <select id="building_filter" class="form-select">
                             <option value="">All Buildings</option>
                             @foreach ($buildings as $building)
-                                <option value="{{ $building->id }}">{{ $building->building_name }}</option>
+                                <option value="{{ $building->id }}"
+                                    {{ request('building_id') == $building->id ? 'selected' : '' }}>
+                                    {{ $building->building_name }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="room_type_filter" class="form-label small fw-bold">Room Type</label>
                         <select id="room_type_filter" class="form-select">
                             <option value="">All Room Types</option>
                             @foreach ($roomTypes as $type)
-                                <option value="{{ $type->id }}">{{ $type->type_name }}</option>
+                                <option value="{{ $type->id }}"
+                                    {{ request('room_type_id') == $type->id ? 'selected' : '' }}>{{ $type->type_name }}
+                                </option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="clearFilters"
+                            title="Clear Filters">
+                            <i class="fa-solid fa-rotate-left me-1"></i>Clear
+                        </button>
+                        <div class="spinner-border spinner-border-sm text-maroon d-none" role="status" aria-hidden="true"
+                            id="filtersSpinner"></div>
                     </div>
                 </div>
             </div>
@@ -82,7 +94,8 @@
                                 <label for="roomsPerPageSelect" class="text-muted small mb-0">Per page:</label>
                                 <select id="roomsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
                                     <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15
+                                    </option>
                                     <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
                                     <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
                                     <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
@@ -149,6 +162,14 @@
 
         // Room Type filter
         document.getElementById('room_type_filter').addEventListener('change', function() {
+            applyFilters();
+        });
+
+        // Clear filters button
+        document.getElementById('clearFilters').addEventListener('click', function() {
+            document.getElementById('search').value = '';
+            document.getElementById('building_filter').value = '';
+            document.getElementById('room_type_filter').value = '';
             applyFilters();
         });
 

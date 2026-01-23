@@ -85,7 +85,7 @@
         const alertDiv = document.getElementById('edit-alert');
 
         // Basic validation
-        if (!form.checkValidity() === false) {
+        if (!form.checkValidity()) {
             form.classList.add('was-validated');
             return;
         }
@@ -112,17 +112,20 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editDepartmentModal'));
                     modal.hide();
 
-                    // Show success message
-                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                    document.getElementById('edit-alert-message').textContent = data.message;
-                    alertDiv.style.display = 'block';
+                    // Show success message on main page
+                    const mainAlert = document.createElement('div');
+                    mainAlert.className = 'alert alert-success alert-dismissible fade show';
+                    mainAlert.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+                    document.querySelector('.container-fluid').insertBefore(mainAlert, document.querySelector(
+                        '.card'));
 
                     // Reload departments
-                    setTimeout(() => {
-                        const searchInput = document.getElementById('search');
-                        const event = new Event('input');
-                        searchInput.dispatchEvent(event);
-                    }, 1000);
+                    if (typeof fetchDepartments === 'function') {
+                        fetchDepartments();
+                    } else {
+                        location.reload();
+                    }
                 } else {
                     alertDiv.className = 'alert alert-danger alert-dismissible fade show';
                     document.getElementById('edit-alert-message').textContent = data.message ||

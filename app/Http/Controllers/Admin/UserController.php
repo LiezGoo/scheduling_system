@@ -68,7 +68,8 @@ class UserController extends Controller
     {
         try {
             $validated = $request->validate([
-                'name' => ['required', 'string', 'max:255'],
+                'first_name' => ['required', 'string', 'max:255'],
+                'last_name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
                 'password' => ['required', 'string', 'min:8', 'confirmed'],
                 'role' => ['required', Rule::in(User::getAllRoles())],
@@ -76,6 +77,9 @@ class UserController extends Controller
             ]);
 
             $validated['password'] = Hash::make($validated['password']);
+
+            // Keep is_active synchronized with status
+            $validated['is_active'] = ($validated['status'] === User::STATUS_ACTIVE);
 
             User::create($validated);
 
@@ -105,7 +109,8 @@ class UserController extends Controller
     {
         try {
             $validated = $request->validate([
-                'name' => ['required', 'string', 'max:255'],
+                'first_name' => ['required', 'string', 'max:255'],
+                'last_name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
                 'role' => ['required', Rule::in(User::getAllRoles())],
                 'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
@@ -120,6 +125,9 @@ class UserController extends Controller
             }
 
             $user->update($validated);
+
+            // Ensure is_active stays in sync when status is updated
+            $user->update(['is_active' => ($validated['status'] === User::STATUS_ACTIVE)]);
 
             return response()->json([
                 'success' => true,
@@ -158,12 +166,17 @@ class UserController extends Controller
                 ? User::STATUS_INACTIVE
                 : User::STATUS_ACTIVE;
 
-            $user->update(['status' => $newStatus]);
+            // Update both status and is_active atomically
+            $user->update([
+                'status' => $newStatus,
+                'is_active' => ($newStatus === User::STATUS_ACTIVE),
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'User status updated successfully!',
-                'status' => $newStatus
+                'status' => $newStatus,
+                'is_active' => $user->is_active,
             ]);
         } catch (\Exception $e) {
             Log::error('Status toggle failed: ' . $e->getMessage());

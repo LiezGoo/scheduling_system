@@ -34,11 +34,21 @@
         <!-- Filter Section -->
         <div class="card mb-4 border-0 shadow-sm">
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-12">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-10">
                         <label for="search" class="form-label small fw-bold">Search</label>
-                        <input type="text" id="search" class="form-control" placeholder="Department code or name..."
-                            autocomplete="off" value="{{ request('search') }}">
+                        <div class="position-relative">
+                            <input type="text" id="search" class="form-control"
+                                placeholder="Department code or name..." autocomplete="off" value="{{ request('search') }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="clearFilterBtn"
+                            title="Clear Filters">
+                            <i class="fa-solid fa-rotate-left me-1"></i>Clear
+                        </button>
+                        <div class="spinner-border spinner-border-sm text-maroon d-none" role="status" aria-hidden="true"
+                            id="filter-spinner"></div>
                     </div>
                 </div>
             </div>
@@ -71,18 +81,25 @@
                             Showing {{ $departments->firstItem() ?? 0 }} to {{ $departments->lastItem() ?? 0 }} of
                             {{ $departments->total() }} departments
                         </div>
-                        <div id="pagination-container">
-                            {{ $departments->appends(request()->query())->links() }}
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="departmentPerPageSelect" class="text-muted small mb-0">Per page:</label>
+                                <select id="departmentPerPageSelect" class="form-select form-select-sm"
+                                    style="width: auto;">
+                                    <option value="5" {{ request('per_page') == 5 ? 'selected' : '' }}>5</option>
+                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
+                                    <option value="15"
+                                        {{ request('per_page') == 15 || !request('per_page') ? 'selected' : '' }}>15
+                                    </option>
+                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                                </select>
+                            </div>
+                            <div id="pagination-container">
+                                {{ $departments->appends(request()->query())->links() }}
+                            </div>
                         </div>
                     </div>
                 @endif
-            </div>
-        </div>
-
-        <!-- Loading Indicator -->
-        <div id="filter-spinner" class="text-center mt-3" style="display: none;">
-            <div class="spinner-border" style="color: #660000;" role="status">
-                <span class="visually-hidden">Loading...</span>
             </div>
         </div>
     </div>
@@ -129,10 +146,10 @@
         }
 
         // Fetch filtered departments
-        function fetchDepartments() {
+        function fetchDepartments(resetToFirstPage = false) {
             const search = searchInput.value;
             const perPage = perPageSelect.value;
-            const page = new URLSearchParams(window.location.search).get('page') || 1;
+            const page = resetToFirstPage ? 1 : (new URLSearchParams(window.location.search).get('page') || 1);
 
             spinner.style.display = 'block';
 
@@ -166,6 +183,12 @@
 
         // Per page select listener
         perPageSelect.addEventListener('change', fetchDepartments);
+
+        // Clear filter button listener
+        document.getElementById('clearFilterBtn').addEventListener('click', function() {
+            searchInput.value = '';
+            fetchDepartments(true);
+        });
 
         // Attach listeners to table rows
         function attachTableRowListeners() {

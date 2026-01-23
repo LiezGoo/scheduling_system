@@ -37,7 +37,7 @@ class DepartmentController extends Controller
             return response()->json([
                 'success' => true,
                 'html' => view('admin.departments.partials.table-rows', compact('departments'))->render(),
-                'pagination' => $departments->withQueryString()->links()->render(),
+                'pagination' => $departments->withQueryString()->links(),
             ]);
         }
 
