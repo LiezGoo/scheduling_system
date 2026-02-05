@@ -20,32 +20,15 @@
         <div class="card mb-4 border-0 shadow-sm">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
+                    <div class="col-md-5">
                         <label for="search" class="form-label small fw-bold">Search</label>
                         <input type="text" id="search" class="form-control" placeholder="Room code or name..."
                             autocomplete="off" value="{{ request('search') }}">
                     </div>
-                    <div class="col-md-3">
-                        <label for="building_filter" class="form-label small fw-bold">Building</label>
-                        <select id="building_filter" class="form-select">
-                            <option value="">All Buildings</option>
-                            @foreach ($buildings as $building)
-                                <option value="{{ $building->id }}"
-                                    {{ request('building_id') == $building->id ? 'selected' : '' }}>
-                                    {{ $building->building_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-3">
+                    <div class="col-md-5">
                         <label for="room_type_filter" class="form-label small fw-bold">Room Type</label>
-                        <select id="room_type_filter" class="form-select">
-                            <option value="">All Room Types</option>
-                            @foreach ($roomTypes as $type)
-                                <option value="{{ $type->id }}"
-                                    {{ request('room_type_id') == $type->id ? 'selected' : '' }}>{{ $type->type_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <input type="text" id="room_type_filter" class="form-control"
+                            placeholder="Filter by room type..." autocomplete="off" value="{{ request('room_type') }}">
                     </div>
                     <div class="col-md-2 d-flex align-items-center gap-2">
                         <button type="button" class="btn btn-outline-secondary w-100" id="clearFilters"
@@ -68,7 +51,6 @@
                             <tr>
                                 <th>Room Code</th>
                                 <th>Room Name</th>
-                                <th>Building</th>
                                 <th>Room Type</th>
                                 <th class="text-center">Actions</th>
                             </tr>
@@ -115,9 +97,8 @@
         </div>
     </div>
 
-    @include('admin.rooms.modals.add-room', ['roomTypes' => $roomTypes, 'buildings' => $buildings])
-    @include('admin.rooms.modals.view-room')
-    @include('admin.rooms.modals.edit-room', ['roomTypes' => $roomTypes, 'buildings' => $buildings])
+    @include('admin.rooms.modals.add-room')
+    @include('admin.rooms.modals.edit-room')
     @include('admin.rooms.modals.delete-room')
 
     <style>
@@ -155,20 +136,17 @@
             }, 500);
         });
 
-        // Building filter
-        document.getElementById('building_filter').addEventListener('change', function() {
-            applyFilters();
-        });
-
-        // Room Type filter
-        document.getElementById('room_type_filter').addEventListener('change', function() {
-            applyFilters();
+        // Room Type filter with debounce
+        document.getElementById('room_type_filter').addEventListener('input', function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                applyFilters();
+            }, 500);
         });
 
         // Clear filters button
         document.getElementById('clearFilters').addEventListener('click', function() {
             document.getElementById('search').value = '';
-            document.getElementById('building_filter').value = '';
             document.getElementById('room_type_filter').value = '';
             applyFilters();
         });
@@ -178,12 +156,11 @@
         if (perPageSelect) {
             perPageSelect.addEventListener('change', function() {
                 const search = document.getElementById('search').value;
-                const building_id = document.getElementById('building_filter').value;
-                const room_type_id = document.getElementById('room_type_filter').value;
+                const room_type = document.getElementById('room_type_filter').value;
                 const per_page = this.value;
 
                 window.location.href =
-                    `{{ route('admin.rooms.index') }}?search=${search}&building_id=${building_id}&room_type_id=${room_type_id}&per_page=${per_page}`;
+                    `{{ route('admin.rooms.index') }}?search=${search}&room_type=${room_type}&per_page=${per_page}`;
             });
         }
 
@@ -200,15 +177,14 @@
 
         function applyFilters(page = 1) {
             const search = document.getElementById('search').value;
-            const building_id = document.getElementById('building_filter').value;
-            const room_type_id = document.getElementById('room_type_filter').value;
+            const room_type = document.getElementById('room_type_filter').value;
             const per_page = document.getElementById('roomsPerPageSelect').value;
 
             // Show loading spinner
             document.getElementById('filter-spinner').style.display = 'block';
 
             let url =
-                `{{ route('admin.rooms.index') }}?search=${search}&building_id=${building_id}&room_type_id=${room_type_id}&page=${page}`;
+                `{{ route('admin.rooms.index') }}?search=${search}&room_type=${room_type}&page=${page}`;
             if (per_page) {
                 url += `&per_page=${per_page}`;
             }
@@ -242,18 +218,12 @@
                 const roomId = btn.getAttribute('data-room-id');
                 const roomCode = btn.getAttribute('data-room-code');
                 const roomName = btn.getAttribute('data-room-name');
-                const buildingId = btn.getAttribute('data-building-id');
-                const roomTypeId = btn.getAttribute('data-room-type-id');
-                const capacity = btn.getAttribute('data-capacity');
-                const floorLevel = btn.getAttribute('data-floor-level');
+                const roomType = btn.getAttribute('data-room-type');
 
                 document.getElementById('edit_room_id').value = roomId;
                 document.getElementById('edit_room_code').value = roomCode;
                 document.getElementById('edit_room_name').value = roomName;
-                document.getElementById('edit_building_id').value = buildingId;
-                document.getElementById('edit_room_type_id').value = roomTypeId;
-                document.getElementById('edit_capacity').value = capacity || '';
-                document.getElementById('edit_floor_level').value = floorLevel || '';
+                document.getElementById('edit_room_type').value = roomType;
 
                 // Clear previous validation
                 const editForm = document.getElementById('editRoomForm');
@@ -278,39 +248,5 @@
                 deleteModal.show();
             }
         });
-
-        // View button event listener
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.view-room-btn')) {
-                const btn = e.target.closest('.view-room-btn');
-                const roomId = btn.getAttribute('data-room-id');
-
-                loadRoomDetails(roomId);
-                const viewModal = new bootstrap.Modal(document.getElementById('viewRoomModal'));
-                viewModal.show();
-            }
-        });
-
-        function loadRoomDetails(roomId) {
-            fetch(`{{ url('admin/rooms') }}/${roomId}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const room = data.room;
-                        document.getElementById('view_room_code').textContent = room.room_code;
-                        document.getElementById('view_room_name').textContent = room.room_name;
-                        document.getElementById('view_building_name').textContent = room.building_name;
-                        document.getElementById('view_room_type').textContent = room.type_name;
-                        document.getElementById('view_capacity').textContent = room.capacity || 'N/A';
-                        document.getElementById('view_floor_level').textContent = room.floor_level || 'N/A';
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
     </script>
 @endsection

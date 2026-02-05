@@ -151,6 +151,98 @@ body.sidebar-collapsed .sidebar-inner {
     }
 }
 
+/* Complete sidebar removal on small screens (mobile) */
+@media (max-width: 767px) {
+    .app-sidebar {
+        display: none !important;
+    }
+
+    .app-main {
+        margin-left: 0 !important;
+        padding: 1rem 0.75rem;
+    }
+
+    .page-header {
+        padding-bottom: 0.75rem;
+        margin-bottom: 1rem !important;
+    }
+
+    .page-header h1 {
+        font-size: 1.25rem;
+    }
+
+    /* Compact header on mobile */
+    .app-navbar {
+        height: 56px;
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .app-navbar .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .brand-logo {
+        height: 28px;
+    }
+
+    .app-main {
+        margin-top: 56px;
+    }
+
+    .app-sidebar {
+        top: 56px;
+    }
+
+    /* Notification dropdown mobile optimization */
+    .notification-dropdown {
+        position: fixed !important;
+        top: 56px !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        max-height: calc(100vh - 56px) !important;
+        transform: none !important;
+    }
+
+    .notification-list-container {
+        max-height: calc(100vh - 160px) !important;
+    }
+
+    .dropdown.position-static .dropdown-menu {
+        position: fixed !important;
+    }
+
+    /* Ensure proper z-index stacking */
+    .app-navbar {
+        z-index: 1050;
+    }
+
+    .notification-dropdown {
+        z-index: 1049;
+    }
+
+    /* Better touch targets on mobile */
+    .nav-icon {
+        font-size: 1.25rem;
+        padding: 0.5rem !important;
+    }
+
+    /* Prevent horizontal overflow */
+    body {
+        overflow-x: hidden;
+    }
+
+    .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+}
+
 /* Scrollbar refinements */
 .sidebar-inner::-webkit-scrollbar {
     width: 8px;
@@ -197,6 +289,8 @@ body.sidebar-collapsed .sidebar-inner {
 
 /* Notification Dropdown Styles */
 .notification-dropdown {
+    width: 380px;
+    max-width: 90vw;
     border: none;
     border-radius: 0.5rem;
 }
@@ -204,6 +298,13 @@ body.sidebar-collapsed .sidebar-inner {
 .notification-dropdown .dropdown-header {
     background-color: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
+}
+
+/* Notification List Container with Scrolling */
+.notification-list-container {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .notification-item {

@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Room;
-use App\Models\RoomType;
-use App\Models\Building;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +14,7 @@ class RoomController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Room::with(['roomType', 'building']);
+        $query = Room::query();
 
         // Filter by search (room code or name)
         if ($request->filled('search')) {
@@ -27,14 +25,10 @@ class RoomController extends Controller
             });
         }
 
-        // Filter by room type
-        if ($request->filled('room_type_id')) {
-            $query->where('room_type_id', $request->room_type_id);
-        }
-
-        // Filter by building
-        if ($request->filled('building_id')) {
-            $query->where('building_id', $request->building_id);
+        // Filter by room type (case-insensitive text search)
+        if ($request->filled('room_type')) {
+            $roomType = '%' . $request->room_type . '%';
+            $query->where('room_type', 'LIKE', $roomType);
         }
 
         // Get per page value (default 15)
@@ -44,19 +38,15 @@ class RoomController extends Controller
         // Get filtered rooms
         $rooms = $query->orderBy('room_code')->paginate($perPage)->appends($request->query());
 
-        // Get all room types and buildings for filter dropdowns
-        $roomTypes = RoomType::orderBy('type_name')->get();
-        $buildings = Building::orderBy('building_name')->get();
-
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
                 'html' => view('admin.rooms.partials.table-rows', compact('rooms'))->render(),
-                'pagination' => $rooms->withQueryString()->links()->render(),
+                'pagination' => $rooms->withQueryString()->links(),
             ]);
         }
 
-        return view('admin.rooms.index', compact('rooms', 'roomTypes', 'buildings'));
+        return view('admin.rooms.index', compact('rooms'));
     }
 
     /**
@@ -64,8 +54,6 @@ class RoomController extends Controller
      */
     public function show(Room $room)
     {
-        $room->load(['roomType', 'building']);
-
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->expectsJson()) {
             return response()->json([
@@ -74,12 +62,7 @@ class RoomController extends Controller
                     'id' => $room->id,
                     'room_code' => $room->room_code,
                     'room_name' => $room->room_name,
-                    'building_id' => $room->building_id,
-                    'building_name' => $room->building->building_name ?? 'N/A',
-                    'room_type_id' => $room->room_type_id,
-                    'type_name' => $room->roomType->type_name ?? 'N/A',
-                    'capacity' => $room->capacity,
-                    'floor_level' => $room->floor_level,
+                    'room_type' => $room->room_type,
                     'created_at' => $room->created_at,
                     'updated_at' => $room->updated_at,
                 ]
@@ -97,11 +80,11 @@ class RoomController extends Controller
         $validated = $request->validate([
             'room_code' => 'required|string|max:50|unique:rooms,room_code',
             'room_name' => 'required|string|max:255',
-            'building_id' => 'nullable|exists:buildings,id',
-            'room_type_id' => 'required|exists:room_types,id',
-            'capacity' => 'nullable|integer|min:1',
-            'floor_level' => 'nullable|integer',
+            'room_type' => 'required|string|max:50',
         ]);
+
+        // Trim and normalize the room_type
+        $validated['room_type'] = trim($validated['room_type']);
 
         try {
             $room = Room::create($validated);
@@ -109,7 +92,7 @@ class RoomController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Room created successfully!',
-                'room' => $room->load(['roomType', 'building']),
+                'room' => $room,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -132,11 +115,11 @@ class RoomController extends Controller
                 Rule::unique('rooms', 'room_code')->ignore($room->id),
             ],
             'room_name' => 'required|string|max:255',
-            'building_id' => 'nullable|exists:buildings,id',
-            'room_type_id' => 'required|exists:room_types,id',
-            'capacity' => 'nullable|integer|min:1',
-            'floor_level' => 'nullable|integer',
+            'room_type' => 'required|string|max:50',
         ]);
+
+        // Trim and normalize the room_type
+        $validated['room_type'] = trim($validated['room_type']);
 
         try {
             $room->update($validated);
@@ -144,7 +127,7 @@ class RoomController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Room updated successfully!',
-                'room' => $room->load(['roomType', 'building']),
+                'room' => $room,
             ]);
         } catch (\Exception $e) {
             return response()->json([

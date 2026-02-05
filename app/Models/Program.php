@@ -31,4 +31,22 @@ class Program extends Model
             ->withPivot(['year_level', 'semester'])
             ->withTimestamps();
     }
+
+    /**
+     * Get the program head assigned to this program.
+     * A program can have one program head.
+     */
+    public function programHead()
+    {
+        return $this->hasOne(User::class, 'program_id')
+                    ->where('role', User::ROLE_PROGRAM_HEAD);
+    }
+
+    /**
+     * Check if this program has an assigned program head.
+     */
+    public function hasProgramHead(): bool
+    {
+        return $this->programHead()->exists();
+    }
 }

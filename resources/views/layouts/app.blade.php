@@ -48,13 +48,6 @@
                 'pattern' => 'admin/users*',
             ],
             [
-                'label' => 'Faculty Load Management',
-                'icon' => 'fa-solid fa-clipboard-list',
-                'href' => route('admin.faculty-load.index'),
-                'roles' => ['admin', 'department_head', 'program_head', 'instructor'],
-                'pattern' => 'admin/faculty-load*',
-            ],
-            [
                 'label' => 'Department Management',
                 'icon' => 'fa-solid fa-building',
                 'href' => route('admin.departments.index'),
@@ -65,22 +58,8 @@
                 'label' => 'Program Management',
                 'icon' => 'fa-solid fa-diagram-project',
                 'href' => route('admin.programs.index'),
-                'roles' => ['admin', 'department_head', 'program_head'],
+                'roles' => ['admin', 'department_head'],
                 'pattern' => 'admin/programs*',
-            ],
-            [
-                'label' => 'Subject Management',
-                'icon' => 'fa-solid fa-book',
-                'href' => route('admin.subjects.index'),
-                'roles' => ['admin'],
-                'pattern' => 'admin/subjects*',
-            ],
-            [
-                'label' => 'Curriculum Management',
-                'icon' => 'fa-solid fa-layer-group',
-                'href' => route('admin.curriculum.index'),
-                'roles' => ['admin'],
-                'pattern' => 'admin/curriculum*',
             ],
             [
                 'label' => 'Room Management',
@@ -89,12 +68,41 @@
                 'roles' => ['admin'],
                 'pattern' => 'admin/rooms*',
             ],
+            // Program Head Menu Items
             [
-                'label' => 'Create Schedule',
+                'label' => 'Subject Management',
+                'icon' => 'fa-solid fa-book',
+                'href' => route('program-head.subjects.index'),
+                'roles' => ['program_head'],
+                'pattern' => 'program-head/subjects*',
+            ],
+            [
+                'label' => 'Curriculum Management',
+                'icon' => 'fa-solid fa-layer-group',
+                'href' => route('program-head.curriculum.index'),
+                'roles' => ['program_head'],
+                'pattern' => 'program-head/curriculum*',
+            ],
+            [
+                'label' => 'Faculty Load Management',
+                'icon' => 'fa-solid fa-clipboard-list',
+                'href' => route('program-head.faculty-load.index'),
+                'roles' => ['program_head'],
+                'pattern' => 'program-head/faculty-load*',
+            ],
+            [
+                'label' => 'Schedule Management',
                 'icon' => 'fa-solid fa-calendar-check',
-                'anchor' => 'schedule-generation',
-                'roles' => ['admin'],
-                'pattern' => 'admin/schedule*',
+                'href' => route('program-head.schedules.index'),
+                'roles' => ['program_head'],
+                'pattern' => 'program-head/schedules*',
+            ],
+            [
+                'label' => 'Schedule Approval',
+                'icon' => 'fa-solid fa-calendar-check',
+                'href' => route('department-head.schedules.index'),
+                'roles' => ['department_head'],
+                'pattern' => 'department-head/schedules*',
             ],
         ];
     @endphp
@@ -102,20 +110,22 @@
     <nav id="appHeader" class="navbar navbar-dark navbar-expand-lg app-navbar fixed-top shadow-sm">
         <div class="container-fluid">
             <div class="d-flex align-items-center">
-                <button class="btn btn-link text-white p-0 me-3" id="sidebarToggle" type="button"
-                    aria-label="Toggle sidebar">
+                <!-- Sidebar Toggle: Hidden on mobile -->
+                <button class="btn btn-link text-white p-0 me-3 d-none d-md-inline-block" id="sidebarToggle"
+                    type="button" aria-label="Toggle sidebar">
                     <i class="fa-solid fa-bars"></i>
                 </button>
+                <!-- Brand: Logo always visible, text hidden on mobile -->
                 <span class="navbar-brand d-flex align-items-center mb-0 fw-semibold">
                     <img src="{{ asset('images/logo.png') }}" alt="SorSU Logo" class="brand-logo me-2">
-                    SorSU Scheduling System
+                    <span class="d-none d-md-inline">SorSU Scheduling System</span>
                 </span>
             </div>
 
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 gap-md-3">
                 <!-- Notification Bell -->
-                <div class="dropdown">
-                    <button class="btn btn-link text-white position-relative nav-icon" type="button"
+                <div class="dropdown position-static position-md-relative">
+                    <button class="btn btn-link text-white position-relative nav-icon p-2" type="button"
                         id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false"
                         aria-label="Notifications">
                         <i class="fa-regular fa-bell" id="notificationBellIcon"></i>
@@ -125,7 +135,7 @@
                         </span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end notification-dropdown shadow-lg"
-                        aria-labelledby="notificationDropdown" style="width: 380px; max-width: 90vw;">
+                        aria-labelledby="notificationDropdown">
                         <li class="dropdown-header d-flex justify-content-between align-items-center px-3 py-2">
                             <span class="fw-bold">Notifications</span>
                             <button class="btn btn-link btn-sm text-decoration-none p-0" id="markAllReadBtn"
@@ -136,7 +146,7 @@
                         <li>
                             <hr class="dropdown-divider m-0">
                         </li>
-                        <div id="notificationList" style="max-height: 400px; overflow-y: auto;">
+                        <div id="notificationList" class="notification-list-container">
                             <li class="px-3 py-4 text-center text-muted">
                                 <i class="fa-regular fa-bell-slash mb-2" style="font-size: 2rem; opacity: 0.5;"></i>
                                 <p class="mb-0 small">No notifications</p>
@@ -145,7 +155,7 @@
                     </ul>
                 </div>
 
-                <button class="btn btn-link text-white d-flex align-items-center gap-2" type="button"
+                <button class="btn btn-link text-white d-flex align-items-center gap-2 p-2" type="button"
                     data-bs-toggle="modal" data-bs-target="#userProfileModal" aria-label="User profile">
                     <i class="fa-regular fa-circle-user"></i>
                     {{-- <span class="d-none d-sm-inline">{{ auth()->user()->name ?? 'User' }}</span> --}}
@@ -155,7 +165,8 @@
     </nav>
 
     <div class="app-wrapper">
-        <aside id="appSidebar" class="app-sidebar">
+        <!-- Sidebar: Hidden on mobile (max-width: 767px) -->
+        <aside id="appSidebar" class="app-sidebar d-none d-md-block">
             <div class="sidebar-inner">
                 <nav class="nav flex-column nav-pills">
                     @foreach ($menuItems as $item)
@@ -367,9 +378,8 @@
             const logoutForm = document.getElementById('logoutForm');
             if (logoutForm) {
                 logoutForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    // Ensure form is submitted with proper CSRF token
-                    this.submit();
+                    // Remove the e.preventDefault() and this.submit() lines
+                    // Let the form submit naturally with CSRF token
                 });
             }
         });

@@ -68,21 +68,16 @@ class RoomManagementSeeder extends Seeder
         }
 
         // Create sample rooms
-        $buildingA = Building::where('building_code', 'BLD-001')->first();
-        $buildingB = Building::where('building_code', 'BLD-002')->first();
-        $scienceComplex = Building::where('building_code', 'BLD-003')->first();
-
         $classroom = RoomType::where('type_name', 'Classroom')->first();
         $lab = RoomType::where('type_name', 'Laboratory')->first();
         $auditorium = RoomType::where('type_name', 'Auditorium')->first();
 
-        if ($buildingA && $classroom) {
+        if ($classroom) {
             Room::firstOrCreate(
                 ['room_code' => 'A-101'],
                 [
                     'room_name' => 'Lecture Hall 101',
-                    'building_id' => $buildingA->id,
-                    'room_type_id' => $classroom->id
+                    'room_type' => $classroom->type_name
                 ]
             );
 
@@ -90,19 +85,17 @@ class RoomManagementSeeder extends Seeder
                 ['room_code' => 'A-102'],
                 [
                     'room_name' => 'Lecture Hall 102',
-                    'building_id' => $buildingA->id,
-                    'room_type_id' => $classroom->id
+                    'room_type' => $classroom->type_name
                 ]
             );
         }
 
-        if ($scienceComplex && $lab) {
+        if ($lab) {
             Room::firstOrCreate(
                 ['room_code' => 'SCI-201'],
                 [
                     'room_name' => 'Physics Laboratory',
-                    'building_id' => $scienceComplex->id,
-                    'room_type_id' => $lab->id
+                    'room_type' => $lab->type_name
                 ]
             );
 
@@ -110,19 +103,17 @@ class RoomManagementSeeder extends Seeder
                 ['room_code' => 'SCI-202'],
                 [
                     'room_name' => 'Chemistry Laboratory',
-                    'building_id' => $scienceComplex->id,
-                    'room_type_id' => $lab->id
+                    'room_type' => $lab->type_name
                 ]
             );
         }
 
-        if ($buildingB && $auditorium) {
+        if ($auditorium) {
             Room::firstOrCreate(
                 ['room_code' => 'B-AUDIT'],
                 [
                     'room_name' => 'Main Auditorium',
-                    'building_id' => $buildingB->id,
-                    'room_type_id' => $auditorium->id
+                    'room_type' => $auditorium->type_name
                 ]
             );
         }

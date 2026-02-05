@@ -12,72 +12,71 @@ This intelligent scheduling system ensures efficient resource allocation, preven
 
 ### 🎓 Multi-Role User Management
 
--   **Admin** - Full system control, user role management, curriculum management
--   **Department Head** - Final schedule approval, department-wide oversight
--   **Program Head** - First-level schedule review and approval
--   **Instructor** - View personal schedules and faculty load
--   **Student** - View class schedules and course information
+- **Admin** - Full system control, user role management, curriculum management
+- **Department Head** - Final schedule approval, department-wide oversight
+- **Program Head** - First-level schedule review and approval
+- **Instructor** - View personal schedules and faculty load
+- **Student** - View class schedules and course information
 
 ### 📅 Intelligent Schedule Generation
 
--   **Genetic Algorithm-Based Scheduling** - Advanced AI algorithm for optimal schedule generation
--   **Conflict Detection & Resolution** - Automatic detection of time, room, and instructor conflicts
--   **Multi-Block Subject Support** - Handle subjects with multiple time blocks per week
--   **Room Assignment Optimization** - Intelligent room allocation based on capacity and availability
--   **Time Slot Management** - Flexible time slot configuration
+- **Conflict Detection & Resolution** - Automatic detection of time, room, and instructor conflicts
+- **Multi-Block Subject Support** - Handle subjects with multiple time blocks per week
+- **Room Assignment Optimization** - Intelligent room allocation based on capacity and availability
+- **Time Slot Management** - Flexible time slot configuration
 
 ### 👨‍🏫 Faculty Load Management
 
--   Faculty workload tracking and assignment
--   Instructor availability management
--   Load balancing across faculty members
--   Teaching hours calculation and reporting
+- Faculty workload tracking and assignment
+- Instructor availability management
+- Load balancing across faculty members
+- Teaching hours calculation and reporting
 
 ### 📚 Curriculum Management
 
--   Program and course management
--   Subject creation and configuration
--   Year level and semester organization
--   Course prerequisites tracking
+- Program and course management
+- Subject creation and configuration
+- Year level and semester organization
+- Course prerequisites tracking
 
 ### ✅ Schedule Approval Workflow
 
--   **Two-Level Approval Process**
-    -   Level 1: Program Head Review & Approval
-    -   Level 2: Department Head Final Approval
--   Real-time status tracking (Draft → Pending → Approved/Rejected)
--   Approval history and audit trail
--   Comments and remarks system
--   Email notifications at each approval stage
+- **Two-Level Approval Process**
+    - Level 1: Program Head Review & Approval
+    - Level 2: Department Head Final Approval
+- Real-time status tracking (Draft → Pending → Approved/Rejected)
+- Approval history and audit trail
+- Comments and remarks system
+- Email notifications at each approval stage
 
 ### 🏢 Room Management
 
--   Room database with capacity information
--   Building and location tracking
--   Room availability scheduling
--   Conflict-free room assignment
+- Room database with capacity information
+- Building and location tracking
+- Room availability scheduling
+- Conflict-free room assignment
 
 ### 🔐 Security & Authentication
 
--   Role-based access control (RBAC)
--   Secure login system for all user types
--   Password reset via email
--   Session management
--   SQL injection prevention
+- Role-based access control (RBAC)
+- Secure login system for all user types
+- Password reset via email
+- Session management
+- SQL injection prevention
 
 ### 📧 Email Notifications
 
--   Password reset emails
--   Schedule submission notifications
--   Approval/rejection alerts
--   Status update notifications
+- Password reset emails
+- Schedule submission notifications
+- Approval/rejection alerts
+- Status update notifications
 
 ### 📊 Dashboard & Reporting
 
--   Role-specific dashboards
--   Schedule overview and visualization
--   Faculty load reports
--   Approval status tracking
+- Role-specific dashboards
+- Schedule overview and visualization
+- Faculty load reports
+- Approval status tracking
 
 ---
 
@@ -85,30 +84,29 @@ This intelligent scheduling system ensures efficient resource allocation, preven
 
 ### Backend
 
--   **PHP 7.4+** - Server-side programming language
--   **MySQL/MariaDB** - Relational database management system
--   **Composer** - PHP dependency management
--   **PHPMailer 7.0** - Email sending functionality
+- **PHP 7.4+** - Server-side programming language
+- **MySQL/MariaDB** - Relational database management system
+- **Composer** - PHP dependency management
+- **PHPMailer 7.0** - Email sending functionality
 
 ### Frontend
 
--   **HTML5/CSS3** - Modern web markup and styling
--   **JavaScript (ES6+)** - Client-side interactivity
--   **Bootstrap 5** - Responsive UI framework
--   **Bootstrap Icons 1.13.1** - Icon library
--   **jQuery** - DOM manipulation and AJAX
--   **DataTables** - Advanced table functionality
+- **HTML5/CSS3** - Modern web markup and styling
+- **JavaScript (ES6+)** - Client-side interactivity
+- **Bootstrap 5** - Responsive UI framework
+- **Bootstrap Icons 1.13.1** - Icon library
+- **jQuery** - DOM manipulation and AJAX
+- **DataTables** - Advanced table functionality
 
 ### Algorithm & Logic
 
--   **Genetic Algorithm** - Schedule optimization engine
--   **Custom Conflict Detection** - Real-time conflict resolution
+- **Custom Conflict Detection** - Real-time conflict resolution
 
 ### Development Tools
 
--   **XAMPP** - Local development environment (Apache, MySQL, PHP)
--   **Git** - Version control
--   **VS Code** - Recommended IDE
+- **XAMPP** - Local development environment (Apache, MySQL, PHP)
+- **Git** - Version control
+- **VS Code** - Recommended IDE
 
 ---
 
@@ -116,16 +114,16 @@ This intelligent scheduling system ensures efficient resource allocation, preven
 
 ### Server Requirements
 
--   PHP 7.4 or higher
--   MySQL 5.7+ or MariaDB 10.2+
--   Apache Web Server 2.4+
--   Composer (for dependency management)
+- PHP 7.4 or higher
+- MySQL 5.7+ or MariaDB 10.2+
+- Apache Web Server 2.4+
+- Composer (for dependency management)
 
 ### Client Requirements
 
--   Modern web browser (Chrome, Firefox, Edge, Safari)
--   JavaScript enabled
--   Minimum screen resolution: 1366x768
+- Modern web browser (Chrome, Firefox, Edge, Safari)
+- JavaScript enabled
+- Minimum screen resolution: 1366x768
 
 ---
 
@@ -135,8 +133,8 @@ This intelligent scheduling system ensures efficient resource allocation, preven
 
 Ensure you have XAMPP (or similar stack) installed on your system:
 
--   Download XAMPP from [https://www.apachefriends.org](https://www.apachefriends.org)
--   Install XAMPP with Apache, MySQL, and PHP modules
+- Download XAMPP from [https://www.apachefriends.org](https://www.apachefriends.org)
+- Install XAMPP with Apache, MySQL, and PHP modules
 
 ### 2. Clone/Download the Project
 
@@ -253,25 +251,25 @@ After database setup, use these default credentials (if seeded):
 
 **Admin:**
 
--   URL: `http://localhost/sorsu-scheduling-sys/admin`
--   Username: `admin`
--   Password: `admin123` (change after first login)
+- URL: `http://localhost/sorsu-scheduling-sys/admin`
+- Username: `admin`
+- Password: `admin123` (change after first login)
 
 **Department Head:**
 
--   URL: `http://localhost/sorsu-scheduling-sys/departmenthead`
+- URL: `http://localhost/sorsu-scheduling-sys/departmenthead`
 
 **Program Head:**
 
--   URL: `http://localhost/sorsu-scheduling-sys/programhead`
+- URL: `http://localhost/sorsu-scheduling-sys/programhead`
 
 **Instructor:**
 
--   URL: `http://localhost/sorsu-scheduling-sys/instructor`
+- URL: `http://localhost/sorsu-scheduling-sys/instructor`
 
 **Student:**
 
--   URL: `http://localhost/sorsu-scheduling-sys/student`
+- URL: `http://localhost/sorsu-scheduling-sys/student`
 
 ---
 
@@ -288,7 +286,6 @@ After database setup, use these default credentials (if seeded):
     ```
 
 2. **Access the Application**
-
     - Open browser: `http://localhost/sorsu-scheduling-sys`
     - Select your role (Admin, Department Head, Program Head, Instructor, Student)
     - Login with credentials
@@ -373,11 +370,11 @@ http://localhost/sorsu-scheduling-sys/test_approval_workflow.php
 
 This will validate:
 
--   Database connection
--   Table structures
--   Backend and frontend files
--   User roles
--   Approval workflow setup
+- Database connection
+- Table structures
+- Backend and frontend files
+- User roles
+- Approval workflow setup
 
 ---
 
@@ -387,31 +384,31 @@ This will validate:
 
 **1. Database Connection Error**
 
--   Verify MySQL service is running in XAMPP
--   Check database credentials in `includes/db.php`
--   Ensure database exists: `sorsu_scheduling`
+- Verify MySQL service is running in XAMPP
+- Check database credentials in `includes/db.php`
+- Ensure database exists: `sorsu_scheduling`
 
 **2. Page Not Found (404)**
 
--   Verify project is in correct directory: `c:\xampp\htdocs\sorsu-scheduling-sys`
--   Check Apache is running
--   Clear browser cache
+- Verify project is in correct directory: `c:\xampp\htdocs\sorsu-scheduling-sys`
+- Check Apache is running
+- Clear browser cache
 
 **3. Email Not Sending**
 
--   Verify SMTP settings in `mail.php`
--   For Gmail: Enable 2-factor authentication and create App Password
--   Check firewall isn't blocking port 587/465
+- Verify SMTP settings in `mail.php`
+- For Gmail: Enable 2-factor authentication and create App Password
+- Check firewall isn't blocking port 587/465
 
 **4. Permission Errors**
 
--   Ensure proper file permissions (755 for directories, 644 for files)
--   On Windows, run XAMPP as Administrator if needed
+- Ensure proper file permissions (755 for directories, 644 for files)
+- On Windows, run XAMPP as Administrator if needed
 
 **5. Composer Dependencies Missing**
 
--   Run: `composer install` in project root
--   Ensure Composer is installed globally
+- Run: `composer install` in project root
+- Ensure Composer is installed globally
 
 ---
 
@@ -419,9 +416,9 @@ This will validate:
 
 For detailed documentation on specific features:
 
--   **Schedule Approval Workflow**: See `SCHEDULE_APPROVAL_WORKFLOW_GUIDE.md`
--   **Quick Start Guide**: See `QUICK_START_APPROVAL_WORKFLOW.md`
--   **Delivery Summary**: See `DELIVERY_SUMMARY.txt`
+- **Schedule Approval Workflow**: See `SCHEDULE_APPROVAL_WORKFLOW_GUIDE.md`
+- **Quick Start Guide**: See `QUICK_START_APPROVAL_WORKFLOW.md`
+- **Delivery Summary**: See `DELIVERY_SUMMARY.txt`
 
 ---
 
@@ -429,30 +426,30 @@ For detailed documentation on specific features:
 
 ### Backup Recommendations
 
--   Regular database backups (daily/weekly)
--   Backup `sql/` directory before schema changes
--   Version control all code changes
+- Regular database backups (daily/weekly)
+- Backup `sql/` directory before schema changes
+- Version control all code changes
 
 ### Security Best Practices
 
--   Change default admin password immediately
--   Use strong passwords for all accounts
--   Keep PHP and MySQL updated
--   Regularly update dependencies: `composer update`
--   Enable HTTPS in production
+- Change default admin password immediately
+- Use strong passwords for all accounts
+- Keep PHP and MySQL updated
+- Regularly update dependencies: `composer update`
+- Enable HTTPS in production
 
 ---
 
 ## Future Enhancements
 
--   [ ] Mobile responsive design improvements
--   [ ] Advanced reporting and analytics
--   [ ] Calendar view for schedules
--   [ ] Automated conflict resolution suggestions
--   [ ] Integration with student information system
--   [ ] API for third-party integrations
--   [ ] Real-time notifications
--   [ ] Export schedules to PDF/Excel
+- [ ] Mobile responsive design improvements
+- [ ] Advanced reporting and analytics
+- [ ] Calendar view for schedules
+- [ ] Automated conflict resolution suggestions
+- [ ] Integration with student information system
+- [ ] API for third-party integrations
+- [ ] Real-time notifications
+- [ ] Export schedules to PDF/Excel
 
 ---
 
@@ -464,16 +461,16 @@ For detailed documentation on specific features:
 
 ## Contributors
 
--   Development Team: [Your Team/Institution Name]
--   Contact: [Your Contact Information]
+- Development Team: [Your Team/Institution Name]
+- Contact: [Your Contact Information]
 
 ---
 
 ## Version History
 
--   **v1.0** (December 2025) - Initial release with core features
-    -   Genetic Algorithm schedule generation
-    -   Two-level approval workflow
-    -   Faculty load management
-    -   Multi-role authentication
-    -   Email notifications
+- **v1.0** (December 2025) - Initial release with core features
+    - Genetic Algorithm schedule generation
+    - Two-level approval workflow
+    - Faculty load management
+    - Multi-role authentication
+    - Email notifications

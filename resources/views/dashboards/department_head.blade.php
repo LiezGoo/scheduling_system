@@ -35,13 +35,14 @@
                                 </div>
                             </div>
                             <div class="col-12 col-md-4" id="schedule-generation">
-                                <div class="card border-0 shadow-sm h-100">
+                                <a href="{{ route('department-head.schedules.index') }}"
+                                    class="card border-0 shadow-sm h-100 text-decoration-none">
                                     <div class="card-body text-center">
                                         <i class="fa-solid fa-calendar-check fa-2x text-warning mb-2"></i>
                                         <h6 class="mb-1">Schedule Approval</h6>
                                         <p class="text-muted small mb-0">Validate conflict-free timetables</p>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                         </div>
                     </div>

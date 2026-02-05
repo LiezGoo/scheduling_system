@@ -39,15 +39,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="edit_room_type_id" class="form-label fw-bold">Room Type <span
+                        <label for="edit_room_type" class="form-label fw-bold">Room Type <span
                                 class="text-danger">*</span></label>
-                        <select class="form-select" id="edit_room_type_id" name="room_type_id" required>
-                            @foreach ($roomTypes as $type)
-                                <option value="{{ $type->id }}">{{ $type->type_name }}</option>
-                            @endforeach
-                        </select>
+                        <input type="text" class="form-control" id="edit_room_type" name="room_type"
+                            placeholder="e.g., Lecture, Laboratory, Computer Lab, Physics Lab" maxlength="50" required>
                         <div class="invalid-feedback">
-                            Please select a room type.
+                            Room type is required (max 50 characters).
                         </div>
                     </div>
                 </form>
@@ -95,6 +92,14 @@
         }
 
         const roomId = document.getElementById('edit_room_id').value;
+        if (!roomId) {
+            const alertDiv = document.getElementById('edit-alert');
+            const alertMessage = document.getElementById('edit-alert-message');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertMessage.textContent = 'Missing room ID. Please refresh the page and try again.';
+            alertDiv.style.display = 'block';
+            return;
+        }
         const editRoomBtn = document.getElementById('editRoomBtn');
         const spinner = document.getElementById('editRoomSpinner');
 
@@ -102,16 +107,34 @@
         spinner.style.display = 'inline-block';
 
         const formData = new FormData(form);
+        if (!formData.has('_method')) {
+            formData.append('_method', 'PUT');
+        }
 
         fetch(`/admin/rooms/${roomId}`, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json'
                 },
                 body: formData
             })
-            .then(response => response.json())
+            .then(async response => {
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                const data = isJson ? await response.json() : {
+                    success: false,
+                    message: 'Failed to update room. Please try again.'
+                };
+
+                if (!response.ok) {
+                    data.success = false;
+                    data.message = data.message || 'Failed to update room. Please try again.';
+                }
+
+                return data;
+            })
             .then(data => {
                 const alertDiv = document.getElementById('edit-alert');
                 const alertMessage = document.getElementById('edit-alert-message');
@@ -126,7 +149,12 @@
                     }, 1500);
                 } else {
                     alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                    alertMessage.textContent = data.message;
+                    if (data.errors) {
+                        const firstError = Object.values(data.errors).flat()[0];
+                        alertMessage.textContent = firstError || data.message;
+                    } else {
+                        alertMessage.textContent = data.message;
+                    }
                 }
                 alertDiv.style.display = 'block';
             })

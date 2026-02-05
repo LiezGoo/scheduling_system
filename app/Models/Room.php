@@ -9,25 +9,14 @@ class Room extends Model
     protected $fillable = [
         'room_code',
         'room_name',
-        'building_id',
-        'room_type_id',
-        'capacity',
-        'floor_level',
+        'room_type',
     ];
 
     /**
-     * Get the room type.
+     * Scope to filter rooms by room type (case-insensitive).
      */
-    public function roomType()
+    public function scopeWhereRoomType($query, $roomType)
     {
-        return $this->belongsTo(RoomType::class, 'room_type_id');
-    }
-
-    /**
-     * Get the building.
-     */
-    public function building()
-    {
-        return $this->belongsTo(Building::class, 'building_id');
+        return $query->whereRaw('LOWER(room_type) = ?', [strtolower($roomType)]);
     }
 }

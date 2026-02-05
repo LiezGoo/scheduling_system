@@ -38,16 +38,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="room_type_id" class="form-label fw-bold">Room Type <span
+                        <label for="room_type" class="form-label fw-bold">Room Type <span
                                 class="text-danger">*</span></label>
-                        <select class="form-select" id="room_type_id" name="room_type_id" required>
-                            <option value="">Select a room type...</option>
-                            @foreach ($roomTypes as $type)
-                                <option value="{{ $type->id }}">{{ $type->type_name }}</option>
-                            @endforeach
-                        </select>
+                        <input type="text" class="form-control" id="room_type" name="room_type"
+                            placeholder="e.g., Lecture, Laboratory, Computer Lab, Physics Lab" maxlength="50" required>
                         <div class="invalid-feedback">
-                            Please select a room type.
+                            Room type is required (max 50 characters).
                         </div>
                     </div>
                 </form>

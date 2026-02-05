@@ -13,6 +13,11 @@ use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacultyLoadController;
 use App\Http\Controllers\Admin\ProgramSubjectController;
+use App\Http\Controllers\ProgramHead\SubjectController as ProgramHeadSubjectController;
+use App\Http\Controllers\ProgramHead\CurriculumController as ProgramHeadCurriculumController;
+use App\Http\Controllers\ProgramHead\FacultyLoadController as ProgramHeadFacultyLoadController;
+use App\Http\Controllers\ProgramHead\ScheduleController as ProgramHeadScheduleController;
+use App\Http\Controllers\DepartmentHead\ScheduleReviewController as DepartmentHeadScheduleReviewController;
 
 /*
 |--------------------------------------------------------------------------
@@ -157,6 +162,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/faculty-load/api/unassigned', [FacultyLoadController::class, 'getUnassignedInstructors'])->name('faculty-load.api.unassigned');
         Route::get('/faculty-load/api/subject/{subject}/instructors', [FacultyLoadController::class, 'getSubjectInstructors'])->name('faculty-load.api.subject-instructors');
         Route::get('/faculty-load/api/summary', [FacultyLoadController::class, 'getSummary'])->name('faculty-load.api.summary');
+
+        // Schedule Generation
+        Route::get('/schedule-generation', function() {
+            return view('admin.schedule-generation.index');
+        })->name('schedule-generation.index');
     });
 
     // Department Head Dashboard
@@ -164,10 +174,50 @@ Route::middleware(['auth'])->group(function () {
         return view('dashboards.department_head');
     })->middleware(['role:department_head'])->name('department-head.dashboard');
 
+    // Department Head Schedule Review
+    Route::middleware(['role:department_head'])->prefix('department-head')->name('department-head.')->group(function () {
+        Route::get('/schedules', [DepartmentHeadScheduleReviewController::class, 'index'])->name('schedules.index');
+        Route::get('/schedules/{schedule}', [DepartmentHeadScheduleReviewController::class, 'show'])->name('schedules.show');
+        Route::post('/schedules/{schedule}/approve', [DepartmentHeadScheduleReviewController::class, 'approve'])->name('schedules.approve');
+        Route::post('/schedules/{schedule}/reject', [DepartmentHeadScheduleReviewController::class, 'reject'])->name('schedules.reject');
+    });
+
     // Program Head Dashboard
     Route::get('/program-head/dashboard', function() {
         return view('dashboards.program_head');
     })->middleware(['role:program_head'])->name('program-head.dashboard');
+
+    // Program Head Routes - Scoped to their assigned program
+    Route::middleware(['role:program_head'])->prefix('program-head')->name('program-head.')->group(function () {
+
+        // Subject Management
+        Route::get('/subjects', [ProgramHeadSubjectController::class, 'index'])->name('subjects.index');
+        Route::post('/subjects', [ProgramHeadSubjectController::class, 'store'])->name('subjects.store');
+        Route::get('/subjects/{subject}', [ProgramHeadSubjectController::class, 'show'])->name('subjects.show');
+        Route::put('/subjects/{subject}', [ProgramHeadSubjectController::class, 'update'])->name('subjects.update');
+        Route::delete('/subjects/{subject}', [ProgramHeadSubjectController::class, 'destroy'])->name('subjects.destroy');
+
+        // Curriculum Management
+        Route::get('/curriculum', [ProgramHeadCurriculumController::class, 'index'])->name('curriculum.index');
+        Route::post('/curriculum', [ProgramHeadCurriculumController::class, 'store'])->name('curriculum.store');
+
+        // Faculty Load Management
+        Route::get('/faculty-load', [ProgramHeadFacultyLoadController::class, 'index'])->name('faculty-load.index');
+        Route::get('/faculty-load/{facultyLoadId}/details', [ProgramHeadFacultyLoadController::class, 'getDetails'])->name('faculty-load.details');
+        Route::post('/faculty-load/assign', [ProgramHeadFacultyLoadController::class, 'assignSubject'])->name('faculty-load.assign');
+        Route::post('/faculty-load/update-constraints', [ProgramHeadFacultyLoadController::class, 'updateConstraints'])->name('faculty-load.update-constraints');
+        Route::post('/faculty-load/remove', [ProgramHeadFacultyLoadController::class, 'removeAssignment'])->name('faculty-load.remove');
+
+        // Schedule Management
+        Route::get('/schedules', [ProgramHeadScheduleController::class, 'index'])->name('schedules.index');
+        Route::get('/schedules/create', [ProgramHeadScheduleController::class, 'create'])->name('schedules.create');
+        Route::post('/schedules', [ProgramHeadScheduleController::class, 'store'])->name('schedules.store');
+        Route::get('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'show'])->name('schedules.show');
+        Route::get('/schedules/{schedule}/edit', [ProgramHeadScheduleController::class, 'edit'])->name('schedules.edit');
+        Route::put('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'update'])->name('schedules.update');
+        Route::post('/schedules/{schedule}/submit', [ProgramHeadScheduleController::class, 'submit'])->name('schedules.submit');
+        Route::delete('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'destroy'])->name('schedules.destroy');
+    });
 
     // Instructor Dashboard
     Route::get('/instructor/dashboard', function() {

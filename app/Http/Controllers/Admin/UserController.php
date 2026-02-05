@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Department;
+use App\Models\Program;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -17,7 +19,7 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::query();
+        $query = User::with(['department', 'program']);
 
         // Filter by name (search)
         if ($request->filled('name')) {
@@ -49,6 +51,10 @@ class UserController extends Controller
         // Get all roles for filter dropdown
         $roles = User::getAllRoles();
 
+        // Get departments and programs for assignment dropdowns
+        $departments = Department::orderBy('department_name')->get();
+        $programs = Program::with('departments')->orderBy('program_name')->get();
+
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
@@ -58,7 +64,7 @@ class UserController extends Controller
             ]);
         }
 
-        return view('admin.users.index', compact('users', 'roles'));
+        return view('admin.users.index', compact('users', 'roles', 'departments', 'programs'));
     }
 
     /**
@@ -66,40 +72,49 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'first_name' => ['required', 'string', 'max:255'],
-                'last_name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'min:8', 'confirmed'],
-                'role' => ['required', Rule::in(User::getAllRoles())],
-                'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
-            ]);
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'role' => 'required|string|in:admin,department_head,program_head,instructor',
+            'department_id' => 'nullable|exists:departments,id',
+            'program_id' => 'nullable|exists:programs,id',
+            'status' => 'required|string|in:active,inactive',
+        ]);
 
-            $validated['password'] = Hash::make($validated['password']);
+        // Validate organizational scoping rules
+        $this->validateOrganizationalScoping($validated['role'], $request);
 
-            // Keep is_active synchronized with status
-            $validated['is_active'] = ($validated['status'] === User::STATUS_ACTIVE);
+        // Keep is_active synchronized with status
+        $validated['is_active'] = ($validated['status'] === User::STATUS_ACTIVE);
 
-            User::create($validated);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User created successfully!'
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('User creation failed: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create user. Please try again.'
-            ], 500);
+        // Clear department/program if not applicable to role
+        if (!in_array($validated['role'], [User::ROLE_DEPARTMENT_HEAD, User::ROLE_PROGRAM_HEAD])) {
+            $validated['department_id'] = null;
+            $validated['program_id'] = null;
+        } elseif ($validated['role'] === User::ROLE_DEPARTMENT_HEAD) {
+            $validated['program_id'] = null;
+        } elseif ($validated['role'] === User::ROLE_PROGRAM_HEAD) {
+            $validated['department_id'] = null;
         }
+
+        $user = User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
+            'department_id' => $validated['department_id'] ?? null,
+            'program_id' => $validated['program_id'] ?? null,
+            'status' => $validated['status'],
+            'is_active' => $validated['is_active'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User created successfully!'
+        ]);
     }
 
     /**
@@ -107,45 +122,41 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
-        try {
-            $validated = $request->validate([
-                'first_name' => ['required', 'string', 'max:255'],
-                'last_name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-                'role' => ['required', Rule::in(User::getAllRoles())],
-                'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
-            ]);
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'password' => 'nullable|string|min:8|confirmed',
+            'role' => 'required|string|in:admin,department_head,program_head,instructor',
+            'department_id' => 'nullable|exists:departments,id',
+            'program_id' => 'nullable|exists:programs,id',
+            'status' => 'required|string|in:active,inactive',
+        ]);
 
-            // Only update password if provided
-            if ($request->filled('password')) {
-                $request->validate([
-                    'password' => ['required', 'string', 'min:8', 'confirmed'],
-                ]);
-                $validated['password'] = Hash::make($request->password);
-            }
+        // Validate organizational scoping rules
+        $this->validateOrganizationalScoping($validated['role'], $request, $user->id);
 
-            $user->update($validated);
+        $updateData = [
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'department_id' => $validated['department_id'] ?? null,
+            'program_id' => $validated['program_id'] ?? null,
+            'status' => $validated['status'],
+            'is_active' => ($validated['status'] === User::STATUS_ACTIVE),
+        ];
 
-            // Ensure is_active stays in sync when status is updated
-            $user->update(['is_active' => ($validated['status'] === User::STATUS_ACTIVE)]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User updated successfully!'
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('User update failed: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update user. Please try again.'
-            ], 500);
+        if (!empty($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
         }
+
+        $user->update($updateData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User updated successfully!'
+        ]);
     }
 
     /**
@@ -201,11 +212,12 @@ class UserController extends Controller
                 ], 403);
             }
 
-            $user->delete();
+            // Force permanent deletion (bypass soft deletes)
+            $user->forceDelete();
 
             return response()->json([
                 'success' => true,
-                'message' => 'User deleted successfully!'
+                'message' => 'User deleted permanently!'
             ]);
         } catch (\Exception $e) {
             Log::error('User deletion failed: ' . $e->getMessage());
@@ -217,13 +229,71 @@ class UserController extends Controller
     }
 
     /**
+     * Validate organizational scoping rules for department and program assignments.
+     *
+     * Business Rules:
+     * 1. Department Heads MUST have a department_id assigned
+     * 2. Program Heads MUST have a program_id assigned
+     * 3. Other roles CANNOT have department_id or program_id
+     * 4. Only ONE user can be assigned as head of a department/program
+     *
+     * @throws \Exception
+     */
+    private function validateOrganizationalScoping(string $role, Request $request, ?int $excludeUserId = null)
+    {
+        if ($role === User::ROLE_DEPARTMENT_HEAD) {
+            // Department Head must have a department assigned
+            if (!$request->filled('department_id')) {
+                throw new \Exception('Department Heads must be assigned to a specific department.');
+            }
+
+            // Check if department already has a head assigned (excluding current user if updating)
+            $existingHead = User::where('role', User::ROLE_DEPARTMENT_HEAD)
+                               ->where('department_id', $request->department_id)
+                               ->when($excludeUserId, function($query) use ($excludeUserId) {
+                                   return $query->where('id', '!=', $excludeUserId);
+                               })
+                               ->first();
+
+            if ($existingHead) {
+                $department = Department::find($request->department_id);
+                throw new \Exception(
+                    "The department '{$department->department_name}' already has a Department Head assigned: {$existingHead->full_name}"
+                );
+            }
+        }
+
+        if ($role === User::ROLE_PROGRAM_HEAD) {
+            // Program Head must have a program assigned
+            if (!$request->filled('program_id')) {
+                throw new \Exception('Program Heads must be assigned to a specific program.');
+            }
+
+            // Check if program already has a head assigned (excluding current user if updating)
+            $existingHead = User::where('role', User::ROLE_PROGRAM_HEAD)
+                               ->where('program_id', $request->program_id)
+                               ->when($excludeUserId, function($query) use ($excludeUserId) {
+                                   return $query->where('id', '!=', $excludeUserId);
+                               })
+                               ->first();
+
+            if ($existingHead) {
+                $program = Program::find($request->program_id);
+                throw new \Exception(
+                    "The program '{$program->program_name}' already has a Program Head assigned: {$existingHead->full_name}"
+                );
+            }
+        }
+    }
+
+    /**
      * Get user details for editing.
      */
     public function show(User $user)
     {
         return response()->json([
             'success' => true,
-            'user' => $user
+            'user' => $user->load(['department', 'program'])
         ]);
     }
 }

@@ -103,6 +103,16 @@ class FacultyLoadService
                 ];
             }
 
+            // Validate faculty load limits before assignment
+            $loadValidation = $user->validateFacultyLoad($lectureHours, $labHours);
+            if (!$loadValidation['valid']) {
+                return [
+                    'success' => false,
+                    'message' => $loadValidation['message'],
+                    'validation_details' => $loadValidation,
+                ];
+            }
+
             // Calculate teaching units
             $computedUnits = User::calculateTeachingUnits($lectureHours, $labHours);
 
@@ -160,6 +170,33 @@ class FacultyLoadService
                 return [
                     'success' => false,
                     'message' => 'Laboratory hours must be divisible by 3.',
+                ];
+            }
+
+            // Get current assignment to calculate net change
+            $currentAssignment = DB::table('faculty_subjects')
+                                   ->where('user_id', $userId)
+                                   ->where('subject_id', $subjectId)
+                                   ->first();
+
+            if (!$currentAssignment) {
+                return [
+                    'success' => false,
+                    'message' => 'Assignment not found.',
+                ];
+            }
+
+            // Calculate net change (new hours - old hours)
+            $lectureChange = $lectureHours - $currentAssignment->lecture_hours;
+            $labChange = $labHours - $currentAssignment->lab_hours;
+
+            // Validate faculty load limits with the change
+            $loadValidation = $user->validateFacultyLoad($lectureChange, $labChange);
+            if (!$loadValidation['valid']) {
+                return [
+                    'success' => false,
+                    'message' => $loadValidation['message'],
+                    'validation_details' => $loadValidation,
                 ];
             }
 

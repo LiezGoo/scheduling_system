@@ -14,6 +14,146 @@ document.addEventListener('DOMContentLoaded', function () {
     const deleteUserModal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
     const toggleStatusModal = new bootstrap.Modal(document.getElementById('toggleStatusModal'));
 
+    // ===================================================================
+    // ORGANIZATIONAL SCOPING: Department/Program Field Visibility
+    // ===================================================================
+
+    /**
+     * Show/hide department and program fields based on selected role
+     * Business Rules:
+     * - department_head: show department field (required)
+     * - program_head: show program field (required)
+     * - other roles: hide both fields
+     */
+    function toggleOrganizationalFields(roleSelect, departmentField, programField, departmentSelect, programSelect) {
+        const selectedRole = roleSelect.value;
+
+        if (selectedRole === 'department_head') {
+            // Show department field, hide program field
+            departmentField.style.display = 'block';
+            programField.style.display = 'none';
+            departmentSelect.required = true;
+            programSelect.required = false;
+            programSelect.value = '';
+        } else if (selectedRole === 'program_head') {
+            // Show program field, hide department field
+            programField.style.display = 'block';
+            departmentField.style.display = 'none';
+            programSelect.required = true;
+            departmentSelect.required = false;
+            departmentSelect.value = '';
+        } else {
+            // Hide both fields for other roles
+            departmentField.style.display = 'none';
+            programField.style.display = 'none';
+            departmentSelect.required = false;
+            programSelect.required = false;
+            departmentSelect.value = '';
+            programSelect.value = '';
+        }
+    }
+
+    // Wire up Add User form role selector
+    const addRoleSelect = document.getElementById('addRole');
+    const addDepartmentField = document.getElementById('addDepartmentField');
+    const addProgramField = document.getElementById('addProgramField');
+    const addDepartmentSelect = document.getElementById('addDepartment');
+    const addProgramSelect = document.getElementById('addProgram');
+
+    if (addRoleSelect && addDepartmentField && addProgramField) {
+        addRoleSelect.addEventListener('change', function() {
+            toggleOrganizationalFields(
+                addRoleSelect,
+                addDepartmentField,
+                addProgramField,
+                addDepartmentSelect,
+                addProgramSelect
+            );
+        });
+
+        // Initialize on page load
+        toggleOrganizationalFields(
+            addRoleSelect,
+            addDepartmentField,
+            addProgramField,
+            addDepartmentSelect,
+            addProgramSelect
+        );
+    }
+
+    // Wire up Edit User form role selector
+    const editRoleSelect = document.getElementById('editRole');
+    const editDepartmentField = document.getElementById('editDepartmentField');
+    const editProgramField = document.getElementById('editProgramField');
+    const editDepartmentSelect = document.getElementById('editDepartment');
+    const editProgramSelect = document.getElementById('editProgram');
+
+    if (editRoleSelect && editDepartmentField && editProgramField) {
+        editRoleSelect.addEventListener('change', function() {
+            toggleOrganizationalFields(
+                editRoleSelect,
+                editDepartmentField,
+                editProgramField,
+                editDepartmentSelect,
+                editProgramSelect
+            );
+        });
+    }
+
+    // ===================================================================
+    // END ORGANIZATIONAL SCOPING
+    // ===================================================================
+
+    // ===================================================================
+    // FACULTY SCHEME: Visibility and requirement by role
+    // ===================================================================
+
+    /**
+     * Show/hide faculty scheme field based on role.
+     * Required for: department_head, program_head, instructor
+     * Hidden and disabled for: student
+     */
+    function toggleSchemeField(roleSelect, schemeField, schemeSelect) {
+        const selectedRole = roleSelect.value;
+        const requiresScheme = ['department_head', 'program_head', 'instructor'].includes(selectedRole);
+
+        if (!schemeField || !schemeSelect) return;
+
+        if (requiresScheme) {
+            schemeField.style.display = 'block';
+            schemeSelect.required = true;
+            schemeSelect.disabled = false;
+        } else {
+            schemeField.style.display = 'none';
+            schemeSelect.required = false;
+            schemeSelect.value = '';
+            schemeSelect.disabled = true; // Disabled so it's not submitted
+        }
+    }
+
+    // Wire up Add User scheme field
+    const addSchemeField = document.getElementById('addFacultySchemeField');
+    const addSchemeSelect = document.getElementById('addFacultyScheme');
+    if (addRoleSelect && addSchemeField && addSchemeSelect) {
+        addRoleSelect.addEventListener('change', function() {
+            toggleSchemeField(addRoleSelect, addSchemeField, addSchemeSelect);
+        });
+        toggleSchemeField(addRoleSelect, addSchemeField, addSchemeSelect);
+    }
+
+    // Wire up Edit User scheme field
+    const editSchemeField = document.getElementById('editFacultySchemeField');
+    const editSchemeSelect = document.getElementById('editFacultyScheme');
+    if (editRoleSelect && editSchemeField && editSchemeSelect) {
+        editRoleSelect.addEventListener('change', function() {
+            toggleSchemeField(editRoleSelect, editSchemeField, editSchemeSelect);
+        });
+    }
+
+    // ===================================================================
+    // END FACULTY SCHEME
+    // ===================================================================
+
     // Debounce helper for text-driven filters
     const debounce = (fn, delay = 400) => {
         let timeoutId;
@@ -275,11 +415,35 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('editRole').value = user.role;
                     document.getElementById('editStatus').value = user.status;
 
+                    // Set department and program if applicable
+                    if (user.department_id) {
+                        document.getElementById('editDepartment').value = user.department_id;
+                    }
+                    if (user.program_id) {
+                        document.getElementById('editProgram').value = user.program_id;
+                    }
+
                     // Clear password fields
                     document.getElementById('editPassword').value = '';
                     document.getElementById('editPasswordConfirmation').value = '';
 
                     clearValidationErrors(document.getElementById('editUserForm'));
+
+                    // Trigger role change to show/hide appropriate fields
+                    toggleOrganizationalFields(
+                        editRoleSelect,
+                        editDepartmentField,
+                        editProgramField,
+                        editDepartmentSelect,
+                        editProgramSelect
+                    );
+
+                    // Set scheme value if present and toggle visibility
+                    if (editSchemeSelect) {
+                        editSchemeSelect.value = user.faculty_scheme || '';
+                    }
+                    toggleSchemeField(editRoleSelect, editSchemeField, editSchemeSelect);
+
                     editUserModal.show();
                 } else {
                     showToast('error', 'Failed to load user data');
@@ -558,10 +722,26 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('addUserModal').addEventListener('hidden.bs.modal', function () {
         addUserForm.reset();
         clearValidationErrors(addUserForm);
+        // Reset organizational fields visibility
+        if (addDepartmentField) addDepartmentField.style.display = 'none';
+        if (addProgramField) addProgramField.style.display = 'none';
+        if (addDepartmentSelect) addDepartmentSelect.required = false;
+        if (addProgramSelect) addProgramSelect.required = false;
+        // Reset scheme field
+        if (addSchemeField) addSchemeField.style.display = 'none';
+        if (addSchemeSelect) { addSchemeSelect.required = false; addSchemeSelect.value = ''; addSchemeSelect.disabled = true; }
     });
 
     document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function () {
         editUserForm.reset();
         clearValidationErrors(editUserForm);
+        // Reset organizational fields visibility
+        if (editDepartmentField) editDepartmentField.style.display = 'none';
+        if (editProgramField) editProgramField.style.display = 'none';
+        if (editDepartmentSelect) editDepartmentSelect.required = false;
+        if (editProgramSelect) editProgramSelect.required = false;
+        // Reset scheme field
+        if (editSchemeField) editSchemeField.style.display = 'none';
+        if (editSchemeSelect) { editSchemeSelect.required = false; editSchemeSelect.value = ''; editSchemeSelect.disabled = true; }
     });
 });

@@ -65,7 +65,7 @@
                             </h6>
                             <p class="mb-0">
                                 <span class="badge" style="background-color: #660000; font-size: 0.95rem;">
-                                    ${room.type_name}
+                                    ${room.room_type}
                                 </span>
                             </p>
                         </div>
@@ -108,7 +108,7 @@
                         document.getElementById('edit_room_id').value = room.id;
                         document.getElementById('edit_room_code').value = room.room_code;
                         document.getElementById('edit_room_name').value = room.room_name;
-                        document.getElementById('edit_room_type_id').value = room.room_type_id;
+                        document.getElementById('edit_room_type').value = room.room_type;
 
                         const editForm = document.getElementById('editRoomForm');
                         editForm.classList.remove('was-validated');

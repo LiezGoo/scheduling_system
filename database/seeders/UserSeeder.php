@@ -2,38 +2,93 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
+use App\Models\Department;
+use App\Models\Program;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
-{
-    DB::table('users')->updateOrInsert(
-        ['email' => 'yourliez15@gmail.com'],
-        [
-            'first_name' => 'Admin',
-            'last_name' => 'User',
-            'email_verified_at' => now(),
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]
-    );
+    {
+        // STEP 1: safely clear users table (no drops)
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::table('users')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-    DB::table('users')->updateOrInsert(
-        ['email' => 'departmenthead@gmail.com'],
-        [
-            'first_name' => 'Department Head',
-            'last_name' => 'User',
-            'email_verified_at' => now(),
-            'password' => Hash::make('password'),
-            'role' => 'department_head',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]
-    );
-}
+        $faker = \Faker\Factory::create();
+
+        // Preload relations for integrity checks
+        $departments = Department::with('programs')->get()->keyBy('id');
+        $programs = Program::with('department')->get();
+
+        // Department Heads: one per department (department_id required, program_id null)
+        foreach ($departments as $department) {
+            User::create([
+                'name' => $faker->name(),
+                'email' => "depthead+{$department->id}@example.test",
+                'role' => 'department_head',
+                'department_id' => $department->id,
+                'program_id' => null,
+                'email_verified_at' => now(),
+                'password' => Hash::make('Password123!'),
+                'remember_token' => Str::random(10),
+            ]);
+        }
+
+        // Program Heads: one per program (department_id must match)
+        foreach ($programs as $program) {
+            User::create([
+                'name' => $faker->name(),
+                'email' => "proghead+{$program->id}@example.test",
+                'role' => 'program_head',
+                'department_id' => $program->department_id,
+                'program_id' => $program->id,
+                'email_verified_at' => now(),
+                'password' => Hash::make('Password123!'),
+                'remember_token' => Str::random(10),
+            ]);
+        }
+
+        // Instructors: 2 per department, optional program_id, with faculty_scheme
+        $facultySchemes = ['7:00-16:00', '8:00-17:00', '10:00-19:00'];
+        foreach ($departments as $department) {
+            $deptPrograms = $department->programs ?? collect();
+
+            for ($i = 0; $i < 2; $i++) {
+                $program = $deptPrograms->isNotEmpty() ? $deptPrograms->random() : null;
+
+                User::create([
+                    'name' => $faker->name(),
+                    'email' => $faker->unique()->safeEmail(),
+                    'role' => 'instructor',
+                    'department_id' => $department->id,
+                    'program_id' => $program?->id,
+                    'faculty_scheme' => $faker->randomElement($facultySchemes),
+                    'email_verified_at' => now(),
+                    'password' => Hash::make('Password123!'),
+                    'remember_token' => Str::random(10),
+                ]);
+            }
+        }
+
+        // Students: 10 per program (department inferred from program)
+        foreach ($programs as $program) {
+            for ($i = 0; $i < 10; $i++) {
+                User::create([
+                    'name' => $faker->name(),
+                    'email' => $faker->unique()->safeEmail(),
+                    'role' => 'student',
+                    'department_id' => $program->department_id,
+                    'program_id' => $program->id,
+                    'email_verified_at' => now(),
+                    'password' => Hash::make('Password123!'),
+                    'remember_token' => Str::random(10),
+                ]);
+            }
+        }
+    }
 }

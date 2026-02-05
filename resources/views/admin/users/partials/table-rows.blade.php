@@ -15,6 +15,21 @@
             </span>
         </td>
         <td>
+            @if ($user->isDepartmentHead() && $user->department)
+                <span class="badge bg-secondary">
+                    <i class="fa-solid fa-building me-1"></i>
+                    {{ $user->department->department_name }}
+                </span>
+            @elseif($user->isProgramHead() && $user->program)
+                <span class="badge bg-secondary">
+                    <i class="fa-solid fa-graduation-cap me-1"></i>
+                    {{ $user->program->program_name }}
+                </span>
+            @else
+                <span class="text-muted">—</span>
+            @endif
+        </td>
+        <td>
             <span class="badge status-badge {{ $user->status === 'active' ? 'bg-success' : 'bg-danger' }}">
                 {{ ucfirst($user->status) }}
             </span>
@@ -47,7 +62,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="5" class="text-center py-4">
+        <td colspan="6" class="text-center py-4">
             <i class="fa-solid fa-users text-muted fa-3x mb-3"></i>
             <p class="text-muted mb-0">No users found</p>
         </td>

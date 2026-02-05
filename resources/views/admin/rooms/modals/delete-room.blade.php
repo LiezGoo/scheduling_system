@@ -37,14 +37,33 @@
         deleteRoomBtn.disabled = true;
         spinner.style.display = 'inline-block';
 
+        const formData = new FormData();
+        formData.append('_method', 'DELETE');
+
         fetch(`/admin/rooms/${roomId}`, {
-                method: 'DELETE',
+                method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json'
+                },
+                body: formData
             })
-            .then(response => response.json())
+            .then(async response => {
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                const data = isJson ? await response.json() : {
+                    success: false,
+                    message: 'Failed to delete room. Please try again.'
+                };
+
+                if (!response.ok) {
+                    data.success = false;
+                    data.message = data.message || 'Failed to delete room. Please try again.';
+                }
+
+                return data;
+            })
             .then(data => {
                 if (data.success) {
                     bootstrap.Modal.getInstance(document.getElementById('deleteRoomModal')).hide();

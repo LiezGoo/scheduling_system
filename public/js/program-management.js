@@ -186,7 +186,7 @@
       const id = btn.getAttribute('data-program-id');
       const viewProgramModalEl = document.getElementById('viewProgramModal');
       const viewProgramModal = viewProgramModalEl ? new bootstrap.Modal(viewProgramModalEl) : null;
-      
+
       fetch(`/admin/programs/${id}`, { headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' } })
         .then((r) => r.json())
         .then((data) => {

@@ -87,20 +87,6 @@
         </div>
     </form>
 
-    {{-- Help / Info Section --}}
-    <div class="help-section">
-        <div class="help-icon">
-            <i class="fa-solid fa-circle-info"></i>
-        </div>
-        <div class="help-content">
-            <strong class="help-title">Need help?</strong>
-            <p class="help-text">
-                If you don't receive the reset email within a few minutes, please check your spam folder.
-                Still having trouble? <a href="#" class="help-link">Contact support</a> for assistance.
-            </p>
-        </div>
-    </div>
-
     @push('scripts')
         <script>
             document.getElementById('forgotPasswordForm').addEventListener('submit', function(e) {
@@ -121,8 +107,8 @@
 @push('styles')
     <style>
         /* ============================================
-           FORGOT PASSWORD PAGE STYLES
-           ============================================ */
+               FORGOT PASSWORD PAGE STYLES
+               ============================================ */
 
         /* Page Header */
         .forgot-password-header {
@@ -449,8 +435,8 @@
         }
 
         /* ============================================
-           RESPONSIVE DESIGN
-           ============================================ */
+               RESPONSIVE DESIGN
+               ============================================ */
 
         /* Mobile Phones (up to 576px) */
         @media (max-width: 576px) {
