@@ -53,7 +53,7 @@ class UserController extends Controller
 
         // Get departments and programs for assignment dropdowns
         $departments = Department::orderBy('department_name')->get();
-        $programs = Program::with('departments')->orderBy('program_name')->get();
+        $programs = Program::with('department')->orderBy('program_name')->get();
 
         if ($request->ajax()) {
             return response()->json([
@@ -77,7 +77,7 @@ class UserController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|string|in:admin,department_head,program_head,instructor',
+            'role' => 'required|string|in:admin,department_head,program_head,instructor,student',
             'department_id' => 'nullable|exists:departments,id',
             'program_id' => 'nullable|exists:programs,id',
             'status' => 'required|string|in:active,inactive',
@@ -127,7 +127,7 @@ class UserController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
-            'role' => 'required|string|in:admin,department_head,program_head,instructor',
+            'role' => 'required|string|in:admin,department_head,program_head,instructor,student',
             'department_id' => 'nullable|exists:departments,id',
             'program_id' => 'nullable|exists:programs,id',
             'status' => 'required|string|in:active,inactive',
@@ -146,6 +146,11 @@ class UserController extends Controller
             'status' => $validated['status'],
             'is_active' => ($validated['status'] === User::STATUS_ACTIVE),
         ];
+
+        if ($validated['role'] === User::ROLE_STUDENT) {
+            $updateData['department_id'] = null;
+            $updateData['program_id'] = null;
+        }
 
         if (!empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
@@ -234,8 +239,9 @@ class UserController extends Controller
      * Business Rules:
      * 1. Department Heads MUST have a department_id assigned
      * 2. Program Heads MUST have a program_id assigned
-     * 3. Other roles CANNOT have department_id or program_id
-     * 4. Only ONE user can be assigned as head of a department/program
+    * 3. Students do not require program assignment
+    * 4. Other roles CANNOT have department_id or program_id
+    * 5. Only ONE user can be assigned as head of a department/program
      *
      * @throws \Exception
      */
@@ -282,6 +288,13 @@ class UserController extends Controller
                 throw new \Exception(
                     "The program '{$program->program_name}' already has a Program Head assigned: {$existingHead->full_name}"
                 );
+            }
+        }
+
+        if ($role === User::ROLE_STUDENT && $request->filled('program_id')) {
+            $program = Program::find($request->program_id);
+            if (!$program) {
+                throw new \Exception('Selected program does not exist.');
             }
         }
     }

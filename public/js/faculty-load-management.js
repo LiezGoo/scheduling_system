@@ -69,7 +69,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('viewFacultyRole').textContent = data.faculty.role_label;
         document.getElementById('viewSubjectName').textContent = data.subject.subject_name;
         document.getElementById('viewSubjectCode').textContent = data.subject.subject_code;
-        document.getElementById('viewProgramName').textContent = data.program.program_name;
+        const department = data.department || data.program || {};
+        const departmentName = department.department_name || department.program_name || 'N/A';
+        const departmentEl = document.getElementById('viewDepartmentName') || document.getElementById('viewProgramName');
+        if (departmentEl) {
+            departmentEl.textContent = departmentName;
+        }
         document.getElementById('viewLectureHours').textContent = data.lecture_hours || 0;
         document.getElementById('viewLabHours').textContent = data.lab_hours || 0;
         document.getElementById('viewComputedUnits').textContent = data.computed_units || '0.00';

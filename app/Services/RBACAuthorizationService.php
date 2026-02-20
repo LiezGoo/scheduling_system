@@ -196,7 +196,7 @@ class RBACAuthorizationService
         }
 
         if ($this->user->isProgramHead() && $this->user->program) {
-            $context['assigned_department'] = $this->user->program->departments?->only(['id', 'department_code', 'department_name']);
+            $context['assigned_department'] = $this->user->program->department?->only(['id', 'department_code', 'department_name']);
         }
 
         return $context;

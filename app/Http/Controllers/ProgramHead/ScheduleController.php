@@ -12,9 +12,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\NotificationService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ScheduleController extends Controller
 {
+    use AuthorizesRequests;
+
     protected NotificationService $notificationService;
 
     public function __construct(NotificationService $notificationService)
@@ -66,19 +69,33 @@ class ScheduleController extends Controller
      */
     public function create()
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
 
         if (!$user->isProgramHead() || !$user->program_id) {
             abort(403, 'Unauthorized access.');
         }
 
-        // Get subjects for program head's program
-        $subjects = Subject::where('program_id', $user->program_id)
+        $department = $user->getInferredDepartment();
+
+        if (!$department) {
+            abort(403, 'No department assigned.');
+        }
+
+        // Get subjects from department (shared resource)
+        $subjects = Subject::forDepartment($department->id)
+            ->active()
             ->orderBy('subject_code')
             ->get();
 
-        // Get eligible instructors
-        $instructors = User::eligibleInstructors()->active()
+        // Get eligible instructors from department
+        $instructors = User::eligibleInstructors()
+            ->active()
+            ->inDepartment($department->id)
             ->orderBy('first_name')
             ->get();
 
@@ -95,10 +112,21 @@ class ScheduleController extends Controller
      */
     public function store(Request $request)
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
 
         if (!$user->isProgramHead() || !$user->program_id) {
             abort(403, 'Unauthorized access.');
+        }
+
+        $department = $user->getInferredDepartment();
+
+        if (!$department) {
+            abort(403, 'No department assigned.');
         }
 
         $validated = $request->validate([
@@ -116,14 +144,15 @@ class ScheduleController extends Controller
             'schedule_items.*.section' => 'nullable|string|max:50',
         ]);
 
-        // Verify all subjects belong to program head's program
+        // Verify all subjects belong to department
         $subjectIds = collect($validated['schedule_items'])->pluck('subject_id')->unique();
         $validSubjects = Subject::whereIn('id', $subjectIds)
-            ->where('program_id', $user->program_id)
+            ->forDepartment($department->id)
+            ->active()
             ->count();
 
         if ($validSubjects !== $subjectIds->count()) {
-            return back()->withErrors('Some subjects do not belong to your program.');
+            return back()->withErrors('Some subjects do not belong to your department or are inactive.');
         }
 
         DB::beginTransaction();
@@ -170,14 +199,12 @@ class ScheduleController extends Controller
             foreach ($instructorHours as $instructorId => $hours) {
                 $instructor = User::find($instructorId);
                 if ($instructor) {
-                    $validation = $instructor->validateFacultyLoad(
-                        $hours['total_lecture_hours'],
-                        $hours['total_lab_hours']
-                    );
+                    $totalHours = $hours['total_lecture_hours'] + $hours['total_lab_hours'];
+                    $maxHours = 40; // Define your maximum faculty load limit
 
-                    if (!$validation['valid']) {
+                    if ($totalHours > $maxHours) {
                         DB::rollBack();
-                        return back()->withErrors($validation['message'])
+                        return back()->withErrors("Instructor {$instructor->first_name} {$instructor->last_name} exceeds maximum faculty load of {$maxHours} hours.")
                             ->withInput();
                     }
                 }
@@ -259,7 +286,12 @@ class ScheduleController extends Controller
      */
     public function edit(Schedule $schedule)
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
 
         $this->authorize('update', $schedule);
 
@@ -275,13 +307,22 @@ class ScheduleController extends Controller
 
         $schedule->load(['items.subject', 'items.instructor', 'items.room']);
 
-        // Get subjects for program head's program
-        $subjects = Subject::where('program_id', $user->program_id)
+        $department = $user->getInferredDepartment();
+
+        if (!$department) {
+            abort(403, 'No department assigned.');
+        }
+
+        // Get subjects from department
+        $subjects = Subject::forDepartment($department->id)
+            ->active()
             ->orderBy('subject_code')
             ->get();
 
         // Get eligible instructors
-        $instructors = User::eligibleInstructors()->active()
+        $instructors = User::eligibleInstructors()
+            ->active()
+            ->inDepartment($department->id)
             ->orderBy('first_name')
             ->get();
 

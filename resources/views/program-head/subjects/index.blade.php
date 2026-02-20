@@ -10,6 +10,9 @@
                 <p class="text-muted mb-0">
                     <i class="fa-solid fa-book me-2"></i>Manage academic subjects
                 </p>
+                <p class="text-muted mb-0">
+                    <i class="fa-solid fa-building-columns me-2"></i>{{ $departmentName }}
+                </p>
             </div>
             <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
                 <i class="fa-solid fa-plus me-2"></i>Add New Subject

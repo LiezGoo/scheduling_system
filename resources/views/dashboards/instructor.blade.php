@@ -17,22 +17,26 @@
                         </div>
                         <div class="row g-3 mt-1">
                             <div class="col-12 col-md-4" id="schedule-generation">
-                                <div class="card border-0 shadow-sm h-100">
-                                    <div class="card-body text-center">
-                                        <i class="fa-solid fa-calendar-days fa-2x text-warning mb-2"></i>
-                                        <h6 class="mb-1">My Schedule</h6>
-                                        <p class="text-muted small mb-0">See classes and meetings</p>
+                                <a href="{{ route('instructor.my-schedule.index') }}" class="text-decoration-none">
+                                    <div class="card border-0 shadow-sm h-100 hover-card">
+                                        <div class="card-body text-center">
+                                            <i class="fa-solid fa-calendar-days fa-2x text-warning mb-2"></i>
+                                            <h6 class="mb-1">My Schedule</h6>
+                                            <p class="text-muted small mb-0">See classes and meetings</p> 
+                                        </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                             <div class="col-12 col-md-4" id="curriculum-management">
-                                <div class="card border-0 shadow-sm h-100">
-                                    <div class="card-body text-center">
-                                        <i class="fa-solid fa-book-open-reader fa-2x text-primary mb-2"></i>
-                                        <h6 class="mb-1">My Courses</h6>
-                                        <p class="text-muted small mb-0">Materials, syllabi, and updates</p>
+                                <a href="{{ route('instructor.my-loads.index') }}" class="text-decoration-none">
+                                    <div class="card border-0 shadow-sm h-100 hover-card">
+                                        <div class="card-body text-center">
+                                            <i class="fa-solid fa-book-open-reader fa-2x text-primary mb-2"></i>
+                                            <h6 class="mb-1">My loads</h6>
+                                            <p class="text-muted small mb-0">Materials, syllabi, and updates</p>
+                                        </div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                             <div class="col-12 col-md-4" id="faculty-load">
                                 <div class="card border-0 shadow-sm h-100">
@@ -49,4 +53,14 @@
             </div>
         </div>
     </div>
+    <style>
+        .hover-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hover-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1rem rgba(102, 0, 0, 0.15) !important;
+        }
+    </style>
 @endsection

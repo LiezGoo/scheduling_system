@@ -27,22 +27,13 @@
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-12 col-md-6 col-xl-3" id="faculty-load">
-                                <div class="card border-0 shadow-sm h-100">
-                                    <div class="card-body text-center">
-                                        <i class="fa-solid fa-clipboard-list fa-2x text-success mb-2"></i>
-                                        <h6 class="mb-1">Faculty Load</h6>
-                                        <p class="text-muted small mb-0">Teaching assignments and loads</p>
-                                    </div>
-                                </div>
-                            </div>
                             <div class="col-12 col-md-6 col-xl-3" id="subject-management">
                                 <a href="{{ route('admin.subjects.index') }}" class="text-decoration-none">
                                     <div class="card border-0 shadow-sm h-100 hover-card">
                                         <div class="card-body text-center">
                                             <i class="fa-solid fa-book fa-2x text-info mb-2"></i>
-                                            <h6 class="mb-1 text-dark">Subjects</h6>
-                                            <p class="text-muted small mb-0">Manage academic subjects</p>
+                                            <h6 class="mb-1 text-dark">Departments</h6>
+                                            <p class="text-muted small mb-0">Manage departments</p>
                                         </div>
                                     </div>
                                 </a>
@@ -66,15 +57,6 @@
                                         </div>
                                     </div>
                                 </a>
-                            </div>
-                            <div class="col-12 col-md-6 col-xl-3" id="schedule-generation">
-                                <div class="card border-0 shadow-sm h-100">
-                                    <div class="card-body text-center">
-                                        <i class="fa-solid fa-calendar-check fa-2x text-warning mb-2"></i>
-                                        <h6 class="mb-1">Schedule Generation</h6>
-                                        <p class="text-muted small mb-0">Build conflict-free timetables</p>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>

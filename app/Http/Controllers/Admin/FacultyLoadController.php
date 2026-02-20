@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Subject;
-use App\Models\Program;
+use App\Models\Department;
 use App\Services\FacultyLoadService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,12 +37,12 @@ class FacultyLoadController extends Controller
     {
         // Build faculty loads query (flattened view of all faculty-subject assignments)
         $query = DB::table('faculty_subjects')
-                    ->join('users', 'faculty_subjects.user_id', '=', 'users.id')
-                    ->join('subjects', 'faculty_subjects.subject_id', '=', 'subjects.id')
-                    ->join('programs', 'subjects.program_id', '=', 'programs.id')
-                    ->select('faculty_subjects.*', 'users.full_name', 'users.school_id', 'users.role',
-                             'subjects.subject_code', 'subjects.subject_name', 'subjects.units',
-                             'programs.program_name', 'programs.id as program_id')
+                ->join('users', 'faculty_subjects.user_id', '=', 'users.id')
+                ->join('subjects', 'faculty_subjects.subject_id', '=', 'subjects.id')
+                ->join('departments', 'subjects.department_id', '=', 'departments.id')
+                ->select('faculty_subjects.*', 'users.full_name', 'users.school_id', 'users.role',
+                     'subjects.subject_code', 'subjects.subject_name', 'subjects.units',
+                     'departments.department_name', 'departments.id as department_id')
                     ->where('users.status', 'active')
                     ->whereIn('users.role', [User::ROLE_INSTRUCTOR, User::ROLE_PROGRAM_HEAD, User::ROLE_DEPARTMENT_HEAD]);
 
@@ -55,9 +55,9 @@ class FacultyLoadController extends Controller
             });
         }
 
-        // Filter by program
-        if ($request->filled('program')) {
-            $query->where('programs.id', $request->input('program'));
+        // Filter by department
+        if ($request->filled('department')) {
+            $query->where('departments.id', $request->input('department'));
         }
 
         // Filter by role
@@ -80,8 +80,8 @@ class FacultyLoadController extends Controller
                               ->paginate($perPage)
                               ->appends($request->query());
 
-        // Get programs for filter dropdown
-        $programs = Program::orderBy('program_name')->get();
+        // Get departments for filter dropdown
+        $departments = Department::orderBy('department_name')->get();
 
         // Get subjects for filter dropdown
         $subjects = Subject::orderBy('subject_code')->get();
@@ -97,13 +97,13 @@ class FacultyLoadController extends Controller
 
         return view('admin.faculty_load.index', [
             'facultyLoads' => $facultyLoads,
-            'programs' => $programs,
+            'departments' => $departments,
             'subjects' => $subjects,
             'eligibleFaculty' => $eligibleFaculty,
             'summary' => $summary,
             'currentFilters' => [
                 'faculty' => $request->input('faculty'),
-                'program' => $request->input('program'),
+                'department' => $request->input('department'),
                 'role' => $request->input('role'),
                 'subject' => $request->input('subject'),
             ],
@@ -119,10 +119,10 @@ class FacultyLoadController extends Controller
             $load = DB::table('faculty_subjects')
                        ->join('users', 'faculty_subjects.user_id', '=', 'users.id')
                        ->join('subjects', 'faculty_subjects.subject_id', '=', 'subjects.id')
-                       ->join('programs', 'subjects.program_id', '=', 'programs.id')
+                       ->join('departments', 'subjects.department_id', '=', 'departments.id')
                        ->select('faculty_subjects.*', 'users.id as user_id', 'users.full_name', 'users.school_id', 'users.role',
                                 'subjects.id as subject_id', 'subjects.subject_code', 'subjects.subject_name', 'subjects.units',
-                                'programs.id as program_id', 'programs.program_name')
+                                'departments.id as department_id', 'departments.department_name')
                        ->where('faculty_subjects.id', $facultyLoadId)
                        ->first();
 
@@ -146,9 +146,9 @@ class FacultyLoadController extends Controller
                     'subject_name' => $load->subject_name,
                     'units' => $load->units,
                 ],
-                'program' => [
-                    'id' => $load->program_id,
-                    'program_name' => $load->program_name,
+                'department' => [
+                    'id' => $load->department_id,
+                    'department_name' => $load->department_name,
                 ],
                 'lecture_hours' => $load->lecture_hours ?? 0,
                 'lab_hours' => $load->lab_hours ?? 0,

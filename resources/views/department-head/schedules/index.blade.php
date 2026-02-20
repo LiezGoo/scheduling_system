@@ -5,10 +5,9 @@
 @section('content')
     <div class="container-fluid py-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-            <div>
-                <h2 class="h4 mb-2">Schedules Pending Approval</h2>
-                <p class="text-muted mb-0">Review schedules submitted by programs under your department.</p>
-            </div>
+            <!-- <div>
+                <p class="text-muted mb-0"><i class="fas fa-calendar-check"></i> Review schedules submitted by programs under your department.</p>
+            </div> -->
         </div>
 
         @if (session('success'))

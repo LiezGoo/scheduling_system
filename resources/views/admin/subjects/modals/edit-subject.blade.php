@@ -16,6 +16,23 @@
 
                 <div class="modal-body">
                     <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="edit_department_id" class="form-label">
+                                Department <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="edit_department_id" name="department_id" required>
+                                <option value="">Select Department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}">
+                                        {{ $department->department_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback">Please select a department.</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="edit_subject_code" class="form-label">
                                 Subject Code <span class="text-danger">*</span>
@@ -124,7 +141,7 @@
                     document.getElementById('edit_subject_id').value = btn.dataset.subjectId;
                     document.getElementById('edit_subject_code').value = btn.dataset.subjectCode;
                     document.getElementById('edit_subject_name').value = btn.dataset.subjectName;
-                    document.getElementById('edit_program_id').value = btn.dataset.programId;
+                    document.getElementById('edit_department_id').value = btn.dataset.departmentId;
                     document.getElementById('edit_units').value = btn.dataset.units;
                     document.getElementById('edit_lecture_hours').value = btn.dataset.lectureHours;
                     document.getElementById('edit_lab_hours').value = btn.dataset.labHours;

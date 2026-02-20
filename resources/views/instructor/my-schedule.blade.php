@@ -1,24 +1,14 @@
 @extends('layouts.app')
 
-@section('page-title', 'Student Dashboard')
+@section('page-title', 'My Schedule')
 
 @section('content')
-    <div class="container-fluid py-3 py-md-4 student-dashboard">
-        <!-- Welcome Header -->
-        <div class="row mb-3 mb-md-4">
-            <div class="col-12">
-                <div class="card shadow-sm" id="overview">
-                    <div class="card-body py-3 py-md-4">
-                        <div
-                            class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2 gap-sm-3">
-                            <div>
-                                <h4 class="mb-1 dashboard-title">Welcome, {{ Auth::user()->full_name }}!</h4>
-                                <p class="text-muted mb-0 dashboard-subtitle">View class schedules</p>
-                            </div>
-                            <span class="badge bg-maroon text-white px-3 py-2 role-badge">Student</span>
-                        </div>
-                    </div>
-                </div>
+    <div class="container-fluid py-4">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <p class="text-muted mb-0"> <i class="fa-solid fa-users-gear me-2"></i>
+                    Manage your schedule and view class details</p>
             </div>
         </div>
 
@@ -395,4 +385,6 @@
             });
         });
     </script>
+    </div>
+    
 @endsection

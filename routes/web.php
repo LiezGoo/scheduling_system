@@ -224,6 +224,14 @@ Route::middleware(['auth'])->group(function () {
         return view('dashboards.instructor');
     })->middleware(['role:instructor'])->name('instructor.dashboard');
 
+    Route::get('/instructor/my-schedule', function () {
+    return view('instructor.my-schedule');
+    })->name('instructor.my-schedule.index');
+
+    Route::get('/instructor/my-loads', function () {
+    return view('instructor.my-loads');
+    })->name('instructor.my-loads.index');
+
     // Student Dashboard
     Route::get('/student/dashboard', function() {
         return view('dashboards.student');

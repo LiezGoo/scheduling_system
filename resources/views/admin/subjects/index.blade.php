@@ -28,6 +28,18 @@
                                 placeholder="Search by code or name..." value="{{ request('search') }}">
                         </div>
                         <div class="col-md-3">
+                            <label for="filterDepartment" class="form-label">Department</label>
+                            <select class="form-select" id="filterDepartment" name="department_id">
+                                <option value="">All Departments</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}"
+                                        {{ request('department_id') == $department->id ? 'selected' : '' }}>
+                                        {{ $department->department_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label for="filterYearLevel" class="form-label">Year Level</label>
                             <select class="form-select" id="filterYearLevel" name="year_level">
                                 <option value="">All Years</option>
@@ -73,6 +85,7 @@
                             <tr>
                                 <th>Subject Code</th>
                                 <th>Subject Name</th>
+                                <th>Department</th>
                                 <th class="text-center">Units</th>
                                 <th class="text-center">Lecture Hrs</th>
                                 <th class="text-center">Lab Hrs</th>

@@ -15,9 +15,9 @@ class Program extends Model
     ];
 
     /**
-     * Get the department that this program belongs to.
+     * Get the department that owns the program.
      */
-    public function departments(): BelongsTo
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'department_id');
     }

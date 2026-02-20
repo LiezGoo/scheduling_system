@@ -37,7 +37,7 @@
 
                 try {
                     const response = await fetch(
-                        `{{ route('program-head.subjects.index') }}/${subjectId}/details`, {
+                        `{{ route('program-head.subjects.index') }}/${subjectId}`, {
                             headers: {
                                 'X-Requested-With': 'XMLHttpRequest',
                                 'Accept': 'application/json'

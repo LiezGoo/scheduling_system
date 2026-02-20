@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\ProgramHead;
 
 use App\Http\Controllers\Controller;
-use App\Models\Program;
+use App\Models\Department;
 use App\Models\User;
 use App\Models\Subject;
 use App\Services\FacultyLoadService;
@@ -28,15 +28,17 @@ class FacultyLoadController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isProgramHead() || !$user->program_id) {
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
             abort(403, 'Unauthorized access.');
         }
 
-        // Build faculty loads query - scoped to program head's program
+        // Build faculty loads query - scoped to program head's department
         $query = DB::table('faculty_subjects')
             ->join('users', 'faculty_subjects.user_id', '=', 'users.id')
             ->join('subjects', 'faculty_subjects.subject_id', '=', 'subjects.id')
-            ->join('programs', 'subjects.program_id', '=', 'programs.id')
+            ->join('departments', 'subjects.department_id', '=', 'departments.id')
             ->select(
                 'faculty_subjects.id',
                 'users.id as user_id',
@@ -47,15 +49,15 @@ class FacultyLoadController extends Controller
                 'subjects.subject_code',
                 'subjects.subject_name',
                 'subjects.units',
-                'programs.id as program_id',
-                'programs.program_name',
+                'departments.id as department_id',
+                'departments.department_name',
                 'faculty_subjects.lecture_hours',
                 'faculty_subjects.lab_hours',
                 'faculty_subjects.computed_units',
                 'faculty_subjects.max_load_units',
                 'faculty_subjects.created_at'
             )
-            ->where('subjects.program_id', $user->program_id);
+            ->where('subjects.department_id', $department->id);
 
         // Apply filters
         if ($request->filled('faculty')) {
@@ -70,17 +72,21 @@ class FacultyLoadController extends Controller
             $query->where('subjects.id', $request->subject);
         }
 
+        if ($request->filled('department')) {
+            $query->where('departments.id', $request->department);
+        }
+
         $perPage = $request->input('per_page', 15);
         $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 15;
 
         $facultyLoads = $query->orderBy('users.full_name')->paginate($perPage);
 
-        $programs = Program::where('id', $user->program_id)
-            ->orderBy('program_name')
+        $departments = Department::where('id', $department->id)
+            ->orderBy('department_name')
             ->get();
 
-        // Get subjects only from program head's program
-        $subjects = Subject::where('program_id', $user->program_id)
+        // Get subjects only from program head's department
+        $subjects = Subject::where('department_id', $department->id)
             ->orderBy('subject_code')
             ->get();
 
@@ -97,19 +103,19 @@ class FacultyLoadController extends Controller
             return response()->json([
                 'success' => true,
                 'html' => view('program-head.faculty-load.partials.table-rows', compact('facultyLoads'))->render(),
-                'pagination' => $facultyLoads->withQueryString()->links()->render(),
+                'pagination' => $facultyLoads->withQueryString()->links(),
             ]);
         }
 
         return view('program-head.faculty-load.index', [
             'facultyLoads' => $facultyLoads,
-            'programs' => $programs,
+            'departments' => $departments,
             'subjects' => $subjects,
             'eligibleFaculty' => $eligibleFaculty,
             'summary' => $summary,
             'currentFilters' => [
                 'faculty' => $request->input('faculty'),
-                'program' => $request->input('program'),
+                'department' => $request->input('department'),
                 'role' => $request->input('role'),
                 'subject' => $request->input('subject'),
             ],
@@ -123,7 +129,9 @@ class FacultyLoadController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isProgramHead() || !$user->program_id) {
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -135,17 +143,17 @@ class FacultyLoadController extends Controller
             'max_load_units' => 'nullable|integer|min:1',
         ]);
 
-        // Verify subject belongs to program head's program
+        // Verify subject belongs to program head's department
         $subject = Subject::findOrFail($validated['subject_id']);
-        if ($subject->program_id !== $user->program_id) {
+        if ($subject->department_id !== $department->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Subject does not belong to your program.'
+                'message' => 'Subject does not belong to your department.'
             ], 403);
         }
 
         try {
-            $result = $this->facultyLoadService->assignSubject(
+            $result = $this->facultyLoadService->assignSubjectToInstructor(
                 $validated['user_id'],
                 $validated['subject_id'],
                 $validated['lecture_hours'],
@@ -180,7 +188,9 @@ class FacultyLoadController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isProgramHead() || !$user->program_id) {
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -188,7 +198,7 @@ class FacultyLoadController extends Controller
             $load = DB::table('faculty_subjects')
                 ->join('users', 'faculty_subjects.user_id', '=', 'users.id')
                 ->join('subjects', 'faculty_subjects.subject_id', '=', 'subjects.id')
-                ->join('programs', 'subjects.program_id', '=', 'programs.id')
+                ->join('departments', 'subjects.department_id', '=', 'departments.id')
                 ->select(
                     'faculty_subjects.*',
                     'users.id as user_id',
@@ -199,11 +209,11 @@ class FacultyLoadController extends Controller
                     'subjects.subject_code',
                     'subjects.subject_name',
                     'subjects.units',
-                    'programs.id as program_id',
-                    'programs.program_name'
+                    'departments.id as department_id',
+                    'departments.department_name'
                 )
                 ->where('faculty_subjects.id', $facultyLoadId)
-                ->where('subjects.program_id', $user->program_id)
+                ->where('subjects.department_id', $department->id)
                 ->first();
 
             if (!$load) {
@@ -228,6 +238,10 @@ class FacultyLoadController extends Controller
                     'subject_name' => $load->subject_name,
                     'units' => $load->units,
                 ],
+                'department' => [
+                    'id' => $load->department_id,
+                    'department_name' => $load->department_name,
+                ],
                 'lecture_hours' => $load->lecture_hours ?? 0,
                 'lab_hours' => $load->lab_hours ?? 0,
                 'computed_units' => $load->computed_units ?? 0,
@@ -246,7 +260,9 @@ class FacultyLoadController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isProgramHead() || !$user->program_id) {
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -258,11 +274,11 @@ class FacultyLoadController extends Controller
         ]);
 
         try {
-            // Verify the faculty load belongs to program head's program
+            // Verify the faculty load belongs to program head's department
             $load = DB::table('faculty_subjects')
                 ->join('subjects', 'faculty_subjects.subject_id', '=', 'subjects.id')
                 ->where('faculty_subjects.id', $validated['faculty_load_id'])
-                ->where('subjects.program_id', $user->program_id)
+                ->where('subjects.department_id', $department->id)
                 ->select('faculty_subjects.id')
                 ->first();
 
@@ -307,7 +323,9 @@ class FacultyLoadController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isProgramHead() || !$user->program_id) {
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -316,9 +334,9 @@ class FacultyLoadController extends Controller
             'subject_id' => 'required|integer|exists:subjects,id',
         ]);
 
-        // Verify subject belongs to program head's program
+        // Verify subject belongs to program head's department
         $subject = Subject::findOrFail($validated['subject_id']);
-        if ($subject->program_id !== $user->program_id) {
+        if ($subject->department_id !== $department->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access.'

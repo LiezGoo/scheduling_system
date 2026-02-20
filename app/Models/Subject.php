@@ -4,18 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Subject extends Model
 {
     protected $fillable = [
         'subject_code',
         'subject_name',
-        'program_id',
+        'department_id',
+        'created_by',
         'units',
         'lecture_hours',
         'lab_hours',
         'year_level',
         'semester',
+        'is_active',
     ];
 
     protected $casts = [
@@ -24,14 +27,23 @@ class Subject extends Model
         'lab_hours' => 'decimal:1',
         'year_level' => 'integer',
         'semester' => 'integer',
+        'is_active' => 'boolean',
     ];
 
     /**
-     * Get the program that owns the subject.
+     * Get the department that owns the subject.
      */
-    public function program()
+    public function department(): BelongsTo
     {
-        return $this->belongsTo(Program::class);
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the user who created the subject.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
@@ -71,21 +83,30 @@ class Subject extends Model
     }
 
     /**
-     * ========================================
-     * FACULTY LOAD MANAGEMENT RELATIONSHIPS
-     * ========================================
+     * Scope to active subjects only.
      */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope to a specific department.
+     */
+    public function scopeForDepartment($query, $departmentId)
+    {
+        return $query->where('department_id', $departmentId);
+    }
 
     /**
      * Get all eligible instructors assigned to teach this subject.
-     * Returns a many-to-many relationship through faculty_subjects pivot table.
      */
     public function facultyInstructors()
     {
         return $this->belongsToMany(User::class, 'faculty_subjects')
                     ->withPivot('max_sections', 'max_load_units')
                     ->withTimestamps()
-                    ->where('users.role', '!=', User::ROLE_ADMIN);
+                    ->where('users.role', '!=', 'admin');
     }
 
     /**
@@ -93,7 +114,6 @@ class Subject extends Model
      */
     public function getFacultyWithConstraints()
     {
-        return $this->facultyInstructors()
-                    ->get();
+        return $this->facultyInstructors()->get();
     }
 }

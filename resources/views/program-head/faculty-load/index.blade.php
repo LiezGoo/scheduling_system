@@ -7,8 +7,8 @@
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <p class="text-muted mb-0"><i class="fa-solid fa-book-open"></i> Manage academic programs and
-                    departments
+                <p class="text-muted mb-0"><i class="fa-solid fa-book-open"></i> Manage academic departments and
+                    subjects
                 </p>
             </div>
             <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#assignFacultyLoadModal">
@@ -28,15 +28,15 @@
                                 placeholder="Name or ID..." value="{{ $currentFilters['faculty'] ?? '' }}">
                         </div>
 
-                        <!-- Program Filter -->
+                        <!-- Department Filter -->
                         <div class="col-md-2">
-                            <label for="filterProgram" class="form-label">Program</label>
-                            <select class="form-select" id="filterProgram" name="program">
-                                <option value="">All Programs</option>
-                                @foreach ($programs as $program)
-                                    <option value="{{ $program->id }}"
-                                        {{ request('program') == $program->id ? 'selected' : '' }}>
-                                        {{ $program->program_name }}
+                            <label for="filterDepartment" class="form-label">Department</label>
+                            <select class="form-select" id="filterDepartment" name="department">
+                                <option value="">All Departments</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}"
+                                        {{ request('department') == $department->id ? 'selected' : '' }}>
+                                        {{ $department->department_name }}
                                     </option>
                                 @endforeach
                             </select>
@@ -175,7 +175,7 @@
                                 <th>Faculty ID</th>
                                 <th>Faculty Name</th>
                                 <th>Role</th>
-                                <th>Program</th>
+                                <th>Department</th>
                                 <th>Subject Code</th>
                                 <th>Subject Name</th>
                                 <th class="text-center">Lecture Hrs</th>
@@ -251,14 +251,14 @@
                             <div class="invalid-feedback"></div>
                         </div>
 
-                        <!-- Program Selection -->
+                        <!-- Department Selection -->
                         <div class="mb-3">
-                            <label for="assignProgram" class="form-label">Program <span
+                            <label for="assignDepartment" class="form-label">Department <span
                                     class="text-danger">*</span></label>
-                            <select class="form-select" id="assignProgram" name="program_id" required>
-                                <option value="">Select Program</option>
-                                @foreach ($programs as $program)
-                                    <option value="{{ $program->id }}">{{ $program->program_name }}</option>
+                            <select class="form-select" id="assignDepartment" name="department_id" required>
+                                <option value="">Select Department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}">{{ $department->department_name }}</option>
                                 @endforeach
                             </select>
                             <div class="invalid-feedback"></div>
@@ -454,13 +454,13 @@
                             </div>
                         </div>
 
-                        <!-- Program -->
+                        <!-- Department -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-graduation-cap me-2"></i>Program
+                                    <i class="fa-solid fa-graduation-cap me-2"></i>Department
                                 </div>
-                                <div class="fw-semibold" id="viewProgramName"></div>
+                                <div class="fw-semibold" id="viewDepartmentName"></div>
                             </div>
                         </div>
 
@@ -570,8 +570,8 @@
     <!-- Custom CSS -->
     <style>
         /* ========================================
-                                                                                               GLOBAL MODAL STYLING - SorSU Theme
-                                                                                               ======================================== */
+                                                                                                   GLOBAL MODAL STYLING - SorSU Theme
+                                                                                                   ======================================== */
 
         /* Modal Header - Apply maroon background to ALL modals */
         .modal-header {
@@ -621,8 +621,8 @@
         }
 
         /* ========================================
-                                                                                               UTILITY CLASSES
-                                                                                               ======================================== */
+                                                                                                   UTILITY CLASSES
+                                                                                                   ======================================== */
 
         .text-maroon {
             color: #660000 !important;

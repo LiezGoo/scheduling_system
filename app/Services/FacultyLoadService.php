@@ -271,7 +271,7 @@ class FacultyLoadService
     {
         return User::findOrFail($userId)
                    ->facultySubjects()
-                   ->with('program')
+                ->with('department')
                    ->get();
     }
 
@@ -361,5 +361,53 @@ class FacultyLoadService
             'valid' => true,
             'message' => 'Instructor is eligible for additional assignments.',
         ];
+    }
+
+    /**
+     * Update teaching hours for an instructor-subject assignment.
+     *
+     * @param int $facultyLoadId The ID of the faculty load assignment
+     * @param int $lectureHours Updated lecture hours
+     * @param int $labHours Updated laboratory hours
+     * @param int|null $maxLoadUnits Updated max load units override
+     * @return array Status and message
+     */
+    public function updateConstraints(int $facultyLoadId, int $lectureHours, int $labHours, ?int $maxLoadUnits): array
+    {
+        try {
+            $computedUnits = $lectureHours + $labHours;
+
+            $updated = DB::table('faculty_subjects')
+                ->where('id', $facultyLoadId)
+                ->update([
+                    'lecture_hours' => $lectureHours,
+                    'lab_hours' => $labHours,
+                    'computed_units' => $computedUnits,
+                    'max_load_units' => $maxLoadUnits,
+                    'updated_at' => now(),
+                ]);
+
+            if (!$updated) {
+                return [
+                    'success' => false,
+                    'message' => 'No changes were made.',
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Constraints updated successfully.',
+            ];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('FacultyLoadService updateConstraints failed', [
+                'error' => $e->getMessage(),
+                'faculty_load_id' => $facultyLoadId,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to update constraints.',
+            ];
+        }
     }
 }

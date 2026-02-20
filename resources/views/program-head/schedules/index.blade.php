@@ -7,8 +7,8 @@
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h2 class="h4 mb-2">Schedule Management</h2>
-                <p class="text-muted mb-0">Create and manage class schedules for your program</p>
+                <p class="text-muted mb-0"><i class="fas fa-calendar-check"></i> Create and manage class schedules for your
+                    program</p>
             </div>
             <div>
                 <a href="{{ route('program-head.schedules.create') }}" class="btn btn-maroon">

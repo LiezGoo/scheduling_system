@@ -508,7 +508,7 @@ class User extends Authenticatable
     public function getTeachableSubjectsWithConstraints()
     {
         return $this->facultySubjects()
-                    ->with('program')
+                    ->with('department')
                     ->get();
     }
 
@@ -666,17 +666,13 @@ class User extends Authenticatable
      *
      * @return \App\Models\Department|null
      */
-    public function getInferredDepartment()
+    public function getInferredDepartment(): ?Department
     {
-        if ($this->role === self::ROLE_DEPARTMENT_HEAD) {
-            return $this->department;
+        if (!empty($this->department_id)) {
+            return Department::find($this->department_id);
         }
 
-        if ($this->program_id) {
-            return $this->program?->departments;
-        }
-
-        return null;
+        return $this->program?->department;
     }
 
     /**

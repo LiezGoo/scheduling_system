@@ -68,6 +68,20 @@
                 'roles' => ['admin'],
                 'pattern' => 'admin/rooms*',
             ],
+            [
+                'label' => 'My Schedule',
+                'icon' => 'fa-solid fa-calendar',
+                'href' => route('instructor.my-schedule.index'),
+                'roles' => ['instructor'],
+                'pattern' => 'instructor/my-schedule',
+            ],
+            [
+                'label' => 'My Loads',
+                'icon' => 'fa-solid fa-book-open-reader',
+                'href' => route('instructor.my-loads.index'),
+                'roles' => ['instructor'],
+                'pattern' => 'instructor/my-loads',
+            ],
             // Program Head Menu Items
             [
                 'label' => 'Subject Management',

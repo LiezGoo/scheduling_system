@@ -32,7 +32,7 @@
                 @endswitch
             </span>
         </td>
-        <td>{{ $load->program_name ?? 'N/A' }}</td>
+        <td>{{ $load->department_name ?? 'N/A' }}</td>
         <td class="font-monospace">{{ $load->subject_code }}</td>
         <td>{{ Str::limit($load->subject_name, 30) }}</td>
         <td class="text-center">
