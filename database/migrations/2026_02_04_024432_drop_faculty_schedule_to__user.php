@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('faculty_scheme');
+            // Note: Keeping faculty_scheme as it's still used by the application
+            // $table->dropColumn('faculty_scheme');
         });
     }
 

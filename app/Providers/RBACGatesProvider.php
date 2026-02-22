@@ -90,6 +90,10 @@ Gate::define('manage-user', function (User $user, User $targetUser) {
 });
 
 Gate::define('assign-role', function (User $user, User $targetUser, string $role) {
+    if ($user->isAdmin()) {
+        return in_array($role, User::getAllRoles());
+    }
+
     // Only department heads can assign roles
     if (!$user->isDepartmentHead()) {
         return false;
@@ -110,13 +114,15 @@ Gate::define('assign-role', function (User $user, User $targetUser, string $role
 });
 
 Gate::define('activate-user', function (User $user, User $targetUser) {
-    return $user->isDepartmentHead() && $targetUser->canAccessDepartment($user->department_id) ||
-           $user->isProgramHead() && $targetUser->program_id === $user->program_id;
+    return $user->isAdmin() ||
+        $user->isDepartmentHead() && $targetUser->canAccessDepartment($user->department_id) ||
+        $user->isProgramHead() && $targetUser->program_id === $user->program_id;
 });
 
 Gate::define('deactivate-user', function (User $user, User $targetUser) {
-    return $user->isDepartmentHead() && $targetUser->canAccessDepartment($user->department_id) ||
-           $user->isProgramHead() && $targetUser->program_id === $user->program_id;
+    return $user->isAdmin() ||
+        $user->isDepartmentHead() && $targetUser->canAccessDepartment($user->department_id) ||
+        $user->isProgramHead() && $targetUser->program_id === $user->program_id;
 });
 
 // ========================================
@@ -144,7 +150,7 @@ Gate::define('is-student', function (User $user) {
 // ========================================
 
 Gate::define('access-admin-dashboard', function (User $user) {
-    return $user->isDepartmentHead();
+    return $user->isAdmin();
 });
 
 Gate::define('access-program-head-dashboard', function (User $user) {

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Program;
 use App\Models\User;
@@ -9,6 +10,8 @@ use App\Policies\DepartmentPolicy;
 use App\Policies\ProgramPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -42,5 +45,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Register RBAC gates
         require base_path('app/Providers/RBACGatesProvider.php');
+
+        View::share('academicYears', collect());
+
+        if (Schema::hasTable('academic_years')) {
+            View::share('academicYears', AcademicYear::orderBy('start_year', 'desc')->get());
+        }
     }
 }

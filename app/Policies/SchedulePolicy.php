@@ -12,16 +12,16 @@ class SchedulePolicy
      */
     public function view(User $user, Schedule $schedule): bool
     {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
         if ($user->isProgramHead()) {
             return (int) $schedule->program_id === (int) $user->program_id;
         }
 
         if ($user->isDepartmentHead()) {
             return (int) $schedule->program?->department_id === (int) $user->department_id;
-        }
-
-        if ($user->role === 'admin') {
-            return true;
         }
 
         if ($user->role === User::ROLE_INSTRUCTOR || $user->role === User::ROLE_STUDENT) {

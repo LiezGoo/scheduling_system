@@ -20,9 +20,10 @@
             <div>
                 <button type="button" class="btn btn-outline-warning edit-subject-btn" data-subject-id="{{ $subject->id }}"
                     data-subject-code="{{ $subject->subject_code }}" data-subject-name="{{ $subject->subject_name }}"
-                    data-program-id="{{ $subject->program_id }}" data-units="{{ $subject->units }}"
+                    data-department-id="{{ $subject->department_id }}" data-units="{{ $subject->units }}"
                     data-lecture-hours="{{ $subject->lecture_hours }}" data-lab-hours="{{ $subject->lab_hours }}"
-                    data-year-level="{{ $subject->year_level }}" data-semester="{{ $subject->semester }}"
+                    data-description="{{ $subject->description }}"
+                    data-is-active="{{ $subject->is_active ? 'true' : 'false' }}"
                     data-bs-toggle="modal" data-bs-target="#editSubjectModal">
                     <i class="fa-solid fa-edit me-2"></i>Edit Subject
                 </button>
@@ -42,12 +43,26 @@
                         <p class="mb-0 fs-5">{{ $subject->subject_name }}</p>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">Program</label>
-                        <p class="mb-0">{{ $subject->program->program_name ?? 'N/A' }}</p>
+                        <label class="form-label text-muted small">Department</label>
+                        <p class="mb-0">{{ $subject->department->department_name ?? 'N/A' }}</p>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">Year Level & Semester</label>
-                        <p class="mb-0">{{ $subject->year_level_label }} - {{ $subject->semester_label }}</p>
+                        <label class="form-label text-muted small">Type</label>
+                        <p class="mb-0">{{ $subject->computed_type ?? 'N/A' }}</p>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-muted small">Description</label>
+                        <p class="mb-0">{{ $subject->description ?? 'N/A' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Status</label>
+                        <p class="mb-0">
+                            @if ($subject->is_active)
+                                <span class="badge bg-success">Active</span>
+                            @else
+                                <span class="badge bg-secondary">Inactive</span>
+                            @endif
+                        </p>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label text-muted small">Units</label>
@@ -95,6 +110,6 @@
 
 @push('scripts')
     <script>
-        const programs = @json($subject->program);
+        const department = @json($subject->department);
     </script>
 @endpush

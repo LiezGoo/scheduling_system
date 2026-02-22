@@ -20,7 +20,14 @@ return new class extends Migration
 
         // Migrate data from name to department_name and create codes
         \DB::statement('UPDATE departments SET department_name = name WHERE department_name IS NULL');
-        \DB::statement('UPDATE departments SET department_code = UPPER(CONCAT(LEFT(department_name, 3), LPAD(id, 3, "0"))) WHERE department_code IS NULL');
+        
+        // Generate department codes using PHP (SQLite-compatible)
+        $departments = \DB::table('departments')->whereNull('department_code')->get();
+        foreach ($departments as $department) {
+            $prefix = strtoupper(substr($department->department_name ?? '', 0, 3));
+            $code = $prefix . str_pad($department->id, 3, '0', STR_PAD_LEFT);
+            \DB::table('departments')->where('id', $department->id)->update(['department_code' => $code]);
+        }
 
         // Make columns non-nullable after migration
         Schema::table('departments', function (Blueprint $table) {
@@ -35,6 +42,9 @@ return new class extends Migration
 
         // Drop the old name column if it exists and is different from department_name
         if (Schema::hasColumn('departments', 'name')) {
+            Schema::table('departments', function (Blueprint $table) {
+                $table->dropUnique(['name']); // Drop the unique constraint first
+            });
             Schema::table('departments', function (Blueprint $table) {
                 $table->dropColumn('name');
             });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\ProgramHead;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicYear;
 use App\Models\Schedule;
 use App\Models\ScheduleItem;
 use App\Models\Subject;
@@ -12,14 +13,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\NotificationService;
+use App\Services\ScheduleGenerationService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ScheduleController extends Controller
 {
-    protected NotificationService $notificationService;
+    use AuthorizesRequests;
 
-    public function __construct(NotificationService $notificationService)
+    protected NotificationService $notificationService;
+    protected ScheduleGenerationService $scheduleGenerationService;
+
+    public function __construct(NotificationService $notificationService, ScheduleGenerationService $scheduleGenerationService)
     {
         $this->notificationService = $notificationService;
+        $this->scheduleGenerationService = $scheduleGenerationService;
     }
 
     /**
@@ -33,6 +40,46 @@ class ScheduleController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        // Fetch dynamic data for generation form
+        $academicYears = AcademicYear::where('is_active', true)
+            ->orderBy('start_year', 'desc')
+            ->get();
+        if ($academicYears->isEmpty()) {
+            $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
+        }
+
+        // Get semesters (can be from Semester model or constants)
+        $semesters = \App\Models\Semester::VALID_NAMES;
+
+        // Get program for this program head
+        $program = \App\Models\Program::with('department')->find($user->program_id);
+
+        // Get year levels from program subjects (curriculum)
+        $yearLevels = [];
+        if ($program) {
+            $yearLevels = DB::table('program_subjects')
+                ->where('program_id', $program->id)
+                ->distinct()
+                ->pluck('year_level')
+                ->sort()
+                ->values()
+                ->toArray();
+        }
+
+        // Get faculty from department
+        $faculty = [];
+        if ($program && $program->department_id) {
+            $faculty = User::where('department_id', $program->department_id)
+                ->whereIn('role', [User::ROLE_INSTRUCTOR, User::ROLE_DEPARTMENT_HEAD, User::ROLE_PROGRAM_HEAD])
+                ->where('is_active', true)
+                ->orderBy('first_name')
+                ->get();
+        }
+
+        // Get all rooms
+        $rooms = Room::orderBy('room_code')->get();
+
+        // Get schedules with filters
         $query = Schedule::with(['program', 'creator'])
             ->where('program_id', $user->program_id);
 
@@ -42,8 +89,13 @@ class ScheduleController extends Controller
         }
 
         // Filter by academic year
-        if ($request->filled('academic_year')) {
-            $query->where('academic_year', $request->academic_year);
+        if ($request->filled('academic_year_id')) {
+            $academicYear = AcademicYear::find($request->academic_year_id);
+            if ($academicYear) {
+                $query->where('academic_year', $academicYear->name);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         // Filter by semester
@@ -58,7 +110,15 @@ class ScheduleController extends Controller
 
         $schedules = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        return view('program-head.schedules.index', compact('schedules'));
+        return view('program-head.schedules.index', compact(
+            'schedules',
+            'academicYears',
+            'semesters',
+            'program',
+            'yearLevels',
+            'faculty',
+            'rooms'
+        ));
     }
 
     /**
@@ -66,26 +126,38 @@ class ScheduleController extends Controller
      */
     public function create()
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
 
         if (!$user->isProgramHead() || !$user->program_id) {
             abort(403, 'Unauthorized access.');
         }
 
-        // Get subjects for program head's program
-        $subjects = Subject::where('program_id', $user->program_id)
+        $department = $user->getInferredDepartment();
+
+        if (!$department) {
+            abort(403, 'No department assigned.');
+        }
+
+        // Get subjects from department (shared resource)
+        $subjects = Subject::forDepartment($department->id)
+            ->active()
             ->orderBy('subject_code')
             ->get();
 
-        // Get eligible instructors
-        $instructors = User::eligibleInstructors()->active()
+        // Get eligible instructors from department
+        $instructors = User::eligibleInstructors()
+            ->active()
+            ->inDepartment($department->id)
             ->orderBy('first_name')
             ->get();
 
         // Get available rooms
-        $rooms = Room::with('building', 'roomType')
-            ->orderBy('room_code')
-            ->get();
+        $rooms = Room::orderBy('room_code')->get();
 
         return view('program-head.schedules.create', compact('subjects', 'instructors', 'rooms'));
     }
@@ -95,14 +167,25 @@ class ScheduleController extends Controller
      */
     public function store(Request $request)
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
 
         if (!$user->isProgramHead() || !$user->program_id) {
             abort(403, 'Unauthorized access.');
         }
 
+        $department = $user->getInferredDepartment();
+
+        if (!$department) {
+            abort(403, 'No department assigned.');
+        }
+
         $validated = $request->validate([
-            'academic_year' => 'required|string|max:50',
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
             'semester' => 'required|string|in:1st Semester,2nd Semester',
             'year_level' => 'required|integer|in:1,2,3,4',
             'block' => 'nullable|string|max:10',
@@ -116,24 +199,27 @@ class ScheduleController extends Controller
             'schedule_items.*.section' => 'nullable|string|max:50',
         ]);
 
-        // Verify all subjects belong to program head's program
+        // Verify all subjects belong to department
         $subjectIds = collect($validated['schedule_items'])->pluck('subject_id')->unique();
         $validSubjects = Subject::whereIn('id', $subjectIds)
-            ->where('program_id', $user->program_id)
+            ->forDepartment($department->id)
+            ->active()
             ->count();
 
         if ($validSubjects !== $subjectIds->count()) {
-            return back()->withErrors('Some subjects do not belong to your program.');
+            return back()->withErrors('Some subjects do not belong to your department or are inactive.');
         }
 
         DB::beginTransaction();
 
         try {
             // Create schedule
+            $academicYear = AcademicYear::find($validated['academic_year_id']);
+
             $schedule = Schedule::create([
                 'program_id' => $user->program_id,
                 'created_by' => $user->id,
-                'academic_year' => $validated['academic_year'],
+                'academic_year' => $academicYear?->name,
                 'semester' => $validated['semester'],
                 'year_level' => $validated['year_level'],
                 'block' => $validated['block'],
@@ -170,14 +256,12 @@ class ScheduleController extends Controller
             foreach ($instructorHours as $instructorId => $hours) {
                 $instructor = User::find($instructorId);
                 if ($instructor) {
-                    $validation = $instructor->validateFacultyLoad(
-                        $hours['total_lecture_hours'],
-                        $hours['total_lab_hours']
-                    );
+                    $totalHours = $hours['total_lecture_hours'] + $hours['total_lab_hours'];
+                    $maxHours = 40; // Define your maximum faculty load limit
 
-                    if (!$validation['valid']) {
+                    if ($totalHours > $maxHours) {
                         DB::rollBack();
-                        return back()->withErrors($validation['message'])
+                        return back()->withErrors("Instructor {$instructor->first_name} {$instructor->last_name} exceeds maximum faculty load of {$maxHours} hours.")
                             ->withInput();
                     }
                 }
@@ -259,7 +343,12 @@ class ScheduleController extends Controller
      */
     public function edit(Schedule $schedule)
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
 
         $this->authorize('update', $schedule);
 
@@ -275,20 +364,27 @@ class ScheduleController extends Controller
 
         $schedule->load(['items.subject', 'items.instructor', 'items.room']);
 
-        // Get subjects for program head's program
-        $subjects = Subject::where('program_id', $user->program_id)
+        $department = $user->getInferredDepartment();
+
+        if (!$department) {
+            abort(403, 'No department assigned.');
+        }
+
+        // Get subjects from department
+        $subjects = Subject::forDepartment($department->id)
+            ->active()
             ->orderBy('subject_code')
             ->get();
 
         // Get eligible instructors
-        $instructors = User::eligibleInstructors()->active()
+        $instructors = User::eligibleInstructors()
+            ->active()
+            ->inDepartment($department->id)
             ->orderBy('first_name')
             ->get();
 
         // Get available rooms
-        $rooms = Room::with('building', 'roomType')
-            ->orderBy('room_code')
-            ->get();
+        $rooms = Room::orderBy('room_code')->get();
 
         return view('program-head.schedules.edit', compact('schedule', 'subjects', 'instructors', 'rooms'));
     }
@@ -364,6 +460,161 @@ class ScheduleController extends Controller
                 ->with('success', 'Schedule deleted successfully.');
         } catch (\Exception $e) {
             return back()->withErrors('Failed to delete schedule.');
+        }
+    }
+
+    /**
+     * Show the schedule generation form using Genetic Algorithm.
+     */
+    public function generate()
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        if (!$user->isProgramHead() || !$user->program_id) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        // Fetch dynamic data for generation form
+        $academicYears = AcademicYear::where('is_active', true)
+            ->orderBy('start_year', 'desc')
+            ->get();
+        if ($academicYears->isEmpty()) {
+            $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
+        }
+
+        // Get semesters (can be from Semester model or constants)
+        $semesters = \App\Models\Semester::VALID_NAMES;
+
+        // Get program for this program head
+        $program = \App\Models\Program::with('department')->find($user->program_id);
+
+        // Get year levels from program subjects (curriculum)
+        $yearLevels = [];
+        if ($program) {
+            $yearLevels = DB::table('program_subjects')
+                ->where('program_id', $program->id)
+                ->distinct()
+                ->pluck('year_level')
+                ->sort()
+                ->values()
+                ->toArray();
+        }
+
+        // Get faculty from department
+        $faculty = [];
+        if ($program && $program->department_id) {
+            $faculty = User::where('department_id', $program->department_id)
+                ->whereIn('role', [User::ROLE_INSTRUCTOR, User::ROLE_DEPARTMENT_HEAD, User::ROLE_PROGRAM_HEAD])
+                ->where('is_active', true)
+                ->orderBy('first_name')
+                ->get();
+        }
+
+        // Get all rooms
+        $rooms = Room::orderBy('room_code')->get();
+
+        return view('program-head.schedules.generate', compact(
+            'academicYears',
+            'semesters',
+            'program',
+            'yearLevels',
+            'faculty',
+            'rooms'
+        ));
+    }
+
+    /**
+     * Execute schedule generation using Genetic Algorithm.
+     */
+    public function executeGeneration(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access.',
+            ], 403);
+        }
+
+        if (!$user->isProgramHead() || !$user->program_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access. Only Program Heads can generate schedules.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'semester' => 'required|string',
+            'year_level' => 'required|integer|min:1|max:4',
+            'block' => 'nullable|string|max:50',
+            'population_size' => 'nullable|integer|min:10|max:500',
+            'generations' => 'nullable|integer|min:10|max:1000',
+            'mutation_rate' => 'nullable|integer|min:1|max:100',
+            'crossover_rate' => 'nullable|integer|min:1|max:100',
+            'elite_size' => 'nullable|integer|min:1|max:50',
+        ]);
+
+        try {
+            // Prepare parameters for GA
+            $parameters = [
+                'academic_year_id' => $validated['academic_year_id'],
+                'semester' => $validated['semester'],
+                'program_id' => $user->program_id,
+                'year_level' => $validated['year_level'],
+                'block_section' => $validated['block'] ?? 'Block 1',
+                'created_by' => $user->id,
+                'population_size' => $validated['population_size'] ?? 50,
+                'generations' => $validated['generations'] ?? 100,
+                'mutation_rate' => $validated['mutation_rate'] ?? 15,
+                'crossover_rate' => $validated['crossover_rate'] ?? 80,
+                'elite_size' => $validated['elite_size'] ?? 5,
+            ];
+
+            // Execute GA
+            $result = $this->scheduleGenerationService->generateSchedule($parameters);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Schedule generated successfully.',
+                    'data' => [
+                        'schedule_id' => $result['schedule_id'],
+                        'fitness_score' => $result['fitness_score'],
+                        'items_count' => count($result['genes'] ?? []),
+                        'faculty_loads' => $result['faculty_loads'] ?? [],
+                    ],
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Schedule generation failed: ' . $result['error'],
+                ], 500);
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            \Log::error('Schedule generation error', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during schedule generation: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

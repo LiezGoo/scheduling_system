@@ -13,7 +13,7 @@ class StoreProgramSubjectRequest extends FormRequest
     public function authorize(): bool
     {
         $user = Auth::user();
-        return $user && $user->role === 'admin';
+            return $user && $user->isAdmin();
     }
 
     /**

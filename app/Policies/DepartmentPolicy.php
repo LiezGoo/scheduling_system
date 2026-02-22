@@ -9,8 +9,8 @@ use App\Models\Department;
  * DEPARTMENT POLICY
  *
  * Enforces strict department access control:
- * - department_head: Can manage only their assigned department
- * - Others: Cannot manage any department
+ * - admin: Full department management access
+ * - Others: No department management access
  *
  * SECURITY: All checks are enforced at policy level.
  * Frontend filtering MUST NOT be trusted.
@@ -18,10 +18,21 @@ use App\Models\Department;
 class DepartmentPolicy
 {
     /**
-     * Determine if user can view a department (list, show).
+     * Determine if user can view departments (list, show).
      *
-     * department_head: Can view their own department
-     * Others: Cannot view departments
+     * Only Admin can view/manage departments.
+     *
+     * @param \App\Models\User $user
+     * @param \App\Models\Department $department
+     * @return bool
+     */
+    public function viewAny(User $user): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
+     * Determine if user can view a specific department.
      *
      * @param \App\Models\User $user
      * @param \App\Models\Department $department
@@ -29,38 +40,26 @@ class DepartmentPolicy
      */
     public function view(User $user, Department $department): bool
     {
-        // department_head: can view their own department
-        if ($user->isDepartmentHead()) {
-            return $user->department_id === $department->id;
-        }
-
-        // program_head: can view their program's department
-        if ($user->isProgramHead() && $user->program) {
-            return $user->program->department_id === $department->id;
-        }
-
-        return false;
+        return $user->isAdmin();
     }
 
     /**
      * Determine if user can create departments.
      *
-     * Only system administrators can create departments.
-     * In this system, that's none. Departments are pre-configured.
+     * Only administrators can create departments.
      *
      * @param \App\Models\User $user
      * @return bool
      */
     public function create(User $user): bool
     {
-        return false; // Departments are system-level, not user-creatable
+        return $user->isAdmin();
     }
 
     /**
      * Determine if user can update a department.
      *
-     * department_head: Can update their own department's metadata
-     * Others: Cannot update any department
+     * Only administrators can update departments.
      *
      * @param \App\Models\User $user
      * @param \App\Models\Department $department
@@ -68,12 +67,13 @@ class DepartmentPolicy
      */
     public function update(User $user, Department $department): bool
     {
-        // SECURITY: Only the department head can modify their department
-        return $user->isDepartmentHead() && $user->department_id === $department->id;
+        return $user->isAdmin();
     }
 
     /**
      * Determine if user can delete a department.
+     *
+     * Only administrators can delete departments.
      *
      * @param \App\Models\User $user
      * @param \App\Models\Department $department
@@ -81,8 +81,7 @@ class DepartmentPolicy
      */
     public function delete(User $user, Department $department): bool
     {
-        // Departments should not be deleted; they're system resources
-        return false;
+        return $user->isAdmin();
     }
 
     /**
@@ -90,7 +89,7 @@ class DepartmentPolicy
      */
     public function restore(User $user, Department $department): bool
     {
-        return false;
+        return $user->isAdmin();
     }
 
     /**
@@ -98,6 +97,6 @@ class DepartmentPolicy
      */
     public function forceDelete(User $user, Department $department): bool
     {
-        return false;
+        return $user->isAdmin();
     }
 }

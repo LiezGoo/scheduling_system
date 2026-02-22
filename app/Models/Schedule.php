@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use App\Models\AcademicYear;
 use App\Models\Department;
 
 class Schedule extends Model
@@ -23,6 +24,8 @@ class Schedule extends Model
         'year_level',
         'block',
         'status',
+        'ga_parameters',
+        'fitness_score',
         'submitted_at',
         'reviewed_at',
         'reviewed_by',
@@ -38,6 +41,7 @@ class Schedule extends Model
         'reviewed_at' => 'datetime',
         'program_head_approved_at' => 'datetime',
         'department_head_approved_at' => 'datetime',
+        'ga_parameters' => 'array',
     ];
 
     // Status Constants
@@ -55,6 +59,14 @@ class Schedule extends Model
     public function program(): BelongsTo
     {
         return $this->belongsTo(Program::class);
+    }
+
+    /**
+     * Get the academic year this schedule belongs to.
+     */
+    public function academicYear(): BelongsTo
+    {
+        return $this->belongsTo(AcademicYear::class, 'academic_year', 'name');
     }
 
     /**

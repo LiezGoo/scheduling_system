@@ -10,6 +10,9 @@
                 <p class="text-muted mb-0">
                     <i class="fa-solid fa-book me-2"></i>Manage academic subjects
                 </p>
+                <p class="text-muted mb-0">
+                    <i class="fa-solid fa-building-columns me-2"></i>{{ $departmentName }}
+                </p>
             </div>
             <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
                 <i class="fa-solid fa-plus me-2"></i>Add New Subject
@@ -26,30 +29,6 @@
                             <label for="filterSearch" class="form-label">Search</label>
                             <input type="text" class="form-control" id="filterSearch" name="search"
                                 placeholder="Search by code or name..." value="{{ request('search') }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="filterYearLevel" class="form-label">Year Level</label>
-                            <select class="form-select" id="filterYearLevel" name="year_level">
-                                <option value="">All Years</option>
-                                <option value="1" {{ request('year_level') == '1' ? 'selected' : '' }}>1st Year
-                                </option>
-                                <option value="2" {{ request('year_level') == '2' ? 'selected' : '' }}>2nd Year
-                                </option>
-                                <option value="3" {{ request('year_level') == '3' ? 'selected' : '' }}>3rd Year
-                                </option>
-                                <option value="4" {{ request('year_level') == '4' ? 'selected' : '' }}>4th Year
-                                </option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="filterSemester" class="form-label">Semester</label>
-                            <select class="form-select" id="filterSemester" name="semester">
-                                <option value="">All Semesters</option>
-                                <option value="1" {{ request('semester') == '1' ? 'selected' : '' }}>1st Semester
-                                </option>
-                                <option value="2" {{ request('semester') == '2' ? 'selected' : '' }}>2nd Semester
-                                </option>
-                            </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-center gap-2">
                             <button type="button" class="btn btn-outline-secondary w-100" id="clearFilters"
@@ -76,8 +55,7 @@
                                 <th class="text-center">Units</th>
                                 <th class="text-center">Lecture Hrs</th>
                                 <th class="text-center">Lab Hrs</th>
-                                <th>Year Level</th>
-                                <th>Semester</th>
+                                <th class="text-center">Status</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
@@ -87,30 +65,9 @@
                     </table>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination Footer -->
                 @if ($subjects && $subjects->count() > 0)
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-                        <div class="text-muted small">
-                            Showing {{ $subjects->firstItem() ?? 0 }} to {{ $subjects->lastItem() ?? 0 }} of
-                            {{ $subjects->total() }} subjects
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div id="subjectsPagination">
-                                {{ $subjects->withQueryString()->links() }}
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <label for="subjectsPerPageSelect" class="text-muted small mb-0">Per page:</label>
-                                <select id="subjectsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
-                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15
-                                    </option>
-                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
-                                    <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                                    <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <x-pagination.footer :paginator="$subjects" />
                 @endif
             </div>
         </div>

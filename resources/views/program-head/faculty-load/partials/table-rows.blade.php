@@ -32,17 +32,22 @@
                 @endswitch
             </span>
         </td>
+        <td>{{ $load->department_name ?? 'N/A' }}</td>
         <td>{{ $load->program_name ?? 'N/A' }}</td>
+        <td>{{ $load->academic_year_name ?? 'N/A' }}</td>
+        <td class="text-center">{{ $load->semester ?? '—' }}</td>
+        <td class="text-center">{{ $load->year_level ?? '—' }}</td>
+        <td class="text-center">{{ $load->block_section ?? '—' }}</td>
         <td class="font-monospace">{{ $load->subject_code }}</td>
         <td>{{ Str::limit($load->subject_name, 30) }}</td>
         <td class="text-center">
-            <span class="badge bg-primary">{{ $load->lecture_hours ?? 0 }}</span>
+            <span class="badge bg-primary">{{ $load->lec_hours ?? 0 }}</span>
         </td>
         <td class="text-center">
             <span class="badge bg-success">{{ $load->lab_hours ?? 0 }}</span>
         </td>
         <td class="text-center">
-            <span class="badge bg-warning text-dark">{{ number_format($load->computed_units ?? 0, 2) }}</span>
+            <span class="badge bg-warning text-dark">{{ $load->total_hours ?? 0 }}</span>
         </td>
         <td class="text-center">
             <div class="btn-group" role="group" aria-label="Faculty Load Actions">
@@ -63,7 +68,7 @@
     </tr>
     @empty
         <tr>
-            <td colspan="10" class="text-center py-4">
+            <td colspan="15" class="text-center py-4">
                 <i class="fa-solid fa-chalkboard-user text-muted fa-3x mb-3"></i>
                 <p class="text-muted mb-0">No faculty load assignments found</p>
             </td>

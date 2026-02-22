@@ -30,7 +30,10 @@ class User extends Authenticatable
         'department_id',
         'program_id',
         'faculty_scheme',
+        'daily_scheme_start',
+        'daily_scheme_end',
         'employment_type',
+        'contract_type',
     ];
 
     /**
@@ -54,15 +57,15 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'daily_scheme_start' => 'datetime:H:i',
+            'daily_scheme_end' => 'datetime:H:i',
         ];
     }
 
     /**
      * Constants for user roles
-     *
-     * CRITICAL: There is NO standalone "Administrator" role.
-     * department_head IS the administrator, but ONLY within their assigned department.
      */
+    public const ROLE_ADMIN = 'admin';
     public const ROLE_DEPARTMENT_HEAD = 'department_head';
 
     public const ROLE_PROGRAM_HEAD = 'program_head';
@@ -86,6 +89,9 @@ class User extends Authenticatable
     public const EMPLOYMENT_PERMANENT = 'permanent';
     public const EMPLOYMENT_CONTRACT_27 = 'contract_27';
     public const EMPLOYMENT_CONTRACT_24 = 'contract_24';
+
+    public const CONTRACT_PERMANENT = 'permanent';
+    public const CONTRACT_CONTRACTUAL = 'contractual';
 
     /**
      * Faculty load limits (hours per week)
@@ -116,6 +122,7 @@ class User extends Authenticatable
     public static function getAllRoles(): array
     {
         return [
+            self::ROLE_ADMIN,
             self::ROLE_DEPARTMENT_HEAD,
             self::ROLE_PROGRAM_HEAD,
             self::ROLE_INSTRUCTOR,
@@ -170,13 +177,10 @@ class User extends Authenticatable
 
     /**
      * Check if user is admin
-     *
-     * SECURITY: There is no standalone admin role.
-     * department_head IS the admin within their department.
      */
     public function isAdmin(): bool
     {
-        return false; // Explicitly disabled
+        return $this->role === self::ROLE_ADMIN;
     }
 
     /**
@@ -239,6 +243,7 @@ class User extends Authenticatable
     public function getRoleLabel(): string
     {
         return match ($this->role) {
+            self::ROLE_ADMIN => 'Administrator',
             self::ROLE_DEPARTMENT_HEAD => 'Department Head',
             self::ROLE_PROGRAM_HEAD => 'Program Head',
             self::ROLE_INSTRUCTOR => 'Instructor',
@@ -270,6 +275,14 @@ class User extends Authenticatable
         return $this->belongsToMany(Subject::class, 'faculty_subjects')
                     ->withPivot('lecture_hours', 'lab_hours', 'computed_units', 'max_load_units')
                     ->withTimestamps();
+    }
+
+    /**
+     * Get all instructor load assignments for this instructor.
+     */
+    public function instructorLoads()
+    {
+        return $this->hasMany(InstructorLoad::class, 'instructor_id');
     }
 
     /**
@@ -321,40 +334,30 @@ class User extends Authenticatable
      */
     public function getMaxAllowedHours(): array
     {
-        switch ($this->employment_type) {
-            case self::EMPLOYMENT_CONTRACT_27:
-                return [
-                    'max_lecture_hours' => self::MAX_HOURS_CONTRACT_27,
-                    'max_lab_hours' => self::MAX_HOURS_CONTRACT_27,
-                    'max_total_hours' => self::MAX_HOURS_CONTRACT_27,
-                    'type' => 'contract_27',
-                ];
+        $limits = $this->getContractLoadLimits();
 
-            case self::EMPLOYMENT_CONTRACT_24:
-                return [
-                    'max_lecture_hours' => self::MAX_HOURS_CONTRACT_24,
-                    'max_lab_hours' => self::MAX_HOURS_CONTRACT_24,
-                    'max_total_hours' => self::MAX_HOURS_CONTRACT_24,
-                    'type' => 'contract_24',
-                ];
+        return [
+            'max_lecture_hours' => $limits['max_lecture_hours'],
+            'max_lab_hours' => $limits['max_lab_hours'],
+            'max_total_hours' => null,
+            'type' => $limits['type'],
+        ];
+    }
 
-            case self::EMPLOYMENT_PERMANENT:
-                return [
-                    'max_lecture_hours' => self::MAX_LECTURE_HOURS_PERMANENT,
-                    'max_lab_hours' => self::MAX_LAB_HOURS_PERMANENT,
-                    'max_total_hours' => null, // No total limit, only separate limits
-                    'type' => 'permanent',
-                ];
+    /**
+     * Get contract load limits from configuration.
+     */
+    public function getContractLoadLimits(): array
+    {
+        $contractType = $this->contract_type;
+        $configured = config('instructor_load_limits.contract_types', []);
+        $limits = $configured[$contractType] ?? null;
 
-            default:
-                // No employment type set - return null limits (no restrictions)
-                return [
-                    'max_lecture_hours' => null,
-                    'max_lab_hours' => null,
-                    'max_total_hours' => null,
-                    'type' => 'unspecified',
-                ];
-        }
+        return [
+            'type' => $contractType ?? 'unspecified',
+            'max_lecture_hours' => $limits['max_lecture_hours'] ?? null,
+            'max_lab_hours' => $limits['max_lab_hours'] ?? null,
+        ];
     }
 
     /**
@@ -365,7 +368,13 @@ class User extends Authenticatable
      * @param int $additionalLabHours Hours to add
      * @return array ['valid' => bool, 'message' => string, 'current' => array, 'limits' => array]
      */
-    public function validateFacultyLoad(int $additionalLectureHours = 0, int $additionalLabHours = 0): array
+    public function validateFacultyLoad(
+        int $additionalLectureHours = 0,
+        int $additionalLabHours = 0,
+        ?int $academicYearId = null,
+        ?string $semester = null,
+        ?int $excludeLoadId = null
+    ): array
     {
         // No validation needed for non-instructors
         if (!$this->isEligibleInstructor()) {
@@ -375,8 +384,15 @@ class User extends Authenticatable
             ];
         }
 
+        if (!$academicYearId || !$semester) {
+            return [
+                'valid' => false,
+                'message' => 'Academic year and semester are required for load validation.',
+            ];
+        }
+
         // Get current load
-        $current = $this->getTeachingLoadSummary();
+        $current = $this->getInstructorLoadSummaryForTerm($academicYearId, $semester, $excludeLoadId);
         $currentLectureHours = $current['total_lecture_hours'];
         $currentLabHours = $current['total_lab_hours'];
         $currentTotalHours = $currentLectureHours + $currentLabHours;
@@ -390,72 +406,40 @@ class User extends Authenticatable
         $newTotalHours = $newLectureHours + $newLabHours;
 
         // Validate based on employment type
-        switch ($this->employment_type) {
-            case self::EMPLOYMENT_CONTRACT_27:
-            case self::EMPLOYMENT_CONTRACT_24:
-                // Contract faculty: Check total hours only
-                if ($newTotalHours > $limits['max_total_hours']) {
-                    return [
-                        'valid' => false,
-                        'message' => "Faculty load limit exceeded. {$this->full_name} (Contract {$limits['max_total_hours']}hrs) would have {$newTotalHours} total hours (max: {$limits['max_total_hours']} hours). Current: {$currentTotalHours} hours.",
-                        'current' => [
-                            'lecture_hours' => $currentLectureHours,
-                            'lab_hours' => $currentLabHours,
-                            'total_hours' => $currentTotalHours,
-                        ],
-                        'new' => [
-                            'lecture_hours' => $newLectureHours,
-                            'lab_hours' => $newLabHours,
-                            'total_hours' => $newTotalHours,
-                        ],
-                        'limits' => $limits,
-                    ];
-                }
-                break;
+        if ($limits['max_lecture_hours'] !== null && $newLectureHours > $limits['max_lecture_hours']) {
+            return [
+                'valid' => false,
+                'message' => "Lecture hour limit exceeded. {$this->full_name} would have {$newLectureHours} lecture hours (max: {$limits['max_lecture_hours']} hours).",
+                'current' => [
+                    'lecture_hours' => $currentLectureHours,
+                    'lab_hours' => $currentLabHours,
+                    'total_hours' => $currentTotalHours,
+                ],
+                'new' => [
+                    'lecture_hours' => $newLectureHours,
+                    'lab_hours' => $newLabHours,
+                    'total_hours' => $newTotalHours,
+                ],
+                'limits' => $limits,
+            ];
+        }
 
-            case self::EMPLOYMENT_PERMANENT:
-                // Permanent faculty: Check lecture and lab hours separately
-                if ($newLectureHours > $limits['max_lecture_hours']) {
-                    return [
-                        'valid' => false,
-                        'message' => "Lecture hour limit exceeded. {$this->full_name} (Permanent) would have {$newLectureHours} lecture hours (max: {$limits['max_lecture_hours']} hours). Current: {$currentLectureHours} lecture hours.",
-                        'current' => [
-                            'lecture_hours' => $currentLectureHours,
-                            'lab_hours' => $currentLabHours,
-                            'total_hours' => $currentTotalHours,
-                        ],
-                        'new' => [
-                            'lecture_hours' => $newLectureHours,
-                            'lab_hours' => $newLabHours,
-                            'total_hours' => $newTotalHours,
-                        ],
-                        'limits' => $limits,
-                    ];
-                }
-
-                if ($newLabHours > $limits['max_lab_hours']) {
-                    return [
-                        'valid' => false,
-                        'message' => "Lab hour limit exceeded. {$this->full_name} (Permanent) would have {$newLabHours} lab hours (max: {$limits['max_lab_hours']} hours). Current: {$currentLabHours} lab hours.",
-                        'current' => [
-                            'lecture_hours' => $currentLectureHours,
-                            'lab_hours' => $currentLabHours,
-                            'total_hours' => $currentTotalHours,
-                        ],
-                        'new' => [
-                            'lecture_hours' => $newLectureHours,
-                            'lab_hours' => $newLabHours,
-                            'total_hours' => $newTotalHours,
-                        ],
-                        'limits' => $limits,
-                    ];
-                }
-                break;
-
-            default:
-                // No employment type set - allow any load (for now)
-                // Future: Require employment_type for all instructors
-                break;
+        if ($limits['max_lab_hours'] !== null && $newLabHours > $limits['max_lab_hours']) {
+            return [
+                'valid' => false,
+                'message' => "Lab hour limit exceeded. {$this->full_name} would have {$newLabHours} lab hours (max: {$limits['max_lab_hours']} hours).",
+                'current' => [
+                    'lecture_hours' => $currentLectureHours,
+                    'lab_hours' => $currentLabHours,
+                    'total_hours' => $currentTotalHours,
+                ],
+                'new' => [
+                    'lecture_hours' => $newLectureHours,
+                    'lab_hours' => $newLabHours,
+                    'total_hours' => $newTotalHours,
+                ],
+                'limits' => $limits,
+            ];
         }
 
         return [
@@ -472,6 +456,30 @@ class User extends Authenticatable
                 'total_hours' => $newTotalHours,
             ],
             'limits' => $limits,
+        ];
+    }
+
+    /**
+     * Get load totals for a specific academic year and semester.
+     */
+    public function getInstructorLoadSummaryForTerm(int $academicYearId, string $semester, ?int $excludeLoadId = null): array
+    {
+        $query = $this->instructorLoads()
+            ->where('academic_year_id', $academicYearId)
+            ->where('semester', $semester);
+
+        if ($excludeLoadId) {
+            $query->where('id', '!=', $excludeLoadId);
+        }
+
+        $totalLectureHours = (int) $query->sum('lec_hours');
+        $totalLabHours = (int) $query->sum('lab_hours');
+
+        return [
+            'total_lecture_hours' => $totalLectureHours,
+            'total_lab_hours' => $totalLabHours,
+            'total_teaching_units' => $totalLectureHours + $totalLabHours,
+            'assignment_count' => $query->count(),
         ];
     }
 
@@ -508,7 +516,7 @@ class User extends Authenticatable
     public function getTeachableSubjectsWithConstraints()
     {
         return $this->facultySubjects()
-                    ->with('program')
+                    ->with('department')
                     ->get();
     }
 
@@ -666,17 +674,13 @@ class User extends Authenticatable
      *
      * @return \App\Models\Department|null
      */
-    public function getInferredDepartment()
+    public function getInferredDepartment(): ?Department
     {
-        if ($this->role === self::ROLE_DEPARTMENT_HEAD) {
-            return $this->department;
+        if (!empty($this->department_id)) {
+            return Department::find($this->department_id);
         }
 
-        if ($this->program_id) {
-            return $this->program?->departments;
-        }
-
-        return null;
+        return $this->program?->department;
     }
 
     /**
@@ -784,5 +788,95 @@ class User extends Authenticatable
     public function scopeInProgram($query, $programId)
     {
         return $query->where('program_id', $programId);
+    }
+
+    /**
+     * Get the daily working scheme start time
+     */
+    public function getDailySchemeStartAttribute($value)
+    {
+        return $value;
+    }
+
+    /**
+     * Get the daily working scheme end time
+     */
+    public function getDailySchemeEndAttribute($value)
+    {
+        return $value;
+    }
+
+    /**
+     * Get working hours duration
+     */
+    public function getWorkingHoursDuration(): ?float
+    {
+        if (!$this->daily_scheme_start || !$this->daily_scheme_end) {
+            return null;
+        }
+
+        $start = \Carbon\Carbon::parse($this->daily_scheme_start);
+        $end = \Carbon\Carbon::parse($this->daily_scheme_end);
+
+        return $start->diffInHours($end, true);
+    }
+
+    /**
+     * Check if a time is within the instructor's daily scheme
+     */
+    public function isTimeWithinScheme(string $time): bool
+    {
+        if (!$this->daily_scheme_start || !$this->daily_scheme_end) {
+            return true; // No scheme restriction
+        }
+
+        $checkTime = \Carbon\Carbon::parse($time);
+        $schemeStart = \Carbon\Carbon::parse($this->daily_scheme_start);
+        $schemeEnd = \Carbon\Carbon::parse($this->daily_scheme_end);
+
+        return $checkTime->between($schemeStart, $schemeEnd);
+    }
+
+    /**
+     * Get maximum allowed lecture hours based on contract type
+     */
+    public function getMaxLectureHours(): ?int
+    {
+        if ($this->contract_type === self::CONTRACT_PERMANENT) {
+            return self::MAX_LECTURE_HOURS_PERMANENT;
+        }
+
+        // Contract employees have total hour limits, not separate lecture/lab
+        return null;
+    }
+
+    /**
+     * Get maximum allowed lab hours based on contract type
+     */
+    public function getMaxLabHours(): ?int
+    {
+        if ($this->contract_type === self::CONTRACT_PERMANENT) {
+            return self::MAX_LAB_HOURS_PERMANENT;
+        }
+
+        // Contract employees have total hour limits, not separate lecture/lab
+        return null;
+    }
+
+    /**
+     * Get maximum total hours based on employment type
+     */
+    public function getMaxTotalHours(): ?int
+    {
+        if ($this->employment_type === self::EMPLOYMENT_CONTRACT_27) {
+            return self::MAX_HOURS_CONTRACT_27;
+        }
+
+        if ($this->employment_type === self::EMPLOYMENT_CONTRACT_24) {
+            return self::MAX_HOURS_CONTRACT_24;
+        }
+
+        // Permanent employees have separate lecture/lab limits
+        return null;
     }
 }

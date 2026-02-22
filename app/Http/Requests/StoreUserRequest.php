@@ -24,7 +24,7 @@ class StoreUserRequest extends FormRequest
     public function authorize(): bool
     {
         return auth()->check() &&
-               (auth()->user()->isDepartmentHead() || auth()->user()->isProgramHead());
+               (auth()->user()->isAdmin() || auth()->user()->isDepartmentHead() || auth()->user()->isProgramHead());
     }
 
     public function rules(): array

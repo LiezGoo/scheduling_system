@@ -5,7 +5,9 @@ namespace App\Providers;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use App\Models\Schedule;
+use App\Models\Subject;
 use App\Policies\SchedulePolicy;
+use App\Policies\SubjectPolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -16,6 +18,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Schedule::class => SchedulePolicy::class,
+        Subject::class => SubjectPolicy::class,
     ];
 
     /**

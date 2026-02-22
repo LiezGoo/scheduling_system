@@ -13,10 +13,11 @@ use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacultyLoadController;
 use App\Http\Controllers\Admin\ProgramSubjectController;
-use App\Http\Controllers\ProgramHead\SubjectController as ProgramHeadSubjectController;
+use App\Http\Controllers\Admin\AcademicYearController;
 use App\Http\Controllers\ProgramHead\CurriculumController as ProgramHeadCurriculumController;
 use App\Http\Controllers\ProgramHead\FacultyLoadController as ProgramHeadFacultyLoadController;
 use App\Http\Controllers\ProgramHead\ScheduleController as ProgramHeadScheduleController;
+use App\Http\Controllers\DepartmentHead\SubjectController as DepartmentHeadSubjectController;
 use App\Http\Controllers\DepartmentHead\ScheduleReviewController as DepartmentHeadScheduleReviewController;
 
 /*
@@ -152,6 +153,20 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
         Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
 
+        // Academic Year & Semester Management
+        Route::get('/academic-years', [AcademicYearController::class, 'index'])->name('academic-years.index');
+        Route::post('/academic-years', [AcademicYearController::class, 'store'])->name('academic-years.store');
+        Route::get('/academic-years/{academicYear}', [AcademicYearController::class, 'show'])->name('academic-years.show');
+        Route::put('/academic-years/{academicYear}', [AcademicYearController::class, 'update'])->name('academic-years.update');
+        Route::delete('/academic-years/{academicYear}', [AcademicYearController::class, 'destroy'])->name('academic-years.destroy');
+        Route::post('/academic-years/{academicYear}/activate', [AcademicYearController::class, 'activate'])->name('academic-years.activate');
+        
+        // Semester Management
+        Route::post('/academic-years/{academicYear}/semesters', [AcademicYearController::class, 'storeSemester'])->name('academic-years.semesters.store');
+        Route::put('/semesters/{semester}', [AcademicYearController::class, 'updateSemester'])->name('semesters.update');
+        Route::delete('/semesters/{semester}', [AcademicYearController::class, 'destroySemester'])->name('semesters.destroy');
+        Route::post('/semesters/{semester}/activate', [AcademicYearController::class, 'activateSemester'])->name('semesters.activate');
+
         // Faculty Load Management
         Route::get('/faculty-load', [FacultyLoadController::class, 'index'])->name('faculty-load.index');
         Route::get('/faculty-load/{facultyLoadId}/details', [FacultyLoadController::class, 'getDetails'])->name('faculty-load.details');
@@ -174,8 +189,16 @@ Route::middleware(['auth'])->group(function () {
         return view('dashboards.department_head');
     })->middleware(['role:department_head'])->name('department-head.dashboard');
 
-    // Department Head Schedule Review
+    // Department Head Routes
     Route::middleware(['role:department_head'])->prefix('department-head')->name('department-head.')->group(function () {
+        // Subject Management
+        Route::get('/subjects', [DepartmentHeadSubjectController::class, 'index'])->name('subjects.index');
+        Route::post('/subjects', [DepartmentHeadSubjectController::class, 'store'])->name('subjects.store');
+        Route::get('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'show'])->name('subjects.show');
+        Route::put('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'update'])->name('subjects.update');
+        Route::delete('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'destroy'])->name('subjects.destroy');
+
+        // Schedule Review
         Route::get('/schedules', [DepartmentHeadScheduleReviewController::class, 'index'])->name('schedules.index');
         Route::get('/schedules/{schedule}', [DepartmentHeadScheduleReviewController::class, 'show'])->name('schedules.show');
         Route::post('/schedules/{schedule}/approve', [DepartmentHeadScheduleReviewController::class, 'approve'])->name('schedules.approve');
@@ -189,13 +212,6 @@ Route::middleware(['auth'])->group(function () {
 
     // Program Head Routes - Scoped to their assigned program
     Route::middleware(['role:program_head'])->prefix('program-head')->name('program-head.')->group(function () {
-
-        // Subject Management
-        Route::get('/subjects', [ProgramHeadSubjectController::class, 'index'])->name('subjects.index');
-        Route::post('/subjects', [ProgramHeadSubjectController::class, 'store'])->name('subjects.store');
-        Route::get('/subjects/{subject}', [ProgramHeadSubjectController::class, 'show'])->name('subjects.show');
-        Route::put('/subjects/{subject}', [ProgramHeadSubjectController::class, 'update'])->name('subjects.update');
-        Route::delete('/subjects/{subject}', [ProgramHeadSubjectController::class, 'destroy'])->name('subjects.destroy');
 
         // Curriculum Management
         Route::get('/curriculum', [ProgramHeadCurriculumController::class, 'index'])->name('curriculum.index');
@@ -211,6 +227,8 @@ Route::middleware(['auth'])->group(function () {
         // Schedule Management
         Route::get('/schedules', [ProgramHeadScheduleController::class, 'index'])->name('schedules.index');
         Route::get('/schedules/create', [ProgramHeadScheduleController::class, 'create'])->name('schedules.create');
+        Route::get('/schedules/generate', [ProgramHeadScheduleController::class, 'generate'])->name('schedules.generate');
+        Route::post('/schedules/generate', [ProgramHeadScheduleController::class, 'executeGeneration'])->name('schedules.executeGeneration');
         Route::post('/schedules', [ProgramHeadScheduleController::class, 'store'])->name('schedules.store');
         Route::get('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'show'])->name('schedules.show');
         Route::get('/schedules/{schedule}/edit', [ProgramHeadScheduleController::class, 'edit'])->name('schedules.edit');

@@ -17,6 +17,14 @@ class Department extends Model
     }
 
     /**
+     * Get the subjects that belong to this department.
+     */
+    public function subjects()
+    {
+        return $this->hasMany(Subject::class);
+    }
+
+    /**
      * Get the department head assigned to this department.
      * A department can have one department head.
      */

@@ -33,8 +33,9 @@ class CurriculumController extends Controller
             $query->withPivot(['year_level', 'semester']);
         }])->findOrFail($selectedProgramId);
 
-        // Get all subjects for this program (for assignment)
-        $subjects = Subject::where('program_id', $user->program_id)
+        // Get all subjects for this department (for assignment)
+        $departmentId = $program->department_id;
+        $subjects = Subject::where('department_id', $departmentId)
             ->orderBy('subject_code')
             ->get();
 
@@ -87,14 +88,14 @@ class CurriculumController extends Controller
         $yearLevel = $validated['year_level'];
         $semester = strtolower($validated['semester']);
 
-        // Verify all subjects belong to this program
+        // Verify all subjects belong to this department
         $subjects = Subject::whereIn('id', $validated['subject_ids'])
-            ->where('program_id', $user->program_id)
+            ->where('department_id', $program->department_id)
             ->pluck('id')
             ->all();
 
         if (count($subjects) !== count($validated['subject_ids'])) {
-            return back()->withErrors('Some subjects do not belong to your program.');
+            return back()->withErrors('Some subjects do not belong to your department.');
         }
 
         $alreadyAssigned = $program->subjects()

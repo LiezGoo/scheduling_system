@@ -5,8 +5,13 @@
         <td class="text-center">{{ $subject->units }}</td>
         <td class="text-center">{{ $subject->lecture_hours }}</td>
         <td class="text-center">{{ $subject->lab_hours }}</td>
-        <td>{{ $subject->year_level_label }}</td>
-        <td>{{ $subject->semester_label }}</td>
+        <td class="text-center">
+            @if ($subject->is_active)
+                <span class="badge bg-success">Active</span>
+            @else
+                <span class="badge bg-secondary">Inactive</span>
+            @endif
+        </td>
         <td class="text-center">
             <div class="d-flex justify-content-center gap-2">
                 <button type="button" class="btn btn-sm btn-outline-secondary view-subject-btn"
@@ -18,7 +23,8 @@
                     data-subject-id="{{ $subject->id }}" data-subject-code="{{ $subject->subject_code }}"
                     data-subject-name="{{ $subject->subject_name }}" data-units="{{ $subject->units }}"
                     data-lecture-hours="{{ $subject->lecture_hours }}" data-lab-hours="{{ $subject->lab_hours }}"
-                    data-year-level="{{ $subject->year_level }}" data-semester="{{ $subject->semester }}"
+                    data-description="{{ $subject->description }}"
+                    data-is-active="{{ $subject->is_active ? 'true' : 'false' }}"
                     title="Edit" aria-label="Edit Subject">
                     <i class="fa-solid fa-pencil"></i>
                 </button>
@@ -32,7 +38,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="8" class="text-center py-4">
+        <td colspan="7" class="text-center py-4">
             <i class="fa-solid fa-book text-muted fa-3x mb-3"></i>
             <p class="text-muted mb-0">No subjects found</p>
         </td>

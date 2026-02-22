@@ -11,9 +11,48 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="{{ asset('css/app-layout.css') }}" rel="stylesheet">
+    @stack('styles')
 </head>
 
 <body class="app-shell sidebar-collapsed">
+    <div id="globalToastContainer" class="position-fixed end-0 p-3" style="z-index: 1080; top: 72px; max-width: 420px;">
+        @if (session('success'))
+            <div class="toast align-items-center text-bg-success border-0 shadow-sm" role="alert" aria-live="assertive"
+                aria-atomic="true" data-auto-show="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        {{ session('success') }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                        aria-label="Close"></button>
+                </div>
+            </div>
+        @endif
+        @if (session('error'))
+            <div class="toast align-items-center text-bg-danger border-0 shadow-sm" role="alert" aria-live="assertive"
+                aria-atomic="true" data-auto-show="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        {{ session('error') }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                        aria-label="Close"></button>
+                </div>
+            </div>
+        @endif
+        @if ($errors->any())
+            <div class="toast align-items-center text-bg-danger border-0 shadow-sm" role="alert" aria-live="assertive"
+                aria-atomic="true" data-auto-show="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        {{ $errors->first() }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                        aria-label="Close"></button>
+                </div>
+            </div>
+        @endif
+    </div>
     @php
         $role = auth()->user()->role ?? '';
         $rolePaths = [
@@ -48,17 +87,24 @@
                 'pattern' => 'admin/users*',
             ],
             [
+                'label' => 'Academic Year Management & Semester Management',
+                'icon' => 'fa-solid fa-calendar-alt',
+                'href' => route('admin.academic-years.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/academic-years*',
+            ],
+            [
                 'label' => 'Department Management',
                 'icon' => 'fa-solid fa-building',
                 'href' => route('admin.departments.index'),
-                'roles' => ['admin', 'department_head'],
+                'roles' => ['admin'],
                 'pattern' => 'admin/departments',
             ],
             [
                 'label' => 'Program Management',
                 'icon' => 'fa-solid fa-diagram-project',
                 'href' => route('admin.programs.index'),
-                'roles' => ['admin', 'department_head'],
+                'roles' => ['admin'],
                 'pattern' => 'admin/programs*',
             ],
             [
@@ -69,13 +115,6 @@
                 'pattern' => 'admin/rooms*',
             ],
             // Program Head Menu Items
-            [
-                'label' => 'Subject Management',
-                'icon' => 'fa-solid fa-book',
-                'href' => route('program-head.subjects.index'),
-                'roles' => ['program_head'],
-                'pattern' => 'program-head/subjects*',
-            ],
             [
                 'label' => 'Curriculum Management',
                 'icon' => 'fa-solid fa-layer-group',
@@ -96,6 +135,13 @@
                 'href' => route('program-head.schedules.index'),
                 'roles' => ['program_head'],
                 'pattern' => 'program-head/schedules*',
+            ],
+            [
+                'label' => 'Subject Management',
+                'icon' => 'fa-solid fa-book',
+                'href' => route('department-head.subjects.index'),
+                'roles' => ['department_head'],
+                'pattern' => 'department-head/subjects*',
             ],
             [
                 'label' => 'Schedule Approval',
@@ -364,6 +410,17 @@
                 setLayout();
             });
         })();
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toasts = Array.from(document.querySelectorAll('.toast[data-auto-show="true"]'));
+            toasts.forEach((toastEl) => {
+                const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
+                toast.show();
+                toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+            });
+        });
     </script>
 
     <!-- Notification System -->

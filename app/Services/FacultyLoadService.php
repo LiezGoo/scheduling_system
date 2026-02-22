@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\InstructorLoad;
 use App\Models\User;
 use App\Models\Subject;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,7 +39,7 @@ class FacultyLoadService
     {
         return User::eligibleInstructors()
                    ->active()
-                   ->with('facultySubjects')
+                   ->with('instructorLoads')
                    ->orderBy('first_name')
                    ->orderBy('last_name')
                    ->get();
@@ -57,9 +58,14 @@ class FacultyLoadService
     public function assignSubjectToInstructor(
         int $userId,
         int $subjectId,
+        int $programId,
+        int $academicYearId,
+        string $semester,
+        int $yearLevel,
+        string $blockSection,
         int $lectureHours = 0,
         int $labHours = 0,
-        ?int $maxLoadUnits = null
+        bool $forceAssign = false
     ): array {
         try {
             // Validate instructor eligibility
@@ -91,10 +97,15 @@ class FacultyLoadService
             }
 
             // Check if assignment already exists
-            $exists = DB::table('faculty_subjects')
-                        ->where('user_id', $userId)
-                        ->where('subject_id', $subjectId)
-                        ->exists();
+            $exists = InstructorLoad::query()
+                ->where('instructor_id', $userId)
+                ->where('subject_id', $subjectId)
+                ->where('program_id', $programId)
+                ->where('academic_year_id', $academicYearId)
+                ->where('semester', $semester)
+                ->where('year_level', $yearLevel)
+                ->where('block_section', $blockSection)
+                ->exists();
 
             if ($exists) {
                 return [
@@ -104,29 +115,35 @@ class FacultyLoadService
             }
 
             // Validate faculty load limits before assignment
-            $loadValidation = $user->validateFacultyLoad($lectureHours, $labHours);
-            if (!$loadValidation['valid']) {
+            $loadValidation = $user->validateFacultyLoad($lectureHours, $labHours, $academicYearId, $semester);
+            if (!$loadValidation['valid'] && !$forceAssign) {
                 return [
                     'success' => false,
                     'message' => $loadValidation['message'],
+                    'code' => 'overload',
                     'validation_details' => $loadValidation,
                 ];
             }
 
-            // Calculate teaching units
-            $computedUnits = User::calculateTeachingUnits($lectureHours, $labHours);
+            $totalHours = $lectureHours + $labHours;
 
-            // Create assignment with hours and computed units
-            $user->facultySubjects()->attach($subjectId, [
-                'lecture_hours' => $lectureHours,
+            InstructorLoad::create([
+                'instructor_id' => $userId,
+                'program_id' => $programId,
+                'subject_id' => $subjectId,
+                'academic_year_id' => $academicYearId,
+                'semester' => $semester,
+                'year_level' => $yearLevel,
+                'block_section' => $blockSection,
+                'lec_hours' => $lectureHours,
                 'lab_hours' => $labHours,
-                'computed_units' => $computedUnits,
-                'max_load_units' => $maxLoadUnits,
+                'total_hours' => $totalHours,
             ]);
 
             return [
                 'success' => true,
-                'message' => "{$user->full_name} has been assigned to {$subject->subject_name} ({$computedUnits} units).",
+                'message' => "{$user->full_name} has been assigned to {$subject->subject_name} ({$totalHours} total hours).",
+                'warning' => $loadValidation['valid'] ? null : $loadValidation,
             ];
         } catch (\Exception $e) {
             return [
@@ -147,15 +164,15 @@ class FacultyLoadService
      * @return array Status and message
      */
     public function updateLoadConstraints(
-        int $userId,
-        int $subjectId,
+        int $facultyLoadId,
         int $lectureHours = 0,
         int $labHours = 0,
-        ?int $maxLoadUnits = null
+        bool $forceAssign = false
     ): array {
         try {
-            $user = User::findOrFail($userId);
-            $subject = Subject::findOrFail($subjectId);
+            $load = InstructorLoad::findOrFail($facultyLoadId);
+            $user = User::findOrFail($load->instructor_id);
+            $subject = Subject::findOrFail($load->subject_id);
 
             // Validate at least one type of hours is provided
             if ($lectureHours <= 0 && $labHours <= 0) {
@@ -174,46 +191,37 @@ class FacultyLoadService
             }
 
             // Get current assignment to calculate net change
-            $currentAssignment = DB::table('faculty_subjects')
-                                   ->where('user_id', $userId)
-                                   ->where('subject_id', $subjectId)
-                                   ->first();
-
-            if (!$currentAssignment) {
-                return [
-                    'success' => false,
-                    'message' => 'Assignment not found.',
-                ];
-            }
-
             // Calculate net change (new hours - old hours)
-            $lectureChange = $lectureHours - $currentAssignment->lecture_hours;
-            $labChange = $labHours - $currentAssignment->lab_hours;
+            $lectureChange = $lectureHours - $load->lec_hours;
+            $labChange = $labHours - $load->lab_hours;
 
             // Validate faculty load limits with the change
-            $loadValidation = $user->validateFacultyLoad($lectureChange, $labChange);
-            if (!$loadValidation['valid']) {
+            $loadValidation = $user->validateFacultyLoad(
+                $lectureChange,
+                $labChange,
+                $load->academic_year_id,
+                $load->semester,
+                $load->id
+            );
+            if (!$loadValidation['valid'] && !$forceAssign) {
                 return [
                     'success' => false,
                     'message' => $loadValidation['message'],
+                    'code' => 'overload',
                     'validation_details' => $loadValidation,
                 ];
             }
 
-            // Calculate teaching units
-            $computedUnits = User::calculateTeachingUnits($lectureHours, $labHours);
+            $totalHours = $lectureHours + $labHours;
 
-            // Update the pivot table
-            $updated = DB::table('faculty_subjects')
-                         ->where('user_id', $userId)
-                         ->where('subject_id', $subjectId)
-                         ->update([
-                             'lecture_hours' => $lectureHours,
-                             'lab_hours' => $labHours,
-                             'computed_units' => $computedUnits,
-                             'max_load_units' => $maxLoadUnits,
-                             'updated_at' => now(),
-                         ]);
+            $updated = InstructorLoad::query()
+                ->where('id', $load->id)
+                ->update([
+                    'lec_hours' => $lectureHours,
+                    'lab_hours' => $labHours,
+                    'total_hours' => $totalHours,
+                    'updated_at' => now(),
+                ]);
 
             if ($updated === 0) {
                 return [
@@ -224,7 +232,8 @@ class FacultyLoadService
 
             return [
                 'success' => true,
-                'message' => "Teaching hours updated for {$user->full_name} - {$subject->subject_name} ({$computedUnits} units).",
+                'message' => "Teaching hours updated for {$user->full_name} - {$subject->subject_name} ({$totalHours} total hours).",
+                'warning' => $loadValidation['valid'] ? null : $loadValidation,
             ];
         } catch (\Exception $e) {
             return [
@@ -241,13 +250,14 @@ class FacultyLoadService
      * @param int $subjectId The subject ID
      * @return array Status and message
      */
-    public function removeSubjectAssignment(int $userId, int $subjectId): array
+    public function removeSubjectAssignment(int $facultyLoadId): array
     {
         try {
-            $user = User::findOrFail($userId);
-            $subject = Subject::findOrFail($subjectId);
+            $load = InstructorLoad::findOrFail($facultyLoadId);
+            $user = User::findOrFail($load->instructor_id);
+            $subject = Subject::findOrFail($load->subject_id);
 
-            $user->facultySubjects()->detach($subjectId);
+            $load->delete();
 
             return [
                 'success' => true,
@@ -269,10 +279,10 @@ class FacultyLoadService
      */
     public function getInstructorSubjects(int $userId): Collection
     {
-        return User::findOrFail($userId)
-                   ->facultySubjects()
-                   ->with('program')
-                   ->get();
+        return InstructorLoad::query()
+            ->with(['subject', 'program', 'academicYear'])
+            ->where('instructor_id', $userId)
+            ->get();
     }
 
     /**
@@ -285,7 +295,17 @@ class FacultyLoadService
     public function getInstructorLoadSummary(int $userId): array
     {
         $user = User::findOrFail($userId);
-        return $user->getTeachingLoadSummary();
+
+        $totalLectureHours = (int) $user->instructorLoads()->sum('lec_hours');
+        $totalLabHours = (int) $user->instructorLoads()->sum('lab_hours');
+        $totalHours = $totalLectureHours + $totalLabHours;
+
+        return [
+            'total_lecture_hours' => $totalLectureHours,
+            'total_lab_hours' => $totalLabHours,
+            'total_teaching_units' => $totalHours,
+            'assignment_count' => $user->instructorLoads()->count(),
+        ];
     }
 
     /**
@@ -296,9 +316,10 @@ class FacultyLoadService
      */
     public function getSubjectInstructors(int $subjectId): Collection
     {
-        return Subject::findOrFail($subjectId)
-                      ->facultyInstructors()
-                      ->get();
+        return InstructorLoad::query()
+            ->with('instructor')
+            ->where('subject_id', $subjectId)
+            ->get();
     }
 
     /**
@@ -309,10 +330,10 @@ class FacultyLoadService
     public function getFacultyLoadSummary(): array
     {
         $eligibleInstructors = User::eligibleInstructors()->active()->count();
-        $totalAssignments = DB::table('faculty_subjects')->count();
-        $assignedInstructors = DB::table('faculty_subjects')
-                                  ->distinct('user_id')
-                                  ->count('user_id');
+        $totalAssignments = DB::table('instructor_loads')->count();
+        $assignedInstructors = DB::table('instructor_loads')
+                      ->distinct('instructor_id')
+                      ->count('instructor_id');
 
         return [
             'total_eligible_instructors' => $eligibleInstructors,
@@ -330,7 +351,7 @@ class FacultyLoadService
     {
         return User::eligibleInstructors()
                    ->active()
-                   ->whereDoesntHave('facultySubjects')
+                   ->whereDoesntHave('instructorLoads')
                    ->orderBy('first_name')
                    ->orderBy('last_name')
                    ->get();
@@ -362,4 +383,5 @@ class FacultyLoadService
             'message' => 'Instructor is eligible for additional assignments.',
         ];
     }
+
 }

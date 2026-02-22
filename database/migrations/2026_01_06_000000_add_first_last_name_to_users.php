@@ -18,17 +18,20 @@ return new class extends Migration
             $table->string('last_name')->nullable()->after('first_name');
         });
 
-        // Migrate existing data from 'name' to 'first_name' and 'last_name'
-        DB::statement('
-            UPDATE users
-            SET first_name = TRIM(SUBSTRING_INDEX(name, " ", 1)),
-                last_name = TRIM(IF(
-                    CHAR_LENGTH(name) - CHAR_LENGTH(REPLACE(name, " ", "")) = 0,
-                    "",
-                    SUBSTRING(name, CHAR_LENGTH(SUBSTRING_INDEX(name, " ", 1)) + 2)
-                ))
-            WHERE name IS NOT NULL
-        ');
+        // Migrate existing data from 'name' to 'first_name' and 'last_name' using PHP
+        $users = DB::table('users')->whereNotNull('name')->get();
+        foreach ($users as $user) {
+            $nameParts = explode(' ', trim($user->name), 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName = $nameParts[1] ?? '';
+            
+            DB::table('users')
+                ->where('id', $user->id)
+                ->update([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                ]);
+        }
 
         // Make the new columns non-nullable after migration
         Schema::table('users', function (Blueprint $table) {

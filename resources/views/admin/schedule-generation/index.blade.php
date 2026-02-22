@@ -25,11 +25,13 @@
                             <label for="filterAcademicYear" class="form-label">
                                 Academic Year <span class="text-danger">*</span>
                             </label>
-                            <select class="form-select" id="filterAcademicYear" name="academic_year" required>
-                                <option value="">Select Academic Year</option>
-                                <option value="2024-2025">2024–2025</option>
-                                <option value="2025-2026">2025–2026</option>
-                                <option value="2026-2027">2026–2027</option>
+                            <select class="form-select" id="filterAcademicYear" name="academic_year_id" required>
+                                <option value="">-- Select Academic Year --</option>
+                                @foreach ($academicYears as $year)
+                                    <option value="{{ $year->id }}" {{ old('academic_year_id', request('academic_year_id')) == $year->id ? 'selected' : '' }}>
+                                        {{ $year->name }}
+                                    </option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback">
                                 Please select an academic year.

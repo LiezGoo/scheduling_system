@@ -61,30 +61,9 @@
                     </table>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination Footer -->
                 @if ($rooms && $rooms->count() > 0)
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-                        <div class="text-muted small">
-                            Showing {{ $rooms->firstItem() ?? 0 }} to {{ $rooms->lastItem() ?? 0 }} of
-                            {{ $rooms->total() }} rooms
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div id="pagination-container">
-                                {{ $rooms->appends(request()->query())->links() }}
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <label for="roomsPerPageSelect" class="text-muted small mb-0">Per page:</label>
-                                <select id="roomsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
-                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15
-                                    </option>
-                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
-                                    <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                                    <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <x-pagination.footer :paginator="$rooms" />
                 @endif
             </div>
         </div>
@@ -151,23 +130,10 @@
             applyFilters();
         });
 
-        // Per-page selector
-        const perPageSelect = document.getElementById('roomsPerPageSelect');
-        if (perPageSelect) {
-            perPageSelect.addEventListener('change', function() {
-                const search = document.getElementById('search').value;
-                const room_type = document.getElementById('room_type_filter').value;
-                const per_page = this.value;
-
-                window.location.href =
-                    `{{ route('admin.rooms.index') }}?search=${search}&room_type=${room_type}&per_page=${per_page}`;
-            });
-        }
-
         // Pagination click handler
         document.addEventListener('click', function(e) {
-            const paginationLink = e.target.closest('#pagination-container a');
-            if (paginationLink) {
+            const paginationLink = e.target.closest('[class*="pagination"] a');
+            if (paginationLink && !paginationLink.href.includes('per_page')) {
                 e.preventDefault();
                 const url = new URL(paginationLink.href);
                 const page = url.searchParams.get('page') || 1;
@@ -178,7 +144,8 @@
         function applyFilters(page = 1) {
             const search = document.getElementById('search').value;
             const room_type = document.getElementById('room_type_filter').value;
-            const per_page = document.getElementById('roomsPerPageSelect').value;
+            const urlParams = new URLSearchParams(window.location.search);
+            const per_page = urlParams.get('per_page') || '15';
 
             // Show loading spinner
             document.getElementById('filter-spinner').style.display = 'block';

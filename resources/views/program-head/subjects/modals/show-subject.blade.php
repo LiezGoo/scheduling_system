@@ -37,7 +37,7 @@
 
                 try {
                     const response = await fetch(
-                        `{{ route('program-head.subjects.index') }}/${subjectId}/details`, {
+                        `{{ route('program-head.subjects.index') }}/${subjectId}`, {
                             headers: {
                                 'X-Requested-With': 'XMLHttpRequest',
                                 'Accept': 'application/json'
@@ -106,16 +106,29 @@
                                 <div class="col-md-6">
                                     <div class="card border-0 bg-light">
                                         <div class="card-body">
-                                            <h6 class="text-muted text-uppercase small mb-2">Year Level</h6>
-                                            <p class="mb-0 fs-5 fw-semibold">${getYearLevelLabel(subject.year_level)}</p>
+                                            <h6 class="text-muted text-uppercase small mb-2">Type</h6>
+                                            <p class="mb-0 fs-5 fw-semibold">${formatType(subject.lecture_hours, subject.lab_hours)}</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="card border-0 bg-light">
                                         <div class="card-body">
-                                            <h6 class="text-muted text-uppercase small mb-2">Semester</h6>
-                                            <p class="mb-0 fs-5 fw-semibold">${getSemesterLabel(subject.semester)}</p>
+                                            <h6 class="text-muted text-uppercase small mb-2">Status</h6>
+                                            <p class="mb-0">
+                                                ${subject.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6 class="text-muted text-uppercase small mb-2">Description</h6>
+                                            <p class="mb-0">${subject.description ? escapeHtml(subject.description) : 'N/A'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -155,24 +168,20 @@
             return text.replace(/[&<>"']/g, m => map[m]);
         }
 
-        // Helper function to get year level label
-        function getYearLevelLabel(yearLevel) {
-            const labels = {
-                '1': '1st Year',
-                '2': '2nd Year',
-                '3': '3rd Year',
-                '4': '4th Year'
-            };
-            return labels[yearLevel] || 'N/A';
-        }
+        function formatType(lectureHours, labHours) {
+            const lecture = parseFloat(lectureHours) || 0;
+            const lab = parseFloat(labHours) || 0;
 
-        // Helper function to get semester label
-        function getSemesterLabel(semester) {
-            const labels = {
-                '1': '1st Semester',
-                '2': '2nd Semester'
-            };
-            return labels[semester] || 'N/A';
+            if (lecture > 0 && lab > 0) {
+                return 'Lecture & Lab';
+            }
+            if (lecture > 0) {
+                return 'Lecture';
+            }
+            if (lab > 0) {
+                return 'Laboratory';
+            }
+            return 'Invalid';
         }
     });
 </script>

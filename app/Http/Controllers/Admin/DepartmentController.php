@@ -79,10 +79,10 @@ class DepartmentController extends Controller
         try {
             $department = Department::create($validated);
 
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Department created successfully!',
+                    'message' => 'Department added successfully.',
                     'department' => $department,
                 ]);
             }
@@ -92,7 +92,7 @@ class DepartmentController extends Controller
         } catch (\Exception $e) {
             Log::error('Department creation failed: ' . $e->getMessage());
 
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to create department: ' . $e->getMessage(),

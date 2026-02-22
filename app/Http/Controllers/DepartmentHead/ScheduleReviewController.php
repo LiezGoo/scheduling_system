@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\DepartmentHead;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicYear;
+use App\Models\Program;
 use App\Models\Schedule;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
@@ -21,7 +23,7 @@ class ScheduleReviewController extends Controller
     /**
      * Display schedules pending approval for the department head.
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
 
@@ -29,16 +31,75 @@ class ScheduleReviewController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $schedules = Schedule::with(['program', 'creator'])
+        // Base query for schedules in department
+        $query = Schedule::with(['program', 'creator'])
             ->whereHas('program', function ($query) use ($user) {
                 $query->where('department_id', $user->department_id);
-            })
-            ->where('status', Schedule::STATUS_PENDING_APPROVAL)
-            ->orderByDesc('submitted_at')
+            });
+
+        // Get programs in department for filter dropdown
+        $programs = Program::where('department_id', $user->department_id)
+            ->orderBy('program_name')
+            ->get();
+
+        // Apply filters
+        if ($request->filled('program')) {
+            $query->where('program_id', $request->program);
+        }
+
+        if ($request->filled('academic_year_id')) {
+            $academicYear = AcademicYear::find($request->academic_year_id);
+            if ($academicYear) {
+                $query->where('academic_year', $academicYear->name);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if ($request->filled('semester')) {
+            $query->where('semester', $request->semester);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        } else {
+            // Default to pending if no status filter specified
+            $query->where('status', Schedule::STATUS_PENDING_APPROVAL);
+        }
+
+        // Search by program name or block
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('program', function ($q) use ($search) {
+                $q->where('program_name', 'like', "%{$search}%")
+                  ->orWhere('program_code', 'like', "%{$search}%");
+            })->orWhere('block', 'like', "%{$search}%");
+        }
+
+        $schedules = $query->orderByDesc('submitted_at')
             ->get()
             ->groupBy('program_id');
 
-        return view('department-head.schedules.index', compact('schedules'));
+        // Get summary counts for all statuses
+        $pendingCount = Schedule::whereHas('program', function ($query) use ($user) {
+            $query->where('department_id', $user->department_id);
+        })->where('status', Schedule::STATUS_PENDING_APPROVAL)->count();
+
+        $approvedCount = Schedule::whereHas('program', function ($query) use ($user) {
+            $query->where('department_id', $user->department_id);
+        })->where('status', Schedule::STATUS_APPROVED)->count();
+
+        $rejectedCount = Schedule::whereHas('program', function ($query) use ($user) {
+            $query->where('department_id', $user->department_id);
+        })->where('status', Schedule::STATUS_REJECTED)->count();
+
+        return view('department-head.schedules.index', compact(
+            'schedules',
+            'programs',
+            'pendingCount',
+            'approvedCount',
+            'rejectedCount'
+        ));
     }
 
     /**

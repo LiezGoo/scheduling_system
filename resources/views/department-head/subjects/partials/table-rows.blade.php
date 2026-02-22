@@ -1,0 +1,63 @@
+@forelse ($subjects as $subject)
+    <tr>
+        <td><strong>{{ $subject->subject_code }}</strong></td>
+        <td>
+            <div>{{ $subject->subject_name }}</div>
+            @php
+                $lectureHours = (float) $subject->lecture_hours;
+                $labHours = (float) $subject->lab_hours;
+            @endphp
+            <span class="badge bg-secondary">
+                @if ($lectureHours > 0 && $labHours > 0)
+                    Lecture & Lab
+                @elseif ($lectureHours > 0)
+                    Lecture
+                @elseif ($labHours > 0)
+                    Laboratory
+                @else
+                    Invalid
+                @endif
+            </span>
+        </td>
+        <td class="text-center">{{ $subject->units }}</td>
+        <td class="text-center">{{ $subject->lecture_hours }}</td>
+        <td class="text-center">{{ $subject->lab_hours }}</td>
+        <td class="text-center">
+            @if ($subject->is_active)
+                <span class="badge bg-success">Active</span>
+            @else
+                <span class="badge bg-secondary">Inactive</span>
+            @endif
+        </td>
+        <td class="text-center">
+            <div class="d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary view-subject-btn"
+                    data-subject-id="{{ $subject->id }}" data-bs-toggle="modal" data-bs-target="#viewSubjectModal"
+                    title="View" aria-label="View Subject Details">
+                    <i class="fa-regular fa-eye"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-warning edit-subject-btn"
+                    data-subject-id="{{ $subject->id }}" data-subject-code="{{ $subject->subject_code }}"
+                    data-subject-name="{{ $subject->subject_name }}" data-units="{{ $subject->units }}"
+                    data-lecture-hours="{{ $subject->lecture_hours }}" data-lab-hours="{{ $subject->lab_hours }}"
+                    data-description="{{ $subject->description }}"
+                    data-is-active="{{ $subject->is_active ? 'true' : 'false' }}"
+                    title="Edit" aria-label="Edit Subject">
+                    <i class="fa-solid fa-pencil"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger delete-subject-btn"
+                    data-subject-id="{{ $subject->id }}" data-subject-name="{{ $subject->subject_name }}"
+                    title="Delete" aria-label="Delete Subject">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </td>
+    </tr>
+@empty
+    <tr>
+        <td colspan="7" class="text-center py-4">
+            <i class="fa-solid fa-book text-muted fa-3x mb-3"></i>
+            <p class="text-muted mb-0">No subjects found</p>
+        </td>
+    </tr>
+@endforelse

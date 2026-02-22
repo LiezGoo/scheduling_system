@@ -13,6 +13,23 @@
                 @csrf
                 <div class="modal-body">
                     <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="add_department_id" class="form-label">
+                                Department <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="add_department_id" name="department_id" required>
+                                <option value="">Select Department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}">
+                                        {{ $department->department_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback">Please select a department.</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="add_subject_code" class="form-label">
                                 Subject Code <span class="text-danger">*</span>
@@ -62,30 +79,20 @@
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="add_year_level" class="form-label">
-                                Year Level <span class="text-danger">*</span>
-                            </label>
-                            <select class="form-select" id="add_year_level" name="year_level" required>
-                                <option value="">Select Year Level</option>
-                                <option value="1">1st Year</option>
-                                <option value="2">2nd Year</option>
-                                <option value="3">3rd Year</option>
-                                <option value="4">4th Year</option>
-                            </select>
-                            <div class="invalid-feedback">Please select a year level.</div>
+                        <div class="col-md-12 mb-3">
+                            <label for="add_description" class="form-label">Description</label>
+                            <textarea class="form-control" id="add_description" name="description" rows="3"
+                                placeholder="Optional description"></textarea>
                         </div>
+                    </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label for="add_semester" class="form-label">
-                                Semester <span class="text-danger">*</span>
-                            </label>
-                            <select class="form-select" id="add_semester" name="semester" required>
-                                <option value="">Select Semester</option>
-                                <option value="1">1st Semester</option>
-                                <option value="2">2nd Semester</option>
-                            </select>
-                            <div class="invalid-feedback">Please select a semester.</div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="add_is_active" class="form-label">Status</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="add_is_active" name="is_active" value="1" checked>
+                                <label class="form-check-label" for="add_is_active">Active</label>
+                            </div>
                         </div>
                     </div>
 

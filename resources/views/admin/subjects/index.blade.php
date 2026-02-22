@@ -28,27 +28,15 @@
                                 placeholder="Search by code or name..." value="{{ request('search') }}">
                         </div>
                         <div class="col-md-3">
-                            <label for="filterYearLevel" class="form-label">Year Level</label>
-                            <select class="form-select" id="filterYearLevel" name="year_level">
-                                <option value="">All Years</option>
-                                <option value="1" {{ request('year_level') == '1' ? 'selected' : '' }}>1st Year
-                                </option>
-                                <option value="2" {{ request('year_level') == '2' ? 'selected' : '' }}>2nd Year
-                                </option>
-                                <option value="3" {{ request('year_level') == '3' ? 'selected' : '' }}>3rd Year
-                                </option>
-                                <option value="4" {{ request('year_level') == '4' ? 'selected' : '' }}>4th Year
-                                </option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="filterSemester" class="form-label">Semester</label>
-                            <select class="form-select" id="filterSemester" name="semester">
-                                <option value="">All Semesters</option>
-                                <option value="1" {{ request('semester') == '1' ? 'selected' : '' }}>1st Semester
-                                </option>
-                                <option value="2" {{ request('semester') == '2' ? 'selected' : '' }}>2nd Semester
-                                </option>
+                            <label for="filterDepartment" class="form-label">Department</label>
+                            <select class="form-select" id="filterDepartment" name="department_id">
+                                <option value="">All Departments</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}"
+                                        {{ request('department_id') == $department->id ? 'selected' : '' }}>
+                                        {{ $department->department_name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-center gap-2">
@@ -73,11 +61,11 @@
                             <tr>
                                 <th>Subject Code</th>
                                 <th>Subject Name</th>
+                                <th>Department</th>
                                 <th class="text-center">Units</th>
                                 <th class="text-center">Lecture Hrs</th>
                                 <th class="text-center">Lab Hrs</th>
-                                <th>Year Level</th>
-                                <th>Semester</th>
+                                <th class="text-center">Status</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
@@ -87,30 +75,9 @@
                     </table>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination Footer -->
                 @if ($subjects && $subjects->count() > 0)
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-                        <div class="text-muted small">
-                            Showing {{ $subjects->firstItem() ?? 0 }} to {{ $subjects->lastItem() ?? 0 }} of
-                            {{ $subjects->total() }} subjects
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div id="subjectsPagination">
-                                {{ $subjects->withQueryString()->links() }}
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <label for="subjectsPerPageSelect" class="text-muted small mb-0">Per page:</label>
-                                <select id="subjectsPerPageSelect" class="form-select form-select-sm" style="width: auto;">
-                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15
-                                    </option>
-                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
-                                    <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                                    <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <x-pagination.footer :paginator="$subjects" />
                 @endif
             </div>
         </div>
@@ -174,21 +141,15 @@
                 applyFilters();
             });
 
-            // Per-page selector
-            const perPageSelect = document.getElementById('subjectsPerPageSelect');
-            if (perPageSelect) {
-                perPageSelect.addEventListener('change', function() {
-                    const formData = new FormData(filterForm);
-                    const params = new URLSearchParams(formData);
-                    params.set('per_page', this.value);
-                    window.location.href = '?' + params.toString();
-                });
-            }
-
             // Apply filters via AJAX
             function applyFilters() {
                 const formData = new FormData(filterForm);
                 const params = new URLSearchParams(formData);
+                // Include per_page if present in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('per_page')) {
+                    params.set('per_page', urlParams.get('per_page'));
+                }
 
                 spinner.classList.remove('d-none');
 

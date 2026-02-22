@@ -14,10 +14,21 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // STEP 1: safely clear users table (no drops)
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        DB::table('users')->truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // STEP 1: safely clear users table (no drops) - database-agnostic
+        $driver = DB::connection()->getDriverName();
+        
+        if ($driver === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            DB::table('users')->truncate();
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+            DB::table('users')->truncate();
+            DB::statement('PRAGMA foreign_keys = ON;');
+        } else {
+            // For other databases, just truncate (may fail with FKs)
+            DB::table('users')->truncate();
+        }
 
         $faker = \Faker\Factory::create();
 
@@ -28,7 +39,8 @@ class UserSeeder extends Seeder
         // Department Heads: one per department (department_id required, program_id null)
         foreach ($departments as $department) {
             User::create([
-                'name' => $faker->name(),
+                'first_name' => $faker->firstName(),
+                'last_name' => $faker->lastName(),
                 'email' => "depthead+{$department->id}@example.test",
                 'role' => 'department_head',
                 'department_id' => $department->id,
@@ -42,7 +54,8 @@ class UserSeeder extends Seeder
         // Program Heads: one per program (department_id must match)
         foreach ($programs as $program) {
             User::create([
-                'name' => $faker->name(),
+                'first_name' => $faker->firstName(),
+                'last_name' => $faker->lastName(),
                 'email' => "proghead+{$program->id}@example.test",
                 'role' => 'program_head',
                 'department_id' => $program->department_id,
@@ -62,7 +75,8 @@ class UserSeeder extends Seeder
                 $program = $deptPrograms->isNotEmpty() ? $deptPrograms->random() : null;
 
                 User::create([
-                    'name' => $faker->name(),
+                    'first_name' => $faker->firstName(),
+                    'last_name' => $faker->lastName(),
                     'email' => $faker->unique()->safeEmail(),
                     'role' => 'instructor',
                     'department_id' => $department->id,
@@ -79,7 +93,8 @@ class UserSeeder extends Seeder
         foreach ($programs as $program) {
             for ($i = 0; $i < 10; $i++) {
                 User::create([
-                    'name' => $faker->name(),
+                    'first_name' => $faker->firstName(),
+                    'last_name' => $faker->lastName(),
                     'email' => $faker->unique()->safeEmail(),
                     'role' => 'student',
                     'department_id' => $program->department_id,

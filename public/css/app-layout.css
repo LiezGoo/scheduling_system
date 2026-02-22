@@ -417,6 +417,147 @@ body.sidebar-collapsed .sidebar-inner {
     color: var(--primary-color) !important;
 }
 
+/* Student Dashboard Responsive Layout */
+.student-dashboard {
+    max-width: 100%;
+}
+
+.student-dashboard .dashboard-title {
+    font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+}
+
+.student-dashboard .dashboard-subtitle {
+    font-size: clamp(0.85rem, 1.6vw, 1rem);
+}
+
+.student-dashboard .role-badge {
+    font-size: 0.85rem;
+}
+
+.student-dashboard .empty-state-icon {
+    font-size: clamp(2.25rem, 8vw, 3rem);
+}
+
+.student-dashboard .card-body {
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+.student-dashboard .form-label {
+    margin-bottom: 0.35rem;
+}
+
+.student-dashboard .form-select,
+.student-dashboard .form-control {
+    width: 100%;
+    min-height: 44px;
+}
+
+.student-dashboard .btn {
+    min-height: 44px;
+}
+
+.student-dashboard .schedule-table {
+    font-size: 0.9rem;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.student-dashboard .schedule-table th,
+.student-dashboard .schedule-table td {
+    word-break: break-word;
+}
+
+.student-dashboard .schedule-table thead th {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    vertical-align: middle;
+    padding: 0.75rem 0.5rem;
+}
+
+.student-dashboard .time-column {
+    width: clamp(4.5rem, 10vw, 6.25rem);
+}
+
+.student-dashboard .schedule-cell {
+    vertical-align: top;
+    padding: 0.75rem 0.5rem;
+    min-height: 80px;
+    background-color: #ffffff;
+}
+
+.student-dashboard .schedule-cell .class-card {
+    background-color: #f8f9fa;
+    border-left: 3px solid var(--primary-color);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.student-dashboard .schedule-cell .subject-code {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.9rem;
+}
+
+.student-dashboard .schedule-cell .subject-name {
+    color: #212529;
+    font-size: 0.8rem;
+}
+
+.student-dashboard .schedule-cell .instructor,
+.student-dashboard .schedule-cell .room {
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+.student-dashboard .schedule-cell:hover {
+    background-color: #f8f9fa;
+}
+
+.student-dashboard .schedule-mobile-card {
+    border: 1px solid #e3e6ef;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: #ffffff;
+}
+
+.student-dashboard .schedule-mobile-icon {
+    font-size: 1.75rem;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+    .student-dashboard #scheduleTableView {
+        display: none !important;
+    }
+}
+
+@media (min-width: 768px) {
+    .student-dashboard #scheduleMobileView {
+        display: none !important;
+    }
+
+    .student-dashboard .form-select-md-normal {
+        font-size: 1rem;
+        padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+    }
+
+    .student-dashboard .btn-md-normal {
+        font-size: 1rem;
+        padding: 0.375rem 0.75rem;
+    }
+
+    .student-dashboard .h5-md {
+        font-size: 1.25rem;
+    }
+
+    .student-dashboard .h4-md {
+        font-size: 1.5rem;
+    }
+}
+
 /* Form Input Focus States with Maroon */
 .form-control:focus,
 .form-select:focus {

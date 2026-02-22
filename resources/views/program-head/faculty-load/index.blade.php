@@ -3,12 +3,12 @@
 @section('page-title', 'Faculty Load Management')
 
 @section('content')
-    <div class="container-fluid py-4">
+    <div class="container-fluid py-4" data-faculty-load-base="{{ route('program-head.faculty-load.index') }}">
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <p class="text-muted mb-0"><i class="fa-solid fa-book-open"></i> Manage academic programs and
-                    departments
+                <p class="text-muted mb-0"><i class="fa-solid fa-book-open"></i> Manage academic departments and
+                    subjects
                 </p>
             </div>
             <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#assignFacultyLoadModal">
@@ -28,6 +28,7 @@
                                 placeholder="Name or ID..." value="{{ $currentFilters['faculty'] ?? '' }}">
                         </div>
 
+
                         <!-- Program Filter -->
                         <div class="col-md-2">
                             <label for="filterProgram" class="form-label">Program</label>
@@ -42,33 +43,31 @@
                             </select>
                         </div>
 
-                        <!-- Role Filter -->
+                        <!-- Academic Year Filter -->
                         <div class="col-md-2">
-                            <label for="filterRole" class="form-label">Role</label>
-                            <select class="form-select" id="filterRole" name="role">
-                                <option value="">All Roles</option>
-                                <option value="instructor" {{ request('role') === 'instructor' ? 'selected' : '' }}>
-                                    Instructor</option>
-                                <option value="program_head" {{ request('role') === 'program_head' ? 'selected' : '' }}>
-                                    Program Head</option>
-                                <option value="department_head"
-                                    {{ request('role') === 'department_head' ? 'selected' : '' }}>Department Head</option>
-                            </select>
-                        </div>
-
-                        <!-- Subject Filter -->
-                        <div class="col-md-2">
-                            <label for="filterSubject" class="form-label">Subject</label>
-                            <select class="form-select" id="filterSubject" name="subject">
-                                <option value="">All Subjects</option>
-                                @foreach ($subjects as $subject)
-                                    <option value="{{ $subject->id }}"
-                                        {{ request('subject') == $subject->id ? 'selected' : '' }}>
-                                        {{ $subject->subject_code }}
+                            <label for="filterAcademicYear" class="form-label">Academic Year</label>
+                            <select class="form-select" id="filterAcademicYear" name="academic_year_id">
+                                <option value="">All Academic Years</option>
+                                @foreach ($academicYears as $year)
+                                    <option value="{{ $year->id }}"
+                                        {{ request('academic_year_id') == $year->id ? 'selected' : '' }}>
+                                        {{ $year->name }}
                                     </option>
                                 @endforeach
                             </select>
                         </div>
+
+                        <!-- Semester Filter -->
+                        <div class="col-md-2">
+                            <label for="filterSemester" class="form-label">Semester</label>
+                            <select class="form-select" id="filterSemester" name="semester">
+                                <option value="">All Semesters</option>
+                                <option value="1st" {{ request('semester') === '1st' ? 'selected' : '' }}>1st</option>
+                                <option value="2nd" {{ request('semester') === '2nd' ? 'selected' : '' }}>2nd</option>
+                                <option value="summer" {{ request('semester') === 'summer' ? 'selected' : '' }}>Summer</option>
+                            </select>
+                        </div>
+
 
                         <!-- Clear Filters -->
                         <div class="col-md-2 d-flex align-items-center gap-2">
@@ -175,48 +174,29 @@
                                 <th>Faculty ID</th>
                                 <th>Faculty Name</th>
                                 <th>Role</th>
+                                <th>Department</th>
                                 <th>Program</th>
+                                <th>Academic Year</th>
+                                <th class="text-center">Semester</th>
+                                <th class="text-center">Year Level</th>
+                                <th class="text-center">Block/Section</th>
                                 <th>Subject Code</th>
                                 <th>Subject Name</th>
                                 <th class="text-center">Lecture Hrs</th>
                                 <th class="text-center">Lab Hrs</th>
-                                <th class="text-center">Units</th>
+                                <th class="text-center">Total Hrs</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="facultyLoadTableBody">
-                            @include('admin.faculty_load.partials.table-rows')
+                            @include('program-head.faculty-load.partials.table-rows')
                         </tbody>
                     </table>
                 </div>
 
-                <!-- Pagination & Per Page -->
+                <!-- Pagination Footer -->
                 @if ($facultyLoads && $facultyLoads->count() > 0)
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
-                        <div class="text-muted small" id="facultyLoadSummary">
-                            @include('admin.faculty_load.partials.summary')
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div id="facultyLoadPagination">
-                                @include('admin.faculty_load.partials.pagination')
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <label for="perPageSelect" class="text-muted small mb-0 text-nowrap">Per page:</label>
-                                <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;">
-                                    <option value="10" {{ request('per_page', '15') == '10' ? 'selected' : '' }}>10
-                                    </option>
-                                    <option value="15" {{ request('per_page', '15') == '15' ? 'selected' : '' }}>15
-                                    </option>
-                                    <option value="25" {{ request('per_page', '15') == '25' ? 'selected' : '' }}>25
-                                    </option>
-                                    <option value="50" {{ request('per_page', '15') == '50' ? 'selected' : '' }}>50
-                                    </option>
-                                    <option value="100" {{ request('per_page', '15') == '100' ? 'selected' : '' }}>100
-                                    </option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <x-pagination.footer :paginator="$facultyLoads" />
                 @endif
             </div>
         </div>
@@ -236,6 +216,7 @@
                 <form id="assignFacultyLoadForm" novalidate>
                     @csrf
                     <div class="modal-body">
+                        <div id="assignFacultyLoadMessage" class="mb-3 d-none"></div>
                         <!-- Faculty Selection -->
                         <div class="mb-3">
                             <label for="assignFaculty" class="form-label">Faculty <span
@@ -251,6 +232,19 @@
                             <div class="invalid-feedback"></div>
                         </div>
 
+                        <!-- Department Selection -->
+                        <div class="mb-3">
+                            <label for="assignDepartment" class="form-label">Department <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select" id="assignDepartment" name="department_id" required>
+                                <option value="">Select Department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}">{{ $department->department_name }}</option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
                         <!-- Program Selection -->
                         <div class="mb-3">
                             <label for="assignProgram" class="form-label">Program <span
@@ -261,6 +255,54 @@
                                     <option value="{{ $program->id }}">{{ $program->program_name }}</option>
                                 @endforeach
                             </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Academic Year Selection -->
+                        <div class="mb-3">
+                            <label for="assignAcademicYear" class="form-label">Academic Year <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select" id="assignAcademicYear" name="academic_year_id" required>
+                                <option value="">Select Academic Year</option>
+                                @foreach ($academicYears as $year)
+                                    <option value="{{ $year->id }}">{{ $year->name }}</option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Semester Selection -->
+                        <div class="mb-3">
+                            <label for="assignSemester" class="form-label">Semester <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select" id="assignSemester" name="semester" required>
+                                <option value="">Select Semester</option>
+                                <option value="1st">1st Semester</option>
+                                <option value="2nd">2nd Semester</option>
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Year Level -->
+                        <div class="mb-3">
+                            <label for="assignYearLevel" class="form-label">Year Level <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select" id="assignYearLevel" name="year_level" required>
+                                <option value="">Select Year Level</option>
+                                <option value="1">1st Year</option>
+                                <option value="2">2nd Year</option>
+                                <option value="3">3rd Year</option>
+                                <option value="4">4th Year</option>
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <!-- Block/Section -->
+                        <div class="mb-3">
+                            <label for="assignBlockSection" class="form-label">Block/Section <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="assignBlockSection" name="block_section"
+                                placeholder="e.g., 1" required>
                             <div class="invalid-feedback"></div>
                         </div>
 
@@ -297,23 +339,15 @@
                             <div class="invalid-feedback"></div>
                         </div>
 
-                        <!-- Computed Units Display -->
+                        <!-- Total Hours Display -->
                         <div class="mb-3">
-                            <label class="form-label">Computed Teaching Units</label>
+                            <label class="form-label">Total Hours</label>
                             <div class="alert alert-info mb-0">
-                                <strong id="assignComputedUnits">0.00</strong> units
+                                <strong id="assignComputedUnits">0</strong> hours
                             </div>
                         </div>
 
-                        <!-- Max Load Units -->
-                        <div class="mb-3">
-                            <label for="assignMaxLoadUnits" class="form-label">Max Total Load Units (Optional)</label>
-                            <input type="number" class="form-control" id="assignMaxLoadUnits" name="max_load_units"
-                                min="1" max="50" placeholder="Leave empty for no limit">
-                            <small class="form-text text-muted">Optional limit for total teaching units across all
-                                subjects</small>
-                            <div class="invalid-feedback"></div>
-                        </div>
+                        <input type="hidden" name="force_assign" id="assignForceAssign" value="0">
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -375,25 +409,17 @@
                             <div class="invalid-feedback"></div>
                         </div>
 
-                        <!-- Computed Units Display -->
+                        <!-- Total Hours Display -->
                         <div class="mb-3">
-                            <label class="form-label">Computed Teaching Units</label>
+                            <label class="form-label">Total Hours</label>
                             <div class="alert alert-info mb-0">
-                                <strong id="editComputedUnits">0.00</strong> units
+                                <strong id="editComputedUnits">0</strong> hours
                             </div>
                             <small class="form-text text-muted">Automatically calculated based on lecture and lab
                                 hours</small>
                         </div>
 
-                        <!-- Max Load Units -->
-                        <div class="mb-3">
-                            <label for="editMaxLoadUnits" class="form-label">Max Total Load Units (Optional)</label>
-                            <input type="number" class="form-control" id="editMaxLoadUnits" name="max_load_units"
-                                min="1" max="50" placeholder="Leave empty for no limit">
-                            <small class="form-text text-muted">Optional limit for total teaching units across all
-                                subjects</small>
-                            <div class="invalid-feedback"></div>
-                        </div>
+                        <input type="hidden" name="force_assign" id="editForceAssign" value="0">
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -441,6 +467,16 @@
                             </div>
                         </div>
 
+                        <!-- Contract Type -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-file-contract me-2"></i>Contract
+                                </div>
+                                <div class="fw-semibold" id="viewContractType"></div>
+                            </div>
+                        </div>
+
                         <!-- Subject -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">
@@ -458,9 +494,39 @@
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-graduation-cap me-2"></i>Program
+                                    <i class="fa-solid fa-layer-group me-2"></i>Program
                                 </div>
                                 <div class="fw-semibold" id="viewProgramName"></div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Year -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-calendar me-2"></i>Academic Year
+                                </div>
+                                <div class="fw-semibold" id="viewAcademicYear"></div>
+                            </div>
+                        </div>
+
+                        <!-- Semester / Block -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-list me-2"></i>Term
+                                </div>
+                                <div class="fw-semibold" id="viewTerm"></div>
+                            </div>
+                        </div>
+
+                        <!-- Department -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-graduation-cap me-2"></i>Department
+                                </div>
+                                <div class="fw-semibold" id="viewDepartmentName"></div>
                             </div>
                         </div>
 
@@ -484,23 +550,33 @@
                             </div>
                         </div>
 
-                        <!-- Computed Units -->
+                        <!-- Total Hours -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-calculator me-2"></i>Teaching Units
+                                    <i class="fa-solid fa-calculator me-2"></i>Total Hours
                                 </div>
                                 <div class="fw-semibold text-primary" id="viewComputedUnits"></div>
                             </div>
                         </div>
 
-                        <!-- Max Load Units -->
+                        <!-- Load Limits -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">
                                 <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-scale-balanced me-2"></i>Max Total Load
+                                    <i class="fa-solid fa-scale-balanced me-2"></i>Load Limits
                                 </div>
-                                <div class="fw-semibold" id="viewMaxLoadUnits"></div>
+                                <div class="fw-semibold" id="viewLoadLimits"></div>
+                            </div>
+                        </div>
+
+                        <!-- Current Load -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-start">
+                                <div class="text-muted" style="min-width: 120px;">
+                                    <i class="fa-solid fa-gauge-high me-2"></i>Current Load
+                                </div>
+                                <div class="fw-semibold" id="viewCurrentLoad"></div>
                             </div>
                         </div>
 
@@ -567,11 +643,57 @@
         </div>
     </div>
 
+    <!-- Overload Warning Modal -->
+    <div class="modal fade" id="overloadWarningModal" tabindex="-1" aria-labelledby="overloadWarningModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="overloadWarningModalLabel">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>Load Limit Warning
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3" id="overloadMessage">This assignment exceeds the load limit.</p>
+                    <div class="border rounded-3 p-3 bg-light">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Current Lecture Hours</span>
+                            <span class="fw-semibold" id="overloadCurrentLecture">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Current Lab Hours</span>
+                            <span class="fw-semibold" id="overloadCurrentLab">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Max Lecture Hours</span>
+                            <span class="fw-semibold" id="overloadMaxLecture">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Max Lab Hours</span>
+                            <span class="fw-semibold" id="overloadMaxLab">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Excess Hours</span>
+                            <span class="fw-semibold text-danger" id="overloadExcess">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmForceAssignBtn">
+                        <i class="fa-solid fa-check me-2"></i>Force Assign
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom CSS -->
     <style>
         /* ========================================
-                                                                                               GLOBAL MODAL STYLING - SorSU Theme
-                                                                                               ======================================== */
+                                                                                                   GLOBAL MODAL STYLING - SorSU Theme
+                                                                                                   ======================================== */
 
         /* Modal Header - Apply maroon background to ALL modals */
         .modal-header {
@@ -621,8 +743,8 @@
         }
 
         /* ========================================
-                                                                                               UTILITY CLASSES
-                                                                                               ======================================== */
+                                                                                                   UTILITY CLASSES
+                                                                                                   ======================================== */
 
         .text-maroon {
             color: #660000 !important;
@@ -655,5 +777,5 @@
     </style>
 
     <!-- JavaScript for Faculty Load Management -->
-    <script src="{{ asset('js/faculty-load-management.js') }}"></script>
+    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260221"></script>
 @endsection

@@ -30,6 +30,10 @@ class UserPolicy
      */
     public function view(User $user, User $targetUser): bool
     {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
         // Users can always view themselves
         if ($user->id === $targetUser->id) {
             return true;
@@ -59,8 +63,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        // Only department heads can create users
-        return $user->isDepartmentHead();
+        return $user->isAdmin() || $user->isDepartmentHead();
     }
 
     /**
@@ -76,6 +79,10 @@ class UserPolicy
      */
     public function update(User $user, User $targetUser): bool
     {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
         // Users can update their own profile (limited fields via form request)
         if ($user->id === $targetUser->id) {
             return true;
@@ -103,6 +110,10 @@ class UserPolicy
      */
     public function delete(User $user, User $targetUser): bool
     {
+        if ($user->isAdmin()) {
+            return $user->id !== $targetUser->id;
+        }
+
         // Cannot delete oneself
         if ($user->id === $targetUser->id) {
             return false;
@@ -154,6 +165,10 @@ class UserPolicy
             return false;
         }
 
+        if ($user->isAdmin()) {
+            return in_array($newRole, User::getAllRoles());
+        }
+
         // Only department heads can assign roles
         if (!$user->isDepartmentHead()) {
             return false;
@@ -190,6 +205,10 @@ class UserPolicy
         // Cannot assign organization to oneself
         if ($user->id === $targetUser->id) {
             return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
         }
 
         // Only department heads can assign organization

@@ -4,18 +4,22 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subject;
-use App\Models\Program;
+use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Schema;
 
 class SubjectController extends Controller
 {
+    use AuthorizesRequests;
     /**
      * Display a listing of subjects with optional filters.
      */
     public function index(Request $request)
     {
-        $query = Subject::with('program');
+        $this->authorize('viewAny', Subject::class);
+        $query = Subject::with('department');
 
         // Filter by search (subject code or name)
         if ($request->filled('search')) {
@@ -26,19 +30,9 @@ class SubjectController extends Controller
             });
         }
 
-        // Filter by program
-        if ($request->filled('program_id')) {
-            $query->where('program_id', $request->program_id);
-        }
-
-        // Filter by year level
-        if ($request->filled('year_level')) {
-            $query->where('year_level', $request->year_level);
-        }
-
-        // Filter by semester
-        if ($request->filled('semester')) {
-            $query->where('semester', $request->semester);
+        // Filter by department
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
         }
 
         // Get per page value (default 15)
@@ -48,8 +42,11 @@ class SubjectController extends Controller
         // Get filtered subjects
         $subjects = $query->orderBy('subject_code')->paginate($perPage)->appends($request->query());
 
-        // Get all programs for filter dropdown
-        $programs = Program::orderBy('program_name')->get();
+        // Get all departments for filter dropdown
+        $departmentNameColumn = Schema::hasColumn('departments', 'department_name')
+            ? 'department_name'
+            : 'name';
+        $departments = Department::orderBy($departmentNameColumn)->get();
 
         if ($request->ajax()) {
             return response()->json([
@@ -59,7 +56,7 @@ class SubjectController extends Controller
             ]);
         }
 
-        return view('admin.subjects.index', compact('subjects', 'programs'));
+        return view('admin.subjects.index', compact('subjects', 'departments'));
     }
 
     /**
@@ -67,7 +64,8 @@ class SubjectController extends Controller
      */
     public function show(Subject $subject)
     {
-        $subject->load('program');
+        $this->authorize('view', $subject);
+        $subject->load('department');
         return view('admin.subjects.show', compact('subject'));
     }
 
@@ -76,24 +74,43 @@ class SubjectController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Subject::class);
         $validated = $request->validate([
-            'subject_code' => 'required|string|max:50|unique:subjects,subject_code',
-            'subject_name' => 'required|string|max:255',
-            'program_id' => 'nullable|exists:programs,id',
+            'department_id' => 'required|exists:departments,id',
+            'subject_code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('subjects', 'subject_code')->where('department_id', $request->department_id),
+            ],
+            'subject_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('subjects', 'subject_name')->where('department_id', $request->department_id),
+            ],
             'units' => 'required|numeric|min:0|max:10',
             'lecture_hours' => 'required|numeric|min:0|max:20',
             'lab_hours' => 'required|numeric|min:0|max:20',
-            'year_level' => 'required|integer|min:1|max:4',
-            'semester' => 'required|integer|min:1|max:2',
+            'description' => 'nullable|string|max:1000',
+            'is_active' => 'nullable|boolean',
         ]);
 
+        if ($validated['lecture_hours'] <= 0 && $validated['lab_hours'] <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lecture hours and lab hours cannot both be 0.',
+            ], 422);
+        }
+
         try {
+            $validated['is_active'] = $request->boolean('is_active');
             $subject = Subject::create($validated);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Subject created successfully!',
-                'subject' => $subject->load('program'),
+                'subject' => $subject->load('department'),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -108,29 +125,47 @@ class SubjectController extends Controller
      */
     public function update(Request $request, Subject $subject)
     {
+        $this->authorize('update', $subject);
         $validated = $request->validate([
+            'department_id' => 'required|exists:departments,id',
             'subject_code' => [
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('subjects', 'subject_code')->ignore($subject->id),
+                Rule::unique('subjects', 'subject_code')
+                    ->where('department_id', $request->department_id)
+                    ->ignore($subject->id),
             ],
-            'subject_name' => 'required|string|max:255',
-            'program_id' => 'nullable|exists:programs,id',
+            'subject_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('subjects', 'subject_name')
+                    ->where('department_id', $request->department_id)
+                    ->ignore($subject->id),
+            ],
             'units' => 'required|numeric|min:0|max:10',
             'lecture_hours' => 'required|numeric|min:0|max:20',
             'lab_hours' => 'required|numeric|min:0|max:20',
-            'year_level' => 'required|integer|min:1|max:4',
-            'semester' => 'required|integer|min:1|max:2',
+            'description' => 'nullable|string|max:1000',
+            'is_active' => 'nullable|boolean',
         ]);
 
+        if ($validated['lecture_hours'] <= 0 && $validated['lab_hours'] <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lecture hours and lab hours cannot both be 0.',
+            ], 422);
+        }
+
         try {
+            $validated['is_active'] = $request->boolean('is_active');
             $subject->update($validated);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Subject updated successfully!',
-                'subject' => $subject->load('program'),
+                'subject' => $subject->load('department'),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -145,6 +180,7 @@ class SubjectController extends Controller
      */
     public function destroy(Subject $subject)
     {
+        $this->authorize('delete', $subject);
         try {
             $subject->delete();
 

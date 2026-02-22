@@ -2,11 +2,17 @@
     <tr>
         <td><strong>{{ $subject->subject_code }}</strong></td>
         <td>{{ $subject->subject_name }}</td>
+        <td>{{ $subject->department->department_name ?? 'N/A' }}</td>
         <td class="text-center">{{ $subject->units }}</td>
         <td class="text-center">{{ $subject->lecture_hours }}</td>
         <td class="text-center">{{ $subject->lab_hours }}</td>
-        <td>{{ $subject->year_level_label }}</td>
-        <td>{{ $subject->semester_label }}</td>
+        <td class="text-center">
+            @if ($subject->is_active)
+                <span class="badge bg-success">Active</span>
+            @else
+                <span class="badge bg-secondary">Inactive</span>
+            @endif
+        </td>
         <td class="text-center">
             <div class="d-flex justify-content-center gap-2">
                 <a href="{{ route('admin.subjects.show', $subject) }}" class="btn btn-sm btn-outline-secondary"
@@ -15,9 +21,11 @@
                 </a>
                 <button type="button" class="btn btn-sm btn-outline-warning edit-subject-btn"
                     data-subject-id="{{ $subject->id }}" data-subject-code="{{ $subject->subject_code }}"
-                    data-subject-name="{{ $subject->subject_name }}" data-units="{{ $subject->units }}"
+                    data-subject-name="{{ $subject->subject_name }}"
+                    data-department-id="{{ $subject->department_id }}" data-units="{{ $subject->units }}"
                     data-lecture-hours="{{ $subject->lecture_hours }}" data-lab-hours="{{ $subject->lab_hours }}"
-                    data-year-level="{{ $subject->year_level }}" data-semester="{{ $subject->semester }}"
+                    data-description="{{ $subject->description }}"
+                    data-is-active="{{ $subject->is_active ? 'true' : 'false' }}"
                     title="Edit" aria-label="Edit Subject">
                     <i class="fa-solid fa-pencil"></i>
                 </button>

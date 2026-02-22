@@ -16,7 +16,7 @@ class ProgramController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Program::with(['departments']);
+        $query = Program::with(['department']);
 
         // Filter by search (program code or name)
         if ($request->filled('q')) {
@@ -59,7 +59,7 @@ class ProgramController extends Controller
      */
     public function show(Program $program)
     {
-        $program->load(['departments']);
+        $program->load(['department']);
 
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->expectsJson()) {
@@ -70,7 +70,7 @@ class ProgramController extends Controller
                     'program_code' => $program->program_code,
                     'program_name' => $program->program_name,
                     'department_id' => $program->department_id,
-                    'department_name' => $program->departments->department_name ?? 'N/A',
+                    'department_name' => $program->department->department_name ?? 'N/A',
                     'created_at' => $program->created_at,
                     'updated_at' => $program->updated_at,
                 ]
@@ -97,7 +97,7 @@ class ProgramController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Program created successfully!',
-                'program' => $program->load(['departments']),
+                'program' => $program->load(['department']),
             ]);
         } catch (\Exception $e) {
             Log::error('Error creating program', ['error' => $e->getMessage()]);
@@ -130,7 +130,7 @@ class ProgramController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Program updated successfully!',
-                'program' => $program->load(['departments']),
+                'program' => $program->load(['department']),
             ]);
         } catch (\Exception $e) {
             Log::error('Error updating program', ['error' => $e->getMessage()]);

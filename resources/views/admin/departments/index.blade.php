@@ -76,29 +76,7 @@
 
                 <!-- Pagination -->
                 @if ($departments && $departments->count() > 0)
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-                        <div class="text-muted small">
-                            Showing {{ $departments->firstItem() ?? 0 }} to {{ $departments->lastItem() ?? 0 }} of
-                            {{ $departments->total() }} departments
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="d-flex align-items-center gap-2">
-                                <label for="departmentPerPageSelect" class="text-muted small mb-0">Per page:</label>
-                                <select id="departmentPerPageSelect" class="form-select form-select-sm"
-                                    style="width: auto;">
-                                    <option value="5" {{ request('per_page') == 5 ? 'selected' : '' }}>5</option>
-                                    <option value="10" {{ request('per_page') == 10 ? 'selected' : '' }}>10</option>
-                                    <option value="15"
-                                        {{ request('per_page') == 15 || !request('per_page') ? 'selected' : '' }}>15
-                                    </option>
-                                    <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
-                                </select>
-                            </div>
-                            <div id="pagination-container">
-                                {{ $departments->appends(request()->query())->links() }}
-                            </div>
-                        </div>
-                    </div>
+                    <x-pagination.footer :paginator="$departments" />
                 @endif
             </div>
         </div>
@@ -131,7 +109,6 @@
 
     <script>
         const searchInput = document.getElementById('search');
-        const perPageSelect = document.getElementById('departmentPerPageSelect');
         const tableBody = document.getElementById('departments-table-body');
         const paginationContainer = document.getElementById('pagination-container');
         const spinner = document.getElementById('filter-spinner');
@@ -148,8 +125,9 @@
         // Fetch filtered departments
         function fetchDepartments(resetToFirstPage = false) {
             const search = searchInput.value;
-            const perPage = perPageSelect.value;
-            const page = resetToFirstPage ? 1 : (new URLSearchParams(window.location.search).get('page') || 1);
+            const urlParams = new URLSearchParams(window.location.search);
+            const perPage = urlParams.get('per_page') || '15';
+            const page = resetToFirstPage ? 1 : (urlParams.get('page') || 1);
 
             spinner.style.display = 'block';
 
@@ -180,9 +158,6 @@
 
         // Search input listener
         searchInput.addEventListener('input', debounce(fetchDepartments, 500));
-
-        // Per page select listener
-        perPageSelect.addEventListener('change', fetchDepartments);
 
         // Clear filter button listener
         document.getElementById('clearFilterBtn').addEventListener('click', function() {

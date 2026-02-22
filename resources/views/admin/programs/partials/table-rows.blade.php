@@ -2,7 +2,7 @@
     <tr data-program-id="{{ $program->id }}">
         <td class="fw-semibold">{{ $program->program_code }}</td>
         <td>{{ $program->program_name }}</td>
-        <td>{{ $program->departments->department_name ?? '—' }}</td>
+        <td>{{ $program->department->department_name ?? '—' }}</td>
         <td>
             <div class="d-flex justify-content-center gap-2">
                 <button type="button" class="btn btn-sm btn-outline-secondary view-program-btn"
