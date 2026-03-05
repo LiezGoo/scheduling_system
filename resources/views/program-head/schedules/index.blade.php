@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('page-title', 'Generate Schedule')
+@section('page-title', 'View Schedules')
 
 @section('content')
 <div class="container-fluid py-4">
@@ -100,7 +100,7 @@
                                     id="generateScheduleBtn" 
                                     onclick="generateSchedule()">
                                 <i class="fas fa-sparkles me-2"></i>
-                                <span>Generate Schedule</span>
+                                <span>View Schedule</span>
                             </button>
                             <a href="{{ route('program-head.schedules.index') }}" class="btn btn-outline-secondary fw-semibold py-2 rounded-2">
                                 <i class="fas fa-arrow-left me-2"></i>

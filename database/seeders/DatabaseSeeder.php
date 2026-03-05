@@ -11,14 +11,13 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database.
+     * 
+     * DISABLED: All test seeders removed for production.
+     * Database contains only schema, no sample data.
      */
     public function run(): void
     {
-        // Ensure departments/programs already exist before seeding users
-        $this->call([
-            DepartmentSeeder::class,
-            UserSeeder::class,
-            TestDataSeeder::class,  // ← NEW: Comprehensive test data
-        ]);
+        // No seeding for production environment
+        // All data must be manually entered through the application
     }
 }

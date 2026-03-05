@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('page-title', 'Generate Schedule')
+@section('page-title', 'View Schedule')
 
 @section('content')
 <div class="container-fluid py-4">

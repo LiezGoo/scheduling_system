@@ -205,11 +205,11 @@
     <!-- Assign Faculty Load Modal -->
     <div class="modal fade" id="assignFacultyLoadModal" tabindex="-1" aria-labelledby="assignFacultyLoadModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="assignFacultyLoadModalLabel">
-                        <i class="fa-solid fa-plus me-2"></i>Assign Faculty Load
+                        <i class="fa-solid fa-plus me-2"></i>Assign Faculty Load (Bulk)
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -217,133 +217,130 @@
                     @csrf
                     <div class="modal-body">
                         <div id="assignFacultyLoadMessage" class="mb-3 d-none"></div>
-                        <!-- Faculty Selection -->
-                        <div class="mb-3">
-                            <label for="assignFaculty" class="form-label">Faculty <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignFaculty" name="faculty_id" required>
-                                <option value="">Select Faculty Member</option>
-                                @foreach ($eligibleFaculty as $faculty)
-                                    <option value="{{ $faculty->id }}">
-                                        {{ $faculty->full_name }} ({{ $faculty->getRoleLabel() }})
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div class="invalid-feedback"></div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="assignFaculty" class="form-label">Faculty <span class="text-danger">*</span></label>
+                                <select class="form-select" id="assignFaculty" name="faculty_id" required>
+                                    <option value="">Select Faculty Member</option>
+                                    @foreach ($eligibleFaculty as $faculty)
+                                        <option value="{{ $faculty->id }}" data-contract-type="{{ $faculty->contract_type }}">
+                                            {{ $faculty->full_name }} ({{ $faculty->getRoleLabel() }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="assignProgram" class="form-label">Program <span class="text-danger">*</span></label>
+                                <select class="form-select" id="assignProgram" name="program_id" required>
+                                    <option value="">Select Program</option>
+                                    @foreach ($programs as $program)
+                                        <option value="{{ $program->id }}">{{ $program->program_name }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="assignAcademicYear" class="form-label">Academic Year <span class="text-danger">*</span></label>
+                                <select class="form-select" id="assignAcademicYear" name="academic_year_id" required>
+                                    <option value="">Select Academic Year</option>
+                                    @foreach ($academicYears as $year)
+                                        <option value="{{ $year->id }}">{{ $year->name }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="assignSemester" class="form-label">Semester <span class="text-danger">*</span></label>
+                                <select class="form-select" id="assignSemester" name="semester" required>
+                                    <option value="">Select Semester</option>
+                                    <option value="1st">1st</option>
+                                    <option value="2nd">2nd</option>
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="assignYearLevel" class="form-label">Year Level <span class="text-danger">*</span></label>
+                                <select class="form-select" id="assignYearLevel" name="year_level" required>
+                                    <option value="">Select Year Level</option>
+                                    <option value="1">1st Year</option>
+                                    <option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option>
+                                    <option value="4">4th Year</option>
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="assignBlockSection" class="form-label">Block/Section <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="assignBlockSection" name="block_section"
+                                    placeholder="e.g., 1" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
                         </div>
 
-                        <!-- Department Selection -->
-                        <div class="mb-3">
-                            <label for="assignDepartment" class="form-label">Department <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignDepartment" name="department_id" required>
-                                <option value="">Select Department</option>
-                                @foreach ($departments as $department)
-                                    <option value="{{ $department->id }}">{{ $department->department_name }}</option>
-                                @endforeach
-                            </select>
-                            <div class="invalid-feedback"></div>
-                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-lg-8">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0 fw-semibold">Select Subjects</h6>
+                                            <small class="text-muted">Choose one or more subjects below</small>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle mb-0" id="assignSubjectsTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 40px;"><input type="checkbox" id="assignSelectAllSubjects"></th>
+                                                        <th>Subject Code</th>
+                                                        <th>Subject Name</th>
+                                                        <th class="text-center">Lec</th>
+                                                        <th class="text-center">Lab</th>
+                                                        <th class="text-center">Total</th>
+                                                        <th>Block/Section</th>
+                                                        <th>Error</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="assignSubjectsTableBody">
+                                                    <tr>
+                                                        <td colspan="8" class="text-center text-muted py-3">Select faculty, program, academic year, semester, year level, and block to load subjects.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <!-- Program Selection -->
-                        <div class="mb-3">
-                            <label for="assignProgram" class="form-label">Program <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignProgram" name="program_id" required>
-                                <option value="">Select Program</option>
-                                @foreach ($programs as $program)
-                                    <option value="{{ $program->id }}">{{ $program->program_name }}</option>
-                                @endforeach
-                            </select>
-                            <div class="invalid-feedback"></div>
-                        </div>
+                            <div class="col-lg-4">
+                                <div class="card border-0 bg-light h-100">
+                                    <div class="card-body">
+                                        <h6 class="fw-semibold mb-3">Load Summary</h6>
+                                        <div class="small text-muted mb-1">Faculty Current Load</div>
+                                        <div class="d-flex justify-content-between"><span>Lecture</span><strong id="summaryCurrentLecture">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Lab</span><strong id="summaryCurrentLab">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Contract Type</span><strong id="summaryContractType">N/A</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Lecture Limit</span><strong id="summaryLectureLimit">0</strong></div>
+                                        <div class="d-flex justify-content-between mb-3"><span>Lab Limit</span><strong id="summaryLabLimit">0</strong></div>
 
-                        <!-- Academic Year Selection -->
-                        <div class="mb-3">
-                            <label for="assignAcademicYear" class="form-label">Academic Year <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignAcademicYear" name="academic_year_id" required>
-                                <option value="">Select Academic Year</option>
-                                @foreach ($academicYears as $year)
-                                    <option value="{{ $year->id }}">{{ $year->name }}</option>
-                                @endforeach
-                            </select>
-                            <div class="invalid-feedback"></div>
-                        </div>
+                                        <div class="small text-muted mb-1">Selected Subjects</div>
+                                        <div class="d-flex justify-content-between"><span>Lecture</span><strong id="summarySelectedLecture">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Lab</span><strong id="summarySelectedLab">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Projected Lecture</span><strong id="summaryProjectedLecture">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Projected Lab</span><strong id="summaryProjectedLab">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Remaining Lecture</span><strong id="summaryRemainingLecture">0</strong></div>
+                                        <div class="d-flex justify-content-between"><span>Remaining Lab</span><strong id="summaryRemainingLab">0</strong></div>
 
-                        <!-- Semester Selection -->
-                        <div class="mb-3">
-                            <label for="assignSemester" class="form-label">Semester <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignSemester" name="semester" required>
-                                <option value="">Select Semester</option>
-                                <option value="1st">1st Semester</option>
-                                <option value="2nd">2nd Semester</option>
-                            </select>
-                            <div class="invalid-feedback"></div>
-                        </div>
-
-                        <!-- Year Level -->
-                        <div class="mb-3">
-                            <label for="assignYearLevel" class="form-label">Year Level <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignYearLevel" name="year_level" required>
-                                <option value="">Select Year Level</option>
-                                <option value="1">1st Year</option>
-                                <option value="2">2nd Year</option>
-                                <option value="3">3rd Year</option>
-                                <option value="4">4th Year</option>
-                            </select>
-                            <div class="invalid-feedback"></div>
-                        </div>
-
-                        <!-- Block/Section -->
-                        <div class="mb-3">
-                            <label for="assignBlockSection" class="form-label">Block/Section <span
-                                    class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="assignBlockSection" name="block_section"
-                                placeholder="e.g., 1" required>
-                            <div class="invalid-feedback"></div>
-                        </div>
-
-                        <!-- Subject Selection -->
-                        <div class="mb-3">
-                            <label for="assignSubject" class="form-label">Subject <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select" id="assignSubject" name="subject_id" required>
-                                <option value="">Select Subject</option>
-                                @foreach ($subjects as $subject)
-                                    <option value="{{ $subject->id }}" data-units="{{ $subject->units }}">
-                                        {{ $subject->subject_code }} - {{ $subject->subject_name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div class="invalid-feedback"></div>
-                        </div>
-
-                        <!-- Lecture Hours -->
-                        <div class="mb-3">
-                            <label for="assignLectureHours" class="form-label">Lecture Hours per Week <span
-                                    class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="assignLectureHours" name="lecture_hours"
-                                min="0" max="40" value="0" required>
-                            <div class="invalid-feedback"></div>
-                        </div>
-
-                        <!-- Laboratory Hours -->
-                        <div class="mb-3">
-                            <label for="assignLabHours" class="form-label">Laboratory Hours per Week <span
-                                    class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="assignLabHours" name="lab_hours"
-                                min="0" max="40" step="3" value="0" required>
-                            <div class="invalid-feedback"></div>
-                        </div>
-
-                        <!-- Total Hours Display -->
-                        <div class="mb-3">
-                            <label class="form-label">Total Hours</label>
-                            <div class="alert alert-info mb-0">
-                                <strong id="assignComputedUnits">0</strong> hours
+                                        <div id="summaryLimitWarning" class="alert alert-danger mt-3 mb-0 py-2 px-3 d-none">
+                                            <i class="fa-solid fa-triangle-exclamation me-1"></i>Projected load exceeds contract limit.
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -351,11 +348,35 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fa-solid fa-save me-2"></i>Assign Faculty Load
+                        <button type="submit" class="btn btn-primary" id="assignSubmitBtn" disabled>
+                            <i class="fa-solid fa-save me-2"></i>Assign Selected Subjects
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Confirmation Modal -->
+    <div class="modal fade" id="assignConfirmationModal" tabindex="-1" aria-labelledby="assignConfirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignConfirmationModalLabel">
+                        <i class="fa-solid fa-circle-check me-2"></i>Confirm Assignment
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">You are about to assign <strong id="assignConfirmCount">0</strong> subject(s) to the selected faculty.</p>
+                    <p class="mb-0 text-muted">Proceed with this assignment?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmAssignSubjectsBtn">
+                        <i class="fa-solid fa-check me-2"></i>Confirm Assignment
+                    </button>
+                </div>
             </div>
         </div>
     </div>

@@ -17,8 +17,6 @@ class Schedule extends Model
     protected $fillable = [
         'program_id',
         'created_by',
-        'approved_by_program_head',
-        'approved_by_department_head',
         'academic_year',
         'semester',
         'year_level',
@@ -26,32 +24,18 @@ class Schedule extends Model
         'status',
         'ga_parameters',
         'fitness_score',
-        'submitted_at',
-        'reviewed_at',
-        'reviewed_by',
-        'review_remarks',
-        'program_head_approved_at',
-        'department_head_approved_at',
-        'program_head_remarks',
-        'department_head_remarks',
     ];
 
     protected $casts = [
-        'submitted_at' => 'datetime',
-        'reviewed_at' => 'datetime',
-        'program_head_approved_at' => 'datetime',
-        'department_head_approved_at' => 'datetime',
         'ga_parameters' => 'array',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    // Status Constants
+    // Status Constants - Now represents generation status, not approval
     const STATUS_DRAFT = 'DRAFT';
-    const STATUS_PENDING_APPROVAL = 'PENDING_APPROVAL';
-    const STATUS_APPROVED = 'APPROVED';
-    const STATUS_REJECTED = 'REJECTED';
-
-    // Backward-compatible alias
-    const STATUS_PENDING = self::STATUS_PENDING_APPROVAL;
+    const STATUS_GENERATED = 'GENERATED';
+    const STATUS_FINALIZED = 'FINALIZED';
 
     /**
      * Get the program this schedule belongs to
@@ -93,35 +77,27 @@ class Schedule extends Model
     }
 
     /**
-     * Get the program head who approved this schedule
-     */
-    public function programHeadApprover(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by_program_head');
-    }
-
-    /**
-     * Get the department head who approved this schedule
-     */
-    public function departmentHeadApprover(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by_department_head');
-    }
-
-    /**
-     * Get the user who reviewed this schedule.
-     */
-    public function reviewedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'reviewed_by');
-    }
-
-    /**
      * Get all schedule items
      */
     public function items(): HasMany
     {
         return $this->hasMany(ScheduleItem::class);
+    }
+
+    /**
+     * Get all adjustment requests for this schedule
+     */
+    public function adjustmentRequests(): HasMany
+    {
+        return $this->hasMany(ScheduleAdjustmentRequest::class);
+    }
+
+    /**
+     * Get pending adjustment requests
+     */
+    public function pendingAdjustments(): HasMany
+    {
+        return $this->adjustmentRequests()->where('status', ScheduleAdjustmentRequest::STATUS_PENDING);
     }
 
     /**
@@ -141,19 +117,11 @@ class Schedule extends Model
     }
 
     /**
-     * Scope for pending schedules
+     * Scope for finalized schedules
      */
-    public function scopePending($query)
+    public function scopeFinalized($query)
     {
-        return $query->where('status', self::STATUS_PENDING_APPROVAL);
-    }
-
-    /**
-     * Scope for approved schedules
-     */
-    public function scopeApproved($query)
-    {
-        return $query->where('status', self::STATUS_APPROVED);
+        return $query->where('status', self::STATUS_FINALIZED);
     }
 
     /**
@@ -165,86 +133,31 @@ class Schedule extends Model
     }
 
     /**
-     * Check if schedule is pending approval
+     * Check if schedule is generated
      */
-    public function isPending(): bool
+    public function isGenerated(): bool
     {
-        return $this->status === self::STATUS_PENDING_APPROVAL;
+        return $this->status === self::STATUS_GENERATED;
     }
 
     /**
-     * Check if schedule is approved
+     * Check if schedule is finalized
      */
-    public function isApproved(): bool
+    public function isFinalized(): bool
     {
-        return $this->status === self::STATUS_APPROVED;
+        return $this->status === self::STATUS_FINALIZED;
     }
 
     /**
-     * Check if schedule is rejected
+     * Finalize the schedule - lock it for editing
      */
-    public function isRejected(): bool
+    public function finalize(): bool
     {
-        return $this->status === self::STATUS_REJECTED;
-    }
-
-    /**
-     * Submit schedule for approval
-     */
-    public function submit(): bool
-    {
-        if (!($this->isDraft() || $this->isRejected())) {
+        if (!$this->isGenerated() && !$this->isDraft()) {
             return false;
         }
 
-        $this->status = self::STATUS_PENDING_APPROVAL;
-        $this->submitted_at = now();
-        $this->reviewed_at = null;
-        $this->reviewed_by = null;
-        $this->review_remarks = null;
-        $this->approved_by_department_head = null;
-        $this->department_head_approved_at = null;
-        $this->department_head_remarks = null;
-        return $this->save();
-    }
-
-    /**
-     * Approve schedule by department head
-     */
-    public function approveByDepartmentHead(User $departmentHead, ?string $remarks = null): bool
-    {
-        if (!$this->isPending()) {
-            return false;
-        }
-
-        $this->status = self::STATUS_APPROVED;
-        $this->reviewed_by = $departmentHead->id;
-        $this->reviewed_at = now();
-        $this->review_remarks = $remarks;
-        $this->approved_by_department_head = $departmentHead->id;
-        $this->department_head_approved_at = now();
-        $this->department_head_remarks = $remarks;
-
-        return $this->save();
-    }
-
-    /**
-     * Reject schedule by department head
-     */
-    public function rejectByDepartmentHead(User $departmentHead, string $remarks): bool
-    {
-        if (!$this->isPending()) {
-            return false;
-        }
-
-        $this->status = self::STATUS_REJECTED;
-        $this->reviewed_by = $departmentHead->id;
-        $this->reviewed_at = now();
-        $this->review_remarks = $remarks;
-        $this->approved_by_department_head = $departmentHead->id;
-        $this->department_head_approved_at = now();
-        $this->department_head_remarks = $remarks;
-
+        $this->status = self::STATUS_FINALIZED;
         return $this->save();
     }
 
@@ -255,9 +168,8 @@ class Schedule extends Model
     {
         return match($this->status) {
             self::STATUS_DRAFT => 'bg-secondary',
-            self::STATUS_PENDING_APPROVAL => 'bg-warning',
-            self::STATUS_APPROVED => 'bg-success',
-            self::STATUS_REJECTED => 'bg-danger',
+            self::STATUS_GENERATED => 'bg-info',
+            self::STATUS_FINALIZED => 'bg-success',
             default => 'bg-secondary',
         };
     }
@@ -269,9 +181,8 @@ class Schedule extends Model
     {
         return match ($this->status) {
             self::STATUS_DRAFT => 'Draft',
-            self::STATUS_PENDING_APPROVAL => 'Pending Approval',
-            self::STATUS_APPROVED => 'Approved',
-            self::STATUS_REJECTED => 'Rejected',
+            self::STATUS_GENERATED => 'Generated',
+            self::STATUS_FINALIZED => 'Finalized',
             default => $this->status,
         };
     }

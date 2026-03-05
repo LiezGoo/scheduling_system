@@ -3,22 +3,27 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\AccountDeactivatedController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\Examples\NotificationExampleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\UserApprovalController;
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacultyLoadController;
 use App\Http\Controllers\Admin\ProgramSubjectController;
 use App\Http\Controllers\Admin\AcademicYearController;
+use App\Http\Controllers\Admin\SemesterController as AdminSemesterController;
+use App\Http\Controllers\Api\SemesterController as ApiSemesterController;
 use App\Http\Controllers\ProgramHead\CurriculumController as ProgramHeadCurriculumController;
 use App\Http\Controllers\ProgramHead\FacultyLoadController as ProgramHeadFacultyLoadController;
 use App\Http\Controllers\ProgramHead\ScheduleController as ProgramHeadScheduleController;
 use App\Http\Controllers\DepartmentHead\SubjectController as DepartmentHeadSubjectController;
+use App\Http\Controllers\DepartmentHead\ScheduleController as DepartmentHeadScheduleController;
 use App\Http\Controllers\DepartmentHead\ScheduleReviewController as DepartmentHeadScheduleReviewController;
+use App\Http\Controllers\DepartmentHead\ScheduleAdjustmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +48,10 @@ Route::middleware(['guest'])->group(function () {
     Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+
+    // Registration Routes
+    Route::get('/register', [RegistrationController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegistrationController::class, 'register'])->name('register.store');
 
     /**
      * Password Reset Routes
@@ -77,15 +86,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
     });
 
-    // Example Notification Routes (for testing - remove in production)
-    Route::prefix('examples/notifications')->name('examples.notifications.')->group(function () {
-        Route::post('/test', [NotificationExampleController::class, 'testNotification'])->name('test');
-        Route::post('/schedule-created', [NotificationExampleController::class, 'scheduleCreated'])->name('schedule-created');
-        Route::post('/request-approved', [NotificationExampleController::class, 'requestApproved'])->name('request-approved');
-        Route::post('/notify-instructors', [NotificationExampleController::class, 'notifyAllInstructors'])->name('notify-instructors');
-        Route::post('/notify-by-role', [NotificationExampleController::class, 'notifyByRole'])->name('notify-by-role');
-        Route::post('/custom', [NotificationExampleController::class, 'sendCustomNotification'])->name('custom');
-    });
+    // Dynamic semester API for dropdowns
+    Route::get('/api/semesters', [ApiSemesterController::class, 'index'])->name('api.semesters.index');
 
     // Generic dashboard - redirects to role-based dashboard
     Route::get('/dashboard', function () {
@@ -116,6 +118,13 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        
+        // User Approval Routes (MUST be before /users/{user} to avoid route parameter conflict)
+        Route::get('/users/approvals', [UserApprovalController::class, 'index'])->name('users.approvals');
+        Route::get('/users/approval/pending-count', [UserApprovalController::class, 'getPendingCount'])->name('users.approval.count');
+        Route::post('/users/{user}/approve', [UserApprovalController::class, 'approve'])->name('users.approve');
+        Route::post('/users/{user}/reject', [UserApprovalController::class, 'reject'])->name('users.reject');
+        
         Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
@@ -160,12 +169,17 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/academic-years/{academicYear}', [AcademicYearController::class, 'update'])->name('academic-years.update');
         Route::delete('/academic-years/{academicYear}', [AcademicYearController::class, 'destroy'])->name('academic-years.destroy');
         Route::post('/academic-years/{academicYear}/activate', [AcademicYearController::class, 'activate'])->name('academic-years.activate');
-        
+
         // Semester Management
-        Route::post('/academic-years/{academicYear}/semesters', [AcademicYearController::class, 'storeSemester'])->name('academic-years.semesters.store');
-        Route::put('/semesters/{semester}', [AcademicYearController::class, 'updateSemester'])->name('semesters.update');
-        Route::delete('/semesters/{semester}', [AcademicYearController::class, 'destroySemester'])->name('semesters.destroy');
-        Route::post('/semesters/{semester}/activate', [AcademicYearController::class, 'activateSemester'])->name('semesters.activate');
+        Route::get('/semesters', [AdminSemesterController::class, 'index'])->name('semesters.index');
+        Route::post('/semesters', [AdminSemesterController::class, 'store'])->name('semesters.store');
+        Route::put('/semesters/{semester}', [AdminSemesterController::class, 'update'])->name('semesters.update');
+        Route::patch('/semesters/{semester}/toggle-status', [AdminSemesterController::class, 'toggleStatus'])->name('semesters.toggle-status');
+        Route::delete('/semesters/{semester}', [AdminSemesterController::class, 'destroy'])->name('semesters.destroy');
+        
+        // Legacy semester endpoints (kept for backward compatibility)
+        Route::post('/academic-years/{academicYear}/semesters', [AdminSemesterController::class, 'store'])->name('academic-years.semesters.store');
+        Route::post('/semesters/{semester}/activate', [AdminSemesterController::class, 'toggleStatus'])->name('semesters.activate');
 
         // Faculty Load Management
         Route::get('/faculty-load', [FacultyLoadController::class, 'index'])->name('faculty-load.index');
@@ -198,11 +212,21 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'update'])->name('subjects.update');
         Route::delete('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'destroy'])->name('subjects.destroy');
 
-        // Schedule Review
-        Route::get('/schedules', [DepartmentHeadScheduleReviewController::class, 'index'])->name('schedules.index');
-        Route::get('/schedules/{schedule}', [DepartmentHeadScheduleReviewController::class, 'show'])->name('schedules.show');
-        Route::post('/schedules/{schedule}/approve', [DepartmentHeadScheduleReviewController::class, 'approve'])->name('schedules.approve');
-        Route::post('/schedules/{schedule}/reject', [DepartmentHeadScheduleReviewController::class, 'reject'])->name('schedules.reject');
+        // Schedule Generation & Management
+        Route::get('/schedules', [DepartmentHeadScheduleController::class, 'index'])->name('schedules.index');
+        Route::get('/schedules/generate', [DepartmentHeadScheduleController::class, 'generate'])->name('schedules.generate');
+        Route::post('/schedules/generate', [DepartmentHeadScheduleController::class, 'executeGeneration'])->name('schedules.executeGeneration');
+        Route::get('/schedules/{schedule}', [DepartmentHeadScheduleController::class, 'show'])->name('schedules.show');
+        Route::get('/schedules/{schedule}/edit', [ScheduleAdjustmentController::class, 'edit'])->name('schedules.edit');
+        Route::put('/schedules/{schedule}/items/{item}', [ScheduleAdjustmentController::class, 'updateItem'])->name('schedules.items.update');
+        Route::post('/schedules/{schedule}/finalize', [DepartmentHeadScheduleController::class, 'finalize'])->name('schedules.finalize');
+        Route::delete('/schedules/{schedule}', [DepartmentHeadScheduleController::class, 'destroy'])->name('schedules.destroy');
+
+        // Adjustment Requests Management
+        Route::get('/schedules/{schedule}/adjustments', [ScheduleAdjustmentController::class, 'index'])->name('adjustments.index');
+        Route::get('/schedules/{schedule}/adjustments/{request}', [ScheduleAdjustmentController::class, 'show'])->name('adjustments.show');
+        Route::post('/schedules/{schedule}/adjustments/{request}/approve', [ScheduleAdjustmentController::class, 'approve'])->name('adjustments.approve');
+        Route::post('/schedules/{schedule}/adjustments/{request}/reject', [ScheduleAdjustmentController::class, 'reject'])->name('adjustments.reject');
     });
 
     // Program Head Dashboard
@@ -220,21 +244,15 @@ Route::middleware(['auth'])->group(function () {
         // Faculty Load Management
         Route::get('/faculty-load', [ProgramHeadFacultyLoadController::class, 'index'])->name('faculty-load.index');
         Route::get('/faculty-load/{facultyLoadId}/details', [ProgramHeadFacultyLoadController::class, 'getDetails'])->name('faculty-load.details');
+        Route::get('/faculty-load/api/assignable-subjects', [ProgramHeadFacultyLoadController::class, 'getAssignableSubjects'])->name('faculty-load.api.assignable-subjects');
         Route::post('/faculty-load/assign', [ProgramHeadFacultyLoadController::class, 'assignSubject'])->name('faculty-load.assign');
         Route::post('/faculty-load/update-constraints', [ProgramHeadFacultyLoadController::class, 'updateConstraints'])->name('faculty-load.update-constraints');
         Route::post('/faculty-load/remove', [ProgramHeadFacultyLoadController::class, 'removeAssignment'])->name('faculty-load.remove');
 
-        // Schedule Management
+        // Schedule Management (View-Only with Adjustment Requests)
         Route::get('/schedules', [ProgramHeadScheduleController::class, 'index'])->name('schedules.index');
-        Route::get('/schedules/create', [ProgramHeadScheduleController::class, 'create'])->name('schedules.create');
-        Route::get('/schedules/generate', [ProgramHeadScheduleController::class, 'generate'])->name('schedules.generate');
-        Route::post('/schedules/generate', [ProgramHeadScheduleController::class, 'executeGeneration'])->name('schedules.executeGeneration');
-        Route::post('/schedules', [ProgramHeadScheduleController::class, 'store'])->name('schedules.store');
         Route::get('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'show'])->name('schedules.show');
-        Route::get('/schedules/{schedule}/edit', [ProgramHeadScheduleController::class, 'edit'])->name('schedules.edit');
-        Route::put('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'update'])->name('schedules.update');
-        Route::post('/schedules/{schedule}/submit', [ProgramHeadScheduleController::class, 'submit'])->name('schedules.submit');
-        Route::delete('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'destroy'])->name('schedules.destroy');
+        Route::post('/schedules/{schedule}/adjustments', [ScheduleAdjustmentController::class, 'store'])->name('schedules.adjustments.store');
     });
 
     // Instructor Dashboard

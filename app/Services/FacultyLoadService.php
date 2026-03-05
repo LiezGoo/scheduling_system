@@ -20,6 +20,22 @@ use Illuminate\Support\Facades\DB;
 class FacultyLoadService
 {
     /**
+     * Normalize and validate assignment hour values.
+     */
+    private function validateAssignmentHours(int $lectureHours, int $labHours): ?string
+    {
+        if ($lectureHours <= 0 && $labHours <= 0) {
+            return 'Either lecture hours or laboratory hours must be greater than zero.';
+        }
+
+        if ($labHours > 0 && $labHours % 3 !== 0) {
+            return 'Laboratory hours must be divisible by 3.';
+        }
+
+        return null;
+    }
+
+    /**
      * Get all eligible instructors.
      * Eligible roles: instructor, program_head, department_head
      */
@@ -80,19 +96,11 @@ class FacultyLoadService
             // Validate subject exists
             $subject = Subject::findOrFail($subjectId);
 
-            // Validate at least one type of hours is provided
-            if ($lectureHours <= 0 && $labHours <= 0) {
+            $hoursValidationError = $this->validateAssignmentHours($lectureHours, $labHours);
+            if ($hoursValidationError) {
                 return [
                     'success' => false,
-                    'message' => 'Either lecture hours or laboratory hours must be greater than zero.',
-                ];
-            }
-
-            // Validate lab hours divisibility by 3
-            if ($labHours > 0 && $labHours % 3 !== 0) {
-                return [
-                    'success' => false,
-                    'message' => 'Laboratory hours must be divisible by 3.',
+                    'message' => $hoursValidationError,
                 ];
             }
 
@@ -149,6 +157,166 @@ class FacultyLoadService
             return [
                 'success' => false,
                 'message' => "Error assigning subject: {$e->getMessage()}",
+            ];
+        }
+    }
+
+    /**
+     * Assign multiple subjects to an instructor in a single transaction.
+     *
+     * All-or-nothing behavior: if any assignment is invalid, no record is saved.
+     *
+     * @param array<int, array<string, mixed>> $subjects
+     */
+    public function assignMultipleSubjectsToInstructor(
+        int $userId,
+        int $programId,
+        int $academicYearId,
+        string $semester,
+        int $yearLevel,
+        array $subjects,
+        bool $forceAssign = false
+    ): array {
+        try {
+            $user = User::findOrFail($userId);
+            if (!$user->isEligibleInstructor()) {
+                return [
+                    'success' => false,
+                    'message' => "User {$user->full_name} is not an eligible instructor.",
+                ];
+            }
+
+            if (empty($subjects)) {
+                return [
+                    'success' => false,
+                    'message' => 'At least one subject must be selected.',
+                    'errors' => ['subjects' => ['At least one subject must be selected.']],
+                ];
+            }
+
+            $errors = [];
+            $payloadDuplicateKeys = [];
+            $preparedAssignments = [];
+            $runningLectureHours = 0;
+            $runningLabHours = 0;
+
+            foreach ($subjects as $index => $subjectData) {
+                $subjectId = (int) ($subjectData['subject_id'] ?? 0);
+                $blockSection = trim((string) ($subjectData['block'] ?? $subjectData['block_section'] ?? ''));
+                $lectureHours = (int) ($subjectData['lecture_hours'] ?? 0);
+                $labHours = (int) ($subjectData['lab_hours'] ?? 0);
+
+                if ($subjectId <= 0) {
+                    $errors[$index] = [
+                        'subject_id' => 'Invalid subject selected.',
+                    ];
+                    continue;
+                }
+
+                if ($blockSection === '') {
+                    $errors[$index] = [
+                        'block' => 'Block/Section is required.',
+                    ];
+                    continue;
+                }
+
+                $subject = Subject::find($subjectId);
+                if (!$subject) {
+                    $errors[$index] = [
+                        'subject_id' => 'Subject not found.',
+                    ];
+                    continue;
+                }
+
+                $hoursValidationError = $this->validateAssignmentHours($lectureHours, $labHours);
+                if ($hoursValidationError) {
+                    $errors[$index] = [
+                        'hours' => $hoursValidationError,
+                    ];
+                    continue;
+                }
+
+                $payloadKey = implode('|', [$subjectId, strtolower($blockSection)]);
+                if (isset($payloadDuplicateKeys[$payloadKey])) {
+                    $errors[$index] = [
+                        'duplicate' => "Duplicate subject/block detected for {$subject->subject_code} (Block {$blockSection}).",
+                    ];
+                    continue;
+                }
+                $payloadDuplicateKeys[$payloadKey] = true;
+
+                $exists = InstructorLoad::query()
+                    ->where('instructor_id', $userId)
+                    ->where('subject_id', $subjectId)
+                    ->where('program_id', $programId)
+                    ->where('academic_year_id', $academicYearId)
+                    ->where('semester', $semester)
+                    ->where('year_level', $yearLevel)
+                    ->where('block_section', $blockSection)
+                    ->exists();
+
+                if ($exists) {
+                    $errors[$index] = [
+                        'duplicate' => "{$user->full_name} is already assigned to {$subject->subject_name} (Block {$blockSection}).",
+                    ];
+                    continue;
+                }
+
+                $runningLectureHours += $lectureHours;
+                $runningLabHours += $labHours;
+
+                $loadValidation = $user->validateFacultyLoad(
+                    $runningLectureHours,
+                    $runningLabHours,
+                    $academicYearId,
+                    $semester
+                );
+
+                if (!$loadValidation['valid'] && !$forceAssign) {
+                    $errors[$index] = [
+                        'overload' => $loadValidation['message'],
+                        'validation_details' => $loadValidation,
+                    ];
+                    continue;
+                }
+
+                $preparedAssignments[] = [
+                    'instructor_id' => $userId,
+                    'program_id' => $programId,
+                    'subject_id' => $subjectId,
+                    'academic_year_id' => $academicYearId,
+                    'semester' => $semester,
+                    'year_level' => $yearLevel,
+                    'block_section' => $blockSection,
+                    'lec_hours' => $lectureHours,
+                    'lab_hours' => $labHours,
+                    'total_hours' => $lectureHours + $labHours,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if (!empty($errors)) {
+                return [
+                    'success' => false,
+                    'message' => 'Some selected subjects have validation errors.',
+                    'errors' => $errors,
+                ];
+            }
+
+            DB::transaction(function () use ($preparedAssignments): void {
+                InstructorLoad::insert($preparedAssignments);
+            });
+
+            return [
+                'success' => true,
+                'message' => count($preparedAssignments) . ' subject assignment(s) saved successfully.',
+                'assigned_count' => count($preparedAssignments),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => "Error assigning multiple subjects: {$e->getMessage()}",
             ];
         }
     }

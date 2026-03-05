@@ -10,6 +10,9 @@ class Semester extends Model
 {
     use HasFactory;
 
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -18,7 +21,9 @@ class Semester extends Model
     protected $fillable = [
         'academic_year_id',
         'name',
-        'is_active',
+        'start_date',
+        'end_date',
+        'status',
     ];
 
     /**
@@ -28,16 +33,8 @@ class Semester extends Model
      */
     protected $casts = [
         'academic_year_id' => 'integer',
-        'is_active' => 'boolean',
-    ];
-
-    /**
-     * Valid semester names
-     */
-    public const VALID_NAMES = [
-        '1st Semester',
-        '2nd Semester',
-        'Summer',
+        'start_date' => 'date',
+        'end_date' => 'date',
     ];
 
     /**
@@ -58,10 +55,10 @@ class Semester extends Model
             // Deactivate all semesters in the same academic year
             static::where('academic_year_id', $this->academic_year_id)
                 ->where('id', '!=', $this->id)
-                ->update(['is_active' => false]);
+                ->update(['status' => self::STATUS_INACTIVE]);
 
             // Activate this semester
-            $this->update(['is_active' => true]);
+            $this->update(['status' => self::STATUS_ACTIVE]);
 
             // Ensure the academic year is active
             if ($this->academicYear && !$this->academicYear->is_active) {
@@ -77,7 +74,7 @@ class Semester extends Model
      */
     public static function getActive()
     {
-        return static::where('is_active', true)->with('academicYear')->first();
+        return static::where('status', self::STATUS_ACTIVE)->with('academicYear')->first();
     }
 
     /**
@@ -85,14 +82,14 @@ class Semester extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('status', self::STATUS_ACTIVE);
     }
 
     /**
-     * Check if this semester name is valid.
+     * Alias for current table design compatibility.
      */
-    public static function isValidName(string $name): bool
+    public function getIsActiveAttribute(): bool
     {
-        return in_array($name, self::VALID_NAMES);
+        return $this->status === self::STATUS_ACTIVE;
     }
 }

@@ -112,7 +112,7 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'sorsuscheduling@gmail.com'),
-        'name' => env('MAIL_FROM_NAME', 'Hello'),
+        'name' => env('MAIL_FROM_NAME', 'SorSU Scheduling System'),
     ],
 
 ];

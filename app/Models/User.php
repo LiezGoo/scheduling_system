@@ -27,6 +27,13 @@ class User extends Authenticatable
         'role',
         'status',
         'is_active',
+        'is_approved',
+        'approval_status',
+        'registration_source',
+        'approved_at',
+        'approved_by',
+        'rejected_at',
+        'rejection_reason',
         'department_id',
         'program_id',
         'faculty_scheme',
@@ -57,10 +64,26 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'is_approved' => 'boolean',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
             'daily_scheme_start' => 'datetime:H:i',
             'daily_scheme_end' => 'datetime:H:i',
         ];
     }
+
+    /**
+     * Constants for approval status
+     */
+    public const APPROVAL_PENDING = 'pending';
+    public const APPROVAL_APPROVED = 'approved';
+    public const APPROVAL_REJECTED = 'rejected';
+
+    /**
+     * Constants for registration source
+     */
+    public const REGISTRATION_SOURCE_SELF = 'self_registration';
+    public const REGISTRATION_SOURCE_ADMIN = 'admin_created';
 
     /**
      * Constants for user roles
@@ -168,6 +191,38 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope: Get only approved users
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('approval_status', self::APPROVAL_APPROVED);
+    }
+
+    /**
+     * Scope: Get only pending approval users
+     */
+    public function scopePendingApproval($query)
+    {
+        return $query->where('approval_status', self::APPROVAL_PENDING);
+    }
+
+    /**
+     * Scope: Get only rejected users
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('approval_status', self::APPROVAL_REJECTED);
+    }
+
+    /**
+     * Scope: Get only self-registered users
+     */
+    public function scopeSelfRegistered($query)
+    {
+        return $query->where('registration_source', self::REGISTRATION_SOURCE_SELF);
+    }
+
+    /**
      * Check if user is active
      */
     public function isActive(): bool
@@ -211,6 +266,98 @@ class User extends Authenticatable
     public function reactivate(): bool
     {
         return $this->update(['is_active' => true]);
+    }
+
+    /**
+     * Approve user account for system access
+     *
+     * @param User $admin The admin approving the user
+     * @return bool
+     */
+    public function approve(User $admin): bool
+    {
+        return $this->update([
+            'is_approved' => true,
+            'approval_status' => self::APPROVAL_APPROVED,
+            'approved_at' => now(),
+            'approved_by' => $admin->id,
+            'rejected_at' => null,
+            'rejection_reason' => null,
+        ]);
+    }
+
+    /**
+     * Reject user account with optional reason
+     *
+     * @param string|null $reason
+     * @return bool
+     */
+    public function reject(?string $reason = null): bool
+    {
+        return $this->update([
+            'is_approved' => false,
+            'approval_status' => self::APPROVAL_REJECTED,
+            'approved_at' => null,
+            'approved_by' => null,
+            'rejected_at' => now(),
+            'rejection_reason' => $reason,
+        ]);
+    }
+
+    /**
+     * Check if user is approved
+     *
+     * @return bool
+     */
+    public function isApproved(): bool
+    {
+        return $this->approval_status === self::APPROVAL_APPROVED;
+    }
+
+    /**
+     * Check if user is pending approval
+     *
+     * @return bool
+     */
+    public function isPending(): bool
+    {
+        return $this->approval_status === self::APPROVAL_PENDING;
+    }
+
+    /**
+     * Check if user is rejected
+     *
+     * @return bool
+     */
+    public function isRejected(): bool
+    {
+        return $this->approval_status === self::APPROVAL_REJECTED;
+    }
+
+    /**
+     * Check if user was self-registered
+     */
+    public function isSelfRegistered(): bool
+    {
+        return $this->registration_source === self::REGISTRATION_SOURCE_SELF;
+    }
+
+    /**
+     * Check if user was created by admin
+     */
+    public function isAdminCreated(): bool
+    {
+        return $this->registration_source === self::REGISTRATION_SOURCE_ADMIN;
+    }
+
+    /**
+     * Get the admin who approved this user
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function approvedByAdmin()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**

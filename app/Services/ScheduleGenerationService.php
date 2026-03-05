@@ -11,7 +11,7 @@ use App\Models\AcademicYear;
 use App\Models\Program;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+
 use Exception;
 
 /**
@@ -117,16 +117,7 @@ class ScheduleGenerationService
                 'rooms_count' => $rooms->count(),
             ]);
 
-            // === DEBUG LOGGING: Generation Parameters ===
-            if (config('app.debug')) {
-                Log::debug('GA Engine Configuration', [
-                    'population_size' => $populationSize,
-                    'generations' => $generations,
-                    'mutation_rate' => number_format($mutationRate * 100, 2) . '%',
-                    'crossover_rate' => number_format($crossoverRate * 100, 2) . '%',
-                    'elite_size' => $eliteSize,
-                ]);
-            }
+            // Generation parameters configured for optimal performance
 
             // Run Genetic Algorithm with detailed progress tracking
             $gaStartTime = microtime(true);
@@ -146,15 +137,7 @@ class ScheduleGenerationService
                     ],
                 ]);
 
-                // Log every 10 generations
-                if (config('app.debug') && $currentGen % 10 === 0) {
-                    Log::debug("GA Progress: Generation $currentGen/$totalGen", [
-                        'fitness' => number_format($fitness, 4),
-                        'improvement' => count($bestFitnessProgression) > 1 
-                            ? number_format($bestFitnessProgression[count($bestFitnessProgression) - 1] - $bestFitnessProgression[0], 4)
-                            : 'N/A',
-                    ]);
-                }
+                // Progress tracking in database, no debug output
             };
 
             $bestSolution = $this->gaEngine->evolve(
@@ -179,40 +162,13 @@ class ScheduleGenerationService
                 'fitness_score' => $bestSolution['fitness'],
             ]);
 
-            // === DEBUG LOGGING: Validation & Metrics ===
+            // Schedule validation and metrics computed
             $validationReport = $this->validateGeneratedSchedule($schedule);
 
             $generationEndTime = microtime(true);
             $totalExecutionTime = $generationEndTime - $generationStartTime;
 
-            if (config('app.debug')) {
-                Log::debug('Schedule Generation Metrics', [
-                    'ga_execution_time' => number_format($gaExecutionTime, 2) . 's',
-                    'total_execution_time' => number_format($totalExecutionTime, 2) . 's',
-                    'actual_generations' => $currentGeneration,
-                    'items_generated' => count($bestSolution['genes']),
-                    'items_per_second' => number_format(count($bestSolution['genes']) / $gaExecutionTime, 2),
-                ]);
-
-                Log::debug('Schedule Validation Report', [
-                    'room_conflicts' => $validationReport['room_conflicts'],
-                    'instructor_conflicts' => $validationReport['instructor_conflicts'],
-                    'overload_violations' => $validationReport['overload_violations'],
-                    'break_violations' => $validationReport['break_violations'],
-                    'scheme_violations' => $validationReport['scheme_violations'],
-                    'section_conflicts' => $validationReport['section_conflicts'],
-                    'all_valid' => $validationReport['all_valid'] ? 'YES' : 'NO',
-                ]);
-
-                Log::debug('Fitness Progression', [
-                    'initial_fitness' => $bestFitnessProgression[0] ?? 'N/A',
-                    'final_fitness' => $bestSolution['fitness'],
-                    'improvement' => isset($bestFitnessProgression[0]) 
-                        ? number_format($bestSolution['fitness'] - $bestFitnessProgression[0], 4)
-                        : 'N/A',
-                    'generations_with_improvement' => count(array_unique($bestFitnessProgression)),
-                ]);
-            }
+            // Performance metrics and validation results stored in database
 
             DB::commit();
 

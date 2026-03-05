@@ -3,6 +3,12 @@
 @section('title', 'Login')
 
 @section('content')
+    @if (session('registration_pending'))
+        <div class="alert alert-warning">
+            {{ session('registration_pending') }}
+        </div>
+    @endif
+
     {{-- Display validation errors --}}
     @if ($errors->any())
         <div class="alert alert-danger">
@@ -64,7 +70,41 @@
             </button>
         </div>
     </form>
+
+    {{-- Registration Link --}}
+    <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+        <p style="margin: 0; color: #5a5a5a; font-size: 0.875rem; margin-bottom: 8px;">
+            Don't have an account?
+        </p>
+        <a href="{{ route('register') }}" class="auth-register-link" aria-label="Create a new account">
+            Create one here
+        </a>
+    </div>
 @endsection
+
+@push('styles')
+    <style>
+        .auth-register-link {
+            color: var(--brand-primary);
+            text-decoration: none;
+            font-weight: 550;
+            transition: all 0.2s ease;
+            display: inline-block;
+            position: relative;
+        }
+
+        .auth-register-link:hover {
+            color: var(--brand-hover);
+            text-decoration: underline;
+        }
+
+        .auth-register-link:focus {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+    </style>
+@endpush
 
 @push('scripts')
     <script>

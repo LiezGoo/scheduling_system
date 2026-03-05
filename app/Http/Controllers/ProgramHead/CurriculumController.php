@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\ProgramHead;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicYear;
 use App\Models\Program;
 use App\Models\Subject;
 use Illuminate\Http\Request;
@@ -52,12 +53,16 @@ class CurriculumController extends Controller
             ->map(fn ($group) => collect($group)->unique()->values())
             ->toArray();
 
+        // Get academic years
+        $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
+
         return view('program-head.curriculum.index', [
             'programs' => $programs,
             'subjects' => $subjects,
             'selectedProgramId' => $selectedProgramId,
             'groupedCurriculum' => $groupedCurriculum,
             'assignedMatrix' => $assignedMatrix,
+            'academicYears' => $academicYears,
         ]);
     }
 

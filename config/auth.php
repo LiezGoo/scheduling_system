@@ -101,6 +101,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Allowed Email Domains for Registration
+    |--------------------------------------------------------------------------
+    |
+    | Define which email domains are allowed for user registration.
+    | This enforces university email-only registration.
+    |
+    */
+
+    'allowed_email_domains' => explode(',', env('ALLOWED_EMAIL_DOMAINS', 'sorsu.edu.ph')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |

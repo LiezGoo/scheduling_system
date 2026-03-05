@@ -29,7 +29,7 @@ class AuthController extends Controller
      *
      * Authenticates user credentials and redirects to role-specific dashboard.
      * Implements Laravel's authentication best practices with session regeneration.
-     * Includes security check for deactivated accounts.
+     * Includes security checks for deactivated accounts and pending approval.
      *
      * @param Request $request
      * @return \Illuminate\Http\RedirectResponse
@@ -57,6 +57,23 @@ class AuthController extends Controller
                 // Return with clear validation error
                 return back()->withErrors([
                     'email' => 'Your account has been deactivated. Please contact the administrator.',
+                ])->onlyInput('email');
+            }
+
+            // Check if user account is approved (skip for admin users)
+            if ($user->approval_status !== \App\Models\User::APPROVAL_APPROVED && $user->role !== 'admin') {
+                // Immediately logout the unapproved user
+                Auth::logout();
+
+                // Return appropriate message based on approval status
+                $errorMessage = match($user->approval_status) {
+                    \App\Models\User::APPROVAL_PENDING => 'Your account is pending approval.',
+                    \App\Models\User::APPROVAL_REJECTED => 'Your registration was rejected. Please check your email.',
+                    default => 'Your account is not approved for system access.',
+                };
+
+                return back()->withErrors([
+                    'email' => $errorMessage,
                 ])->onlyInput('email');
             }
 

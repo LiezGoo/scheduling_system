@@ -70,6 +70,7 @@
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Role</th>
+                                <th>Source</th>
                                 <th>Organizational Scope</th>
                                 <th>Status</th>
                                 <th class="text-center">Actions</th>

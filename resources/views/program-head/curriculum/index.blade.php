@@ -47,7 +47,7 @@
             <div class="spinner-border spinner-border-sm me-2" role="status" style="display: inline-block;">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <strong>Loading curriculum...</strong> Please wait while we fetch your curriculum data.
+            <strong>Loading curriculum...</strong> 
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
 

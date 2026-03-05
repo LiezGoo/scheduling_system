@@ -109,6 +109,13 @@ class UserController extends Controller
             'program_id' => $validated['program_id'] ?? null,
             'status' => $validated['status'],
             'is_active' => $validated['is_active'],
+            'is_approved' => true,
+            'approval_status' => User::APPROVAL_APPROVED,
+            'registration_source' => User::REGISTRATION_SOURCE_ADMIN,
+            'approved_at' => now(),
+            'approved_by' => Auth::id(),
+            'rejected_at' => null,
+            'rejection_reason' => null,
         ]);
 
         return response()->json([

@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const viewModal = new bootstrap.Modal(document.getElementById('viewFacultyLoadModal'));
     const removeModal = new bootstrap.Modal(document.getElementById('removeFacultyLoadModal'));
     const overloadModal = new bootstrap.Modal(document.getElementById('overloadWarningModal'));
+    const assignConfirmationModalEl = document.getElementById('assignConfirmationModal');
+    const assignConfirmationModal = assignConfirmationModalEl
+        ? new bootstrap.Modal(assignConfirmationModalEl, { backdrop: 'static', keyboard: false })
+        : null;
 
     let pendingForceAction = null;
 
@@ -316,11 +320,291 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const assignForm = document.getElementById('assignFacultyLoadForm');
     const editForm = document.getElementById('editFacultyLoadForm');
+    const assignSubmitBtn = document.getElementById('assignSubmitBtn');
+    const confirmAssignSubjectsBtn = document.getElementById('confirmAssignSubjectsBtn');
+
+    const assignFaculty = document.getElementById('assignFaculty');
+    const assignProgram = document.getElementById('assignProgram');
+    const assignAcademicYear = document.getElementById('assignAcademicYear');
+    const assignSemester = document.getElementById('assignSemester');
+    const assignYearLevel = document.getElementById('assignYearLevel');
+    const assignBlockSection = document.getElementById('assignBlockSection');
+    const assignSelectAllSubjects = document.getElementById('assignSelectAllSubjects');
+    const assignSubjectsTableBody = document.getElementById('assignSubjectsTableBody');
+
+    let assignableSubjects = [];
+    let loadSummary = {
+        current_lecture_hours: 0,
+        current_lab_hours: 0,
+        contract_type: 'unspecified',
+        max_lecture_hours: null,
+        max_lab_hours: null,
+    };
+
+    const getAssignmentContext = () => ({
+        faculty_id: assignFaculty?.value || '',
+        program_id: assignProgram?.value || '',
+        academic_year_id: assignAcademicYear?.value || '',
+        semester: assignSemester?.value || '',
+        year_level: assignYearLevel?.value || '',
+        block_section: assignBlockSection?.value?.trim() || '',
+    });
+
+    const hasCompleteAssignmentContext = () => {
+        const context = getAssignmentContext();
+        return Object.values(context).every((value) => value !== '');
+    };
+
+    const toTitleCase = (value) => {
+        if (!value) return 'N/A';
+        return value.toString().charAt(0).toUpperCase() + value.toString().slice(1);
+    };
+
+    function getSelectedSubjectRows() {
+        const rows = Array.from(document.querySelectorAll('#assignSubjectsTableBody tr[data-subject-id]'));
+        return rows
+            .filter((row) => row.querySelector('.assign-subject-checkbox')?.checked)
+            .map((row) => ({
+                rowIndex: parseInt(row.dataset.rowIndex, 10),
+                subject_id: parseInt(row.dataset.subjectId, 10),
+                block: row.querySelector('.assign-row-block')?.value?.trim() || assignBlockSection?.value?.trim() || '',
+                lecture_hours: parseInt(row.dataset.lectureHours || '0', 10),
+                lab_hours: parseInt(row.dataset.labHours || '0', 10),
+            }));
+    }
+
+    function renderAssignableSubjectsTable(subjects) {
+        if (!assignSubjectsTableBody) return;
+
+        if (!Array.isArray(subjects) || subjects.length === 0) {
+            assignSubjectsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-3">No subjects found for selected program, semester, and year level.</td>
+                </tr>
+            `;
+            if (assignSelectAllSubjects) assignSelectAllSubjects.checked = false;
+            updateBulkLoadSummary();
+            return;
+        }
+
+        const blockDefault = assignBlockSection?.value?.trim() || '';
+
+        assignSubjectsTableBody.innerHTML = subjects.map((subject, index) => {
+            const disabled = subject.already_assigned ? 'disabled' : '';
+            const errorText = subject.error ? `<span class="text-danger small">${subject.error}</span>` : '';
+
+            return `
+                <tr data-row-index="${index}" data-subject-id="${subject.subject_id}" data-lecture-hours="${subject.lecture_hours}" data-lab-hours="${subject.lab_hours}">
+                    <td>
+                        <input type="checkbox" class="form-check-input assign-subject-checkbox" ${disabled}>
+                    </td>
+                    <td class="fw-semibold">${subject.subject_code}</td>
+                    <td>${subject.subject_name}</td>
+                    <td class="text-center">${subject.lecture_hours}</td>
+                    <td class="text-center">${subject.lab_hours}</td>
+                    <td class="text-center fw-semibold">${subject.total_hours}</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm assign-row-block" value="${blockDefault}" ${disabled}>
+                    </td>
+                    <td class="assign-row-error">${errorText}</td>
+                </tr>
+            `;
+        }).join('');
+
+        if (assignSelectAllSubjects) {
+            assignSelectAllSubjects.checked = false;
+        }
+
+        assignSubjectsTableBody.querySelectorAll('.assign-subject-checkbox, .assign-row-block').forEach((element) => {
+            element.addEventListener('change', updateBulkLoadSummary);
+            element.addEventListener('input', updateBulkLoadSummary);
+        });
+
+        updateBulkLoadSummary();
+    }
+
+    function resetSubjectRowErrors() {
+        document.querySelectorAll('#assignSubjectsTableBody tr[data-row-index]').forEach((row) => {
+            row.classList.remove('table-danger');
+            const errorCell = row.querySelector('.assign-row-error');
+            if (errorCell) {
+                errorCell.innerHTML = '';
+            }
+        });
+    }
+
+    function applyBulkInlineErrors(errors = {}) {
+        resetSubjectRowErrors();
+
+        Object.entries(errors).forEach(([index, errorBag]) => {
+            const row = document.querySelector(`#assignSubjectsTableBody tr[data-row-index="${index}"]`);
+            if (!row) return;
+            row.classList.add('table-danger');
+            const errorCell = row.querySelector('.assign-row-error');
+            if (!errorCell) return;
+
+            const messages = Object.values(errorBag || {})
+                .flatMap((value) => (Array.isArray(value) ? value : [value]))
+                .filter(Boolean)
+                .map((value) => `<div class="small text-danger">${value}</div>`)
+                .join('');
+
+            errorCell.innerHTML = messages;
+        });
+    }
+
+    function updateBulkLoadSummary() {
+        const selectedRows = getSelectedSubjectRows();
+
+        const selectedLecture = selectedRows.reduce((sum, row) => sum + row.lecture_hours, 0);
+        const selectedLab = selectedRows.reduce((sum, row) => sum + row.lab_hours, 0);
+
+        const currentLecture = Number(loadSummary.current_lecture_hours || 0);
+        const currentLab = Number(loadSummary.current_lab_hours || 0);
+        const lectureLimit = loadSummary.max_lecture_hours === null ? null : Number(loadSummary.max_lecture_hours);
+        const labLimit = loadSummary.max_lab_hours === null ? null : Number(loadSummary.max_lab_hours);
+
+        const projectedLecture = currentLecture + selectedLecture;
+        const projectedLab = currentLab + selectedLab;
+
+        const remainingLecture = lectureLimit === null ? null : lectureLimit - projectedLecture;
+        const remainingLab = labLimit === null ? null : labLimit - projectedLab;
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        setText('summaryCurrentLecture', currentLecture);
+        setText('summaryCurrentLab', currentLab);
+        setText('summaryContractType', toTitleCase(loadSummary.contract_type));
+        setText('summaryLectureLimit', lectureLimit === null ? 'N/A' : lectureLimit);
+        setText('summaryLabLimit', labLimit === null ? 'N/A' : labLimit);
+        setText('summarySelectedLecture', selectedLecture);
+        setText('summarySelectedLab', selectedLab);
+        setText('summaryProjectedLecture', projectedLecture);
+        setText('summaryProjectedLab', projectedLab);
+        setText('summaryRemainingLecture', remainingLecture === null ? 'N/A' : remainingLecture);
+        setText('summaryRemainingLab', remainingLab === null ? 'N/A' : remainingLab);
+
+        const overLimit = (lectureLimit !== null && projectedLecture > lectureLimit)
+            || (labLimit !== null && projectedLab > labLimit);
+
+        const warningEl = document.getElementById('summaryLimitWarning');
+        if (warningEl) {
+            warningEl.classList.toggle('d-none', !overLimit);
+        }
+
+        ['summaryProjectedLecture', 'summaryProjectedLab', 'summaryRemainingLecture', 'summaryRemainingLab'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('text-danger');
+        });
+
+        if (overLimit) {
+            ['summaryProjectedLecture', 'summaryProjectedLab', 'summaryRemainingLecture', 'summaryRemainingLab'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('text-danger');
+            });
+        }
+
+        if (assignSubmitBtn) {
+            assignSubmitBtn.disabled = selectedRows.length === 0;
+        }
+    }
+
+    function syncRowBlocksWithGlobalBlock() {
+        const block = assignBlockSection?.value?.trim() || '';
+        document.querySelectorAll('#assignSubjectsTableBody .assign-row-block').forEach((input) => {
+            if (input.disabled) return;
+            input.value = block;
+        });
+    }
+
+    function loadAssignableSubjects() {
+        resetSubjectRowErrors();
+
+        if (!hasCompleteAssignmentContext()) {
+            assignableSubjects = [];
+            loadSummary = {
+                current_lecture_hours: 0,
+                current_lab_hours: 0,
+                contract_type: 'unspecified',
+                max_lecture_hours: null,
+                max_lab_hours: null,
+            };
+            renderAssignableSubjectsTable([]);
+            return;
+        }
+
+        const context = getAssignmentContext();
+        const params = new URLSearchParams(context).toString();
+
+        fetch(`${baseUrl}/api/assignable-subjects?${params}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().then((data) => {
+                        throw new Error(data.message || 'Failed to load subjects.');
+                    });
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                assignableSubjects = payload.subjects || [];
+                loadSummary = payload.load_summary || loadSummary;
+                renderAssignableSubjectsTable(assignableSubjects);
+                updateBulkLoadSummary();
+            })
+            .catch((error) => {
+                assignableSubjects = [];
+                renderAssignableSubjectsTable([]);
+                showAssignMessage('error', error.message || 'Failed to load assignable subjects.');
+            });
+    }
+
+    [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
+        if (!field) return;
+        field.addEventListener('change', loadAssignableSubjects);
+    });
+
+    if (assignBlockSection) {
+        assignBlockSection.addEventListener('input', () => {
+            syncRowBlocksWithGlobalBlock();
+            updateBulkLoadSummary();
+            if (hasCompleteAssignmentContext()) {
+                loadAssignableSubjects();
+            }
+        });
+    }
+
+    if (assignSelectAllSubjects) {
+        assignSelectAllSubjects.addEventListener('change', function () {
+            const shouldCheck = this.checked;
+            document.querySelectorAll('#assignSubjectsTableBody .assign-subject-checkbox:not(:disabled)').forEach((checkbox) => {
+                checkbox.checked = shouldCheck;
+            });
+            updateBulkLoadSummary();
+        });
+    }
 
     const submitAssign = (forceAssign = false) => {
         clearAssignMessage();
+        resetSubjectRowErrors();
+
         if (!assignForm.checkValidity()) {
             assignForm.classList.add('was-validated');
+            return;
+        }
+
+        const selectedSubjects = getSelectedSubjectRows();
+        if (selectedSubjects.length === 0) {
+            showAssignMessage('error', 'Select at least one subject before submitting.');
             return;
         }
 
@@ -330,6 +614,17 @@ document.addEventListener('DOMContentLoaded', function () {
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Assigning...';
 
         const formData = new FormData(assignForm);
+        formData.delete('subject_id');
+        formData.delete('lecture_hours');
+        formData.delete('lab_hours');
+
+        selectedSubjects.forEach((subject, index) => {
+            formData.append(`subjects[${index}][subject_id]`, subject.subject_id.toString());
+            formData.append(`subjects[${index}][block]`, subject.block);
+            formData.append(`subjects[${index}][lecture_hours]`, subject.lecture_hours.toString());
+            formData.append(`subjects[${index}][lab_hours]`, subject.lab_hours.toString());
+        });
+
         if (forceAssign) {
             formData.set('force_assign', '1');
         }
@@ -351,18 +646,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 if (!response.ok) {
                     return response.json().then((data) => {
-                        throw new Error(data.message || 'Failed to assign faculty load');
+                        const error = new Error(data.message || 'Failed to assign faculty load');
+                        error.payload = data;
+                        throw error;
                     });
                 }
                 return response.json();
             })
-            .then(() => {
+            .then((data) => {
                 assignForm.reset();
                 assignForm.classList.remove('was-validated');
-                showAssignMessage('success', 'Faculty load assigned successfully.');
+                assignableSubjects = [];
+                renderAssignableSubjectsTable([]);
+                updateBulkLoadSummary();
+                showAssignMessage('success', data?.message || 'Faculty load assigned successfully.');
                 setTimeout(() => {
                     assignModal.hide();
-                    location.reload();
                 }, 1500);
             })
             .catch((error) => {
@@ -372,6 +671,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalContent;
                     return;
+                }
+                if (error?.payload?.errors) {
+                    applyBulkInlineErrors(error.payload.errors);
                 }
                 console.error('Error assigning faculty load:', error);
                 showAssignMessage('error', error.message || 'Failed to assign faculty load.');
@@ -383,8 +685,32 @@ document.addEventListener('DOMContentLoaded', function () {
     // Assign Faculty Load Form
     assignForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        submitAssign(false);
+        const selectedSubjects = getSelectedSubjectRows();
+        if (selectedSubjects.length === 0) {
+            showAssignMessage('error', 'Select at least one subject before submitting.');
+            return;
+        }
+
+        const confirmCountEl = document.getElementById('assignConfirmCount');
+        if (confirmCountEl) {
+            confirmCountEl.textContent = selectedSubjects.length.toString();
+        }
+
+        if (assignConfirmationModal) {
+            assignConfirmationModal.show();
+        } else {
+            submitAssign(false);
+        }
     });
+
+    if (confirmAssignSubjectsBtn) {
+        confirmAssignSubjectsBtn.addEventListener('click', () => {
+            if (assignConfirmationModal) {
+                assignConfirmationModal.hide();
+            }
+            submitAssign(false);
+        });
+    }
 
     const submitEdit = (forceAssign = false) => {
         if (!editForm.checkValidity()) {
@@ -511,35 +837,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // REAL-TIME UNIT CALCULATION
     // =========================================
 
-    // Assign Modal - Unit Calculation
-    const assignLectureHours = document.getElementById('assignLectureHours');
-    const assignLabHours = document.getElementById('assignLabHours');
-    const assignComputedUnits = document.getElementById('assignComputedUnits');
-
-    if (assignLectureHours && assignLabHours && assignComputedUnits) {
-        assignLectureHours.addEventListener('input', function() {
-            updateComputedUnits(assignLectureHours, assignLabHours, assignComputedUnits);
-        });
-
-        assignLabHours.addEventListener('input', function() {
-            updateComputedUnits(assignLectureHours, assignLabHours, assignComputedUnits);
-
-            // Validate lab hours divisibility
-            const validation = validateLabHours(parseInt(this.value) || 0);
-            if (!validation.valid) {
-                this.setCustomValidity(validation.message);
-                this.classList.add('is-invalid');
-                const feedback = this.nextElementSibling;
-                if (feedback && feedback.classList.contains('invalid-feedback')) {
-                    feedback.textContent = validation.message;
-                }
-            } else {
-                this.setCustomValidity('');
-                this.classList.remove('is-invalid');
-            }
-        });
-    }
-
     // Edit Modal - Unit Calculation
     const editLectureHours = document.getElementById('editLectureHours');
     const editLabHours = document.getElementById('editLabHours');
@@ -649,6 +946,20 @@ document.addEventListener('DOMContentLoaded', function () {
         assignForm.classList.remove('was-validated');
         assignForm.reset();
         clearAssignMessage();
+        resetSubjectRowErrors();
+        assignableSubjects = [];
+        loadSummary = {
+            current_lecture_hours: 0,
+            current_lab_hours: 0,
+            contract_type: 'unspecified',
+            max_lecture_hours: null,
+            max_lab_hours: null,
+        };
+        renderAssignableSubjectsTable([]);
+        updateBulkLoadSummary();
+        if (assignSelectAllSubjects) {
+            assignSelectAllSubjects.checked = false;
+        }
     });
 
     document.getElementById('editFacultyLoadModal').addEventListener('hidden.bs.modal', function () {

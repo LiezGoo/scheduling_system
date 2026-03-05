@@ -259,7 +259,7 @@ class AcademicYearController extends Controller
             'name' => [
                 'required',
                 'string',
-                Rule::in(Semester::VALID_NAMES),
+                'max:50',
             ],
         ]);
 
@@ -314,7 +314,7 @@ class AcademicYearController extends Controller
             'name' => [
                 'required',
                 'string',
-                Rule::in(Semester::VALID_NAMES),
+                'max:50',
             ],
         ]);
 

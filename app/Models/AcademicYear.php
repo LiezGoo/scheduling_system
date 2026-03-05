@@ -73,7 +73,7 @@ class AcademicYear extends Model
             static::where('id', '!=', $this->id)->update(['is_active' => false]);
 
             // Deactivate all semesters that don't belong to this academic year
-            Semester::whereNotIn('academic_year_id', [$this->id])->update(['is_active' => false]);
+            Semester::whereNotIn('academic_year_id', [$this->id])->update(['status' => Semester::STATUS_INACTIVE]);
 
             // Activate this academic year
             $this->update(['is_active' => true]);
@@ -95,7 +95,7 @@ class AcademicYear extends Model
      */
     public function getActiveSemester()
     {
-        return $this->semesters()->where('is_active', true)->first();
+        return $this->semesters()->where('status', Semester::STATUS_ACTIVE)->first();
     }
 
     /**

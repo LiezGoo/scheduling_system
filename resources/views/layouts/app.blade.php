@@ -80,35 +80,56 @@
                 'pattern' => $currentPattern,
             ],
             [
-                'label' => 'User & Role Management',
+                'label' => 'User & Role',
                 'icon' => 'fa-solid fa-users-gear',
                 'href' => route('admin.users.index'),
                 'roles' => ['admin'],
-                'pattern' => 'admin/users*',
+                'route' => 'admin.users.*',
+                'excludeRoutes' => ['admin.users.approvals*'],
             ],
             [
-                'label' => 'Academic Year Management & Semester Management',
+                'label' => 'User Approvals',
+                'icon' => 'fa-solid fa-user-check',
+                'href' => route('admin.users.approvals'),
+                'roles' => ['admin'],
+                'route' => 'admin.users.approvals*',
+                'badge' => function() {
+                    $count = \App\Models\User::where('registration_source', \App\Models\User::REGISTRATION_SOURCE_SELF)
+                        ->where('approval_status', \App\Models\User::APPROVAL_PENDING)
+                        ->count();
+                    return $count > 0 ? $count : null;
+                },
+            ],
+            [
+                'label' => 'Academic Term',
                 'icon' => 'fa-solid fa-calendar-alt',
                 'href' => route('admin.academic-years.index'),
                 'roles' => ['admin'],
                 'pattern' => 'admin/academic-years*',
             ],
             [
-                'label' => 'Department Management',
+                'label' => 'Semester',
+                'icon' => 'fa-solid fa-calendar-days',
+                'href' => route('admin.semesters.index'),
+                'roles' => ['admin'],
+                'pattern' => 'admin/semesters*',
+            ],
+            [
+                'label' => 'Department',
                 'icon' => 'fa-solid fa-building',
                 'href' => route('admin.departments.index'),
                 'roles' => ['admin'],
                 'pattern' => 'admin/departments',
             ],
             [
-                'label' => 'Program Management',
+                'label' => 'Program',
                 'icon' => 'fa-solid fa-diagram-project',
                 'href' => route('admin.programs.index'),
                 'roles' => ['admin'],
                 'pattern' => 'admin/programs*',
             ],
             [
-                'label' => 'Room Management',
+                'label' => 'Room',
                 'icon' => 'fa-solid fa-door-open',
                 'href' => route('admin.rooms.index'),
                 'roles' => ['admin'],
@@ -116,35 +137,36 @@
             ],
             // Program Head Menu Items
             [
-                'label' => 'Curriculum Management',
+                'label' => 'Curriculum',
                 'icon' => 'fa-solid fa-layer-group',
                 'href' => route('program-head.curriculum.index'),
                 'roles' => ['program_head'],
                 'pattern' => 'program-head/curriculum*',
             ],
             [
-                'label' => 'Faculty Load Management',
+                'label' => 'Faculty Load',
                 'icon' => 'fa-solid fa-clipboard-list',
                 'href' => route('program-head.faculty-load.index'),
                 'roles' => ['program_head'],
                 'pattern' => 'program-head/faculty-load*',
             ],
             [
-                'label' => 'Schedule Management',
-                'icon' => 'fa-solid fa-calendar-check',
+                'label' => 'View Schedules',
+                'icon' => 'fa-solid fa-calendar-days',
                 'href' => route('program-head.schedules.index'),
                 'roles' => ['program_head'],
                 'pattern' => 'program-head/schedules*',
             ],
+            // Department Head Menu Items
             [
-                'label' => 'Subject Management',
+                'label' => 'Subject',
                 'icon' => 'fa-solid fa-book',
                 'href' => route('department-head.subjects.index'),
                 'roles' => ['department_head'],
                 'pattern' => 'department-head/subjects*',
             ],
             [
-                'label' => 'Schedule Approval',
+                'label' => 'Generate Schedule',
                 'icon' => 'fa-solid fa-calendar-check',
                 'href' => route('department-head.schedules.index'),
                 'roles' => ['department_head'],
@@ -221,13 +243,39 @@
                                 $href = isset($item['href'])
                                     ? $item['href']
                                     : $baseDashboardRoute . '#' . $item['anchor'];
-                                $isActive = request()->is($item['pattern']);
+                                
+                                // Use route name matching instead of URL pattern matching
+                                if (isset($item['route'])) {
+                                    $isActive = request()->routeIs($item['route']);
+                                    
+                                    // Exclude specific routes if defined
+                                    if ($isActive && isset($item['excludeRoutes'])) {
+                                        foreach ($item['excludeRoutes'] as $excludeRoute) {
+                                            if (request()->routeIs($excludeRoute)) {
+                                                $isActive = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                } elseif (isset($item['pattern'])) {
+                                    // Fallback to pattern matching for backward compatibility
+                                    $isActive = request()->is($item['pattern']);
+                                } else {
+                                    $isActive = false;
+                                }
+                                
+                                $badgeCount = isset($item['badge']) && is_callable($item['badge']) ? $item['badge']() : null;
                             @endphp
-                            <a class="nav-link d-flex align-items-center gap-2 {{ $isActive ? 'active' : '' }}"
+                            <a class="nav-link d-flex align-items-center gap-2 {{ $isActive ? 'active' : '' }} position-relative"
                                 href="{{ $href }}" data-bs-toggle="tooltip" data-bs-placement="right"
                                 data-bs-title="{{ $item['label'] }}">
                                 <i class="{{ $item['icon'] }}"></i>
                                 <span class="link-label">{{ $item['label'] }}</span>
+                                @if($badgeCount)
+                                    <span class="badge bg-warning text-dark ms-auto" style="font-size: 0.7rem; padding: 2px 6px;">
+                                        {{ $badgeCount }}
+                                    </span>
+                                @endif
                             </a>
                         @endif
                     @endforeach
@@ -439,6 +487,75 @@
                     // Let the form submit naturally with CSRF token
                 });
             }
+        });
+    </script>
+
+    <!-- Global Confirmation Modal -->
+    <div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background: #660000; color: white;">
+                    <h5 class="modal-title" id="confirmModalTitle">
+                        <i class="fa-solid fa-circle-question me-2"></i>
+                        Confirm Action
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmModalMessage" class="mb-0">
+                        Are you sure you want to proceed with this action?
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fa-solid fa-times me-1"></i>Cancel
+                    </button>
+                    <form id="confirmActionForm" method="POST" style="display: inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-success" id="confirmActionButton">
+                            <i class="fa-solid fa-check me-1"></i>Yes, Confirm
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Confirmation Modal Handler -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const confirmModal = document.getElementById('confirmActionModal');
+            const confirmModalInstance = new bootstrap.Modal(confirmModal);
+            const confirmForm = document.getElementById('confirmActionForm');
+            const confirmButton = document.getElementById('confirmActionButton');
+            const confirmMessage = document.getElementById('confirmModalMessage');
+            const confirmTitle = document.getElementById('confirmModalTitle');
+
+            // Handle all elements with class 'confirm-action'
+            document.addEventListener('click', function(e) {
+                const trigger = e.target.closest('.confirm-action');
+                if (!trigger) return;
+
+                e.preventDefault();
+
+                const url = trigger.dataset.url;
+                const message = trigger.dataset.message || 'Are you sure you want to proceed?';
+                const title = trigger.dataset.title || '<i class="fa-solid fa-circle-question me-2"></i>Confirm Action';
+                const btnClass = trigger.dataset.btnClass || 'btn-success';
+                const btnText = trigger.dataset.btnText || '<i class="fa-solid fa-check me-1"></i>Yes, Confirm';
+
+                // Update modal content
+                confirmMessage.textContent = message;
+                confirmTitle.innerHTML = title;
+                confirmForm.action = url;
+                
+                // Update button styling
+                confirmButton.className = 'btn ' + btnClass;
+                confirmButton.innerHTML = btnText;
+
+                // Show modal
+                confirmModalInstance.show();
+            });
         });
     </script>
 

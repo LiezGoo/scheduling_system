@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('page-title', 'Academic Years Management')
+@section('page-title', 'Academic Term Management')
 
 @section('content')
 <div class="container-fluid py-4 ps-3 pe-3">

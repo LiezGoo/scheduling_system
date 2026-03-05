@@ -162,32 +162,83 @@ class FacultyLoadController extends Controller
             'user_id' => 'nullable|integer|exists:users,id',
             'faculty_id' => 'required_without:user_id|integer|exists:users,id',
             'program_id' => 'required|integer|exists:programs,id',
-            'subject_id' => 'required|integer|exists:subjects,id',
+            'subject_id' => 'required_without:subjects|nullable|integer|exists:subjects,id',
             'academic_year_id' => 'required|integer|exists:academic_years,id',
             'semester' => 'required|string',
             'year_level' => 'required|integer|min:1|max:6',
-            'block_section' => 'required|string|max:20',
-            'lecture_hours' => 'required|integer|min:0|max:40',
-            'lab_hours' => 'required|integer|min:0|max:40',
+            'block_section' => 'required_without:subjects|nullable|string|max:20',
+            'lecture_hours' => 'required_without:subjects|nullable|integer|min:0|max:40',
+            'lab_hours' => 'required_without:subjects|nullable|integer|min:0|max:40',
+            'subjects' => 'nullable|array|min:1',
+            'subjects.*.subject_id' => 'required_with:subjects|integer|exists:subjects,id',
+            'subjects.*.block' => 'nullable|string|max:20',
+            'subjects.*.block_section' => 'nullable|string|max:20',
+            'subjects.*.lecture_hours' => 'required_with:subjects|integer|min:0|max:40',
+            'subjects.*.lab_hours' => 'required_with:subjects|integer|min:0|max:40',
             'force_assign' => 'nullable|boolean',
         ]);
 
         $userId = $validated['user_id'] ?? $validated['faculty_id'];
-
-        // Verify subject belongs to program head's department
-        $subject = Subject::findOrFail($validated['subject_id']);
-        if ($subject->department_id !== $department->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Subject does not belong to your department.'
-            ], 403);
-        }
 
         $program = Program::findOrFail($validated['program_id']);
         if ($program->department_id !== $department->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Program does not belong to your department.'
+            ], 403);
+        }
+
+        $forceAssign = (bool) ($validated['force_assign'] ?? false);
+
+        $subjectRows = $validated['subjects'] ?? [];
+
+        if (!empty($subjectRows)) {
+            foreach ($subjectRows as $index => $subjectRow) {
+                $subject = Subject::find($subjectRow['subject_id']);
+                if (!$subject || (int) $subject->department_id !== (int) $department->id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'One or more selected subjects do not belong to your department.',
+                        'errors' => [
+                            $index => [
+                                'subject_id' => 'Subject does not belong to your department.',
+                            ],
+                        ],
+                    ], 403);
+                }
+            }
+
+            $bulkResult = $this->facultyLoadService->assignMultipleSubjectsToInstructor(
+                $userId,
+                $validated['program_id'],
+                $validated['academic_year_id'],
+                $validated['semester'],
+                $validated['year_level'],
+                $subjectRows,
+                $forceAssign
+            );
+
+            if ($bulkResult['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $bulkResult['message'],
+                    'assigned_count' => $bulkResult['assigned_count'] ?? count($subjectRows),
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $bulkResult['message'] ?? 'Bulk assignment failed.',
+                'errors' => $bulkResult['errors'] ?? [],
+            ], 422);
+        }
+
+        // Backward-compatible single subject assignment
+        $subject = Subject::findOrFail($validated['subject_id']);
+        if ($subject->department_id !== $department->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Subject does not belong to your department.'
             ], 403);
         }
 
@@ -202,7 +253,7 @@ class FacultyLoadController extends Controller
                 $validated['block_section'],
                 $validated['lecture_hours'],
                 $validated['lab_hours'],
-                (bool) ($validated['force_assign'] ?? false)
+                $forceAssign
             );
 
             if ($result['success']) {
@@ -231,6 +282,108 @@ class FacultyLoadController extends Controller
                 'message' => 'An error occurred.'
             ], 500);
         }
+    }
+
+    /**
+     * Get assignable subjects and load summary for bulk assignment modal.
+     */
+    public function getAssignableSubjects(Request $request)
+    {
+        $user = Auth::user();
+
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'faculty_id' => 'required|integer|exists:users,id',
+            'program_id' => 'required|integer|exists:programs,id',
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'semester' => 'required|string',
+            'year_level' => 'required|integer|min:1|max:6',
+            'block_section' => 'nullable|string|max:20',
+        ]);
+
+        $program = Program::findOrFail($validated['program_id']);
+        if ((int) $program->department_id !== (int) $department->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Program does not belong to your department.',
+            ], 403);
+        }
+
+        $faculty = User::findOrFail($validated['faculty_id']);
+        if (!$faculty->isEligibleInstructor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected faculty is not eligible for teaching assignments.',
+            ], 422);
+        }
+
+        $subjects = Subject::query()
+            ->select('subjects.id', 'subjects.subject_code', 'subjects.subject_name', 'subjects.lecture_hours', 'subjects.lab_hours')
+            ->join('program_subjects', 'program_subjects.subject_id', '=', 'subjects.id')
+            ->where('subjects.department_id', $department->id)
+            ->where('subjects.is_active', true)
+            ->where('program_subjects.program_id', $validated['program_id'])
+            ->where('program_subjects.year_level', $validated['year_level'])
+            ->where('program_subjects.semester', $validated['semester'])
+            ->orderBy('subjects.subject_code')
+            ->get();
+
+        $currentLoad = $faculty->getInstructorLoadSummaryForTerm(
+            $validated['academic_year_id'],
+            $validated['semester']
+        );
+
+        $limits = $faculty->getContractLoadLimits();
+
+        $blockSection = trim((string) ($validated['block_section'] ?? ''));
+        $subjectIds = $subjects->pluck('id')->all();
+
+        $existingAssignments = DB::table('instructor_loads')
+            ->where('instructor_id', $validated['faculty_id'])
+            ->where('program_id', $validated['program_id'])
+            ->where('academic_year_id', $validated['academic_year_id'])
+            ->where('semester', $validated['semester'])
+            ->where('year_level', $validated['year_level'])
+            ->whereIn('subject_id', $subjectIds)
+            ->when($blockSection !== '', fn ($query) => $query->where('block_section', $blockSection))
+            ->pluck('subject_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $rows = $subjects->map(function ($subject) use ($existingAssignments) {
+            $lecture = (int) $subject->lecture_hours;
+            $lab = (int) $subject->lab_hours;
+            $subjectId = (int) $subject->id;
+            $alreadyAssigned = in_array($subjectId, $existingAssignments, true);
+
+            return [
+                'subject_id' => $subjectId,
+                'subject_code' => $subject->subject_code,
+                'subject_name' => $subject->subject_name,
+                'lecture_hours' => $lecture,
+                'lab_hours' => $lab,
+                'total_hours' => $lecture + $lab,
+                'already_assigned' => $alreadyAssigned,
+                'error' => $alreadyAssigned ? 'Already assigned for selected term/block.' : null,
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'subjects' => $rows,
+            'load_summary' => [
+                'current_lecture_hours' => (int) ($currentLoad['total_lecture_hours'] ?? 0),
+                'current_lab_hours' => (int) ($currentLoad['total_lab_hours'] ?? 0),
+                'contract_type' => $limits['type'] ?? 'unspecified',
+                'max_lecture_hours' => $limits['max_lecture_hours'],
+                'max_lab_hours' => $limits['max_lab_hours'],
+            ],
+        ]);
     }
 
     /**

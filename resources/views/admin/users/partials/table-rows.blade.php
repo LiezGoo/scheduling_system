@@ -15,6 +15,15 @@
             </span>
         </td>
         <td>
+            @if ($user->registration_source === \App\Models\User::REGISTRATION_SOURCE_SELF)
+                <span class="badge bg-warning text-dark">Self Registered</span>
+            @elseif($user->registration_source === \App\Models\User::REGISTRATION_SOURCE_ADMIN)
+                <span class="badge bg-primary">Admin Created</span>
+            @else
+                <span class="text-muted">—</span>
+            @endif
+        </td>
+        <td>
             @if ($user->isDepartmentHead() && $user->department)
                 <span class="badge bg-secondary">
                     <i class="fa-solid fa-building me-1"></i>
@@ -62,7 +71,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="6" class="text-center py-4">
+        <td colspan="7" class="text-center py-4">
             <i class="fa-solid fa-users text-muted fa-3x mb-3"></i>
             <p class="text-muted mb-0">No users found</p>
         </td>
