@@ -28,15 +28,7 @@ class RegisterRequest extends FormRequest
                 'required',
                 'email:rfc,dns',
                 Rule::unique('users', 'email'),
-                function ($attribute, $value, $fail) {
-                    // Enforce university email domain
-                    $allowedDomains = config('auth.allowed_email_domains', ['sorsu.edu.ph']);
-                    $emailDomain = substr(strrchr($value, "@"), 1);
-                    
-                    if (!in_array($emailDomain, $allowedDomains)) {
-                        $fail("You must register with a {$allowedDomains[0]} email address.");
-                    }
-                },
+                'regex:/^[a-zA-Z0-9._%+-]+@gmail\.com$/',
             ],
             'role' => [
                 'required',
@@ -66,6 +58,7 @@ class RegisterRequest extends FormRequest
         return [
             'email.unique' => 'This email address is already registered.',
             'email.email' => 'Please enter a valid email address.',
+            'email.regex' => 'Please use a valid Google email address (example@gmail.com).',
             'password.min' => 'Password must be at least 8 characters long.',
             'password.regex' => 'Password must contain uppercase, lowercase, numbers, and special characters (@$!%*?&).',
             'password.confirmed' => 'Password confirmation does not match.',

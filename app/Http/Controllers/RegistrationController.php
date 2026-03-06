@@ -33,12 +33,13 @@ class RegistrationController extends Controller
                 'last_name' => $request->last_name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
+                'auth_provider' => 'local',
                 'role' => $request->role,
                 'is_active' => true,
                 'is_approved' => false,
                 'approval_status' => User::APPROVAL_PENDING,
                 'registration_source' => User::REGISTRATION_SOURCE_SELF,
-                'email_verified_at' => now(), // Email is already trusted (university domain)
+                'email_verified_at' => now(), // Email is already trusted (Google email domain)
             ]);
 
             DB::commit();

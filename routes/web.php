@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\AccountDeactivatedController;
 use App\Http\Controllers\NotificationController;
@@ -52,6 +53,10 @@ Route::middleware(['guest'])->group(function () {
     // Registration Routes
     Route::get('/register', [RegistrationController::class, 'showRegistrationForm'])->name('register');
     Route::post('/register', [RegistrationController::class, 'register'])->name('register.store');
+
+    // Google OAuth Routes
+    Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle'])->name('google.redirect');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('google.callback');
 
     /**
      * Password Reset Routes
