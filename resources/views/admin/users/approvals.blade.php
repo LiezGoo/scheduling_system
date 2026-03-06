@@ -244,12 +244,8 @@
     <div class="container-fluid py-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
             <div class="d-flex align-items-center gap-3">
-                <div class="approval-title-icon">
-                    <i class="fa-solid fa-user-check"></i>
-                </div>
                 <div>
-                    <h1 class="approval-page-title">User Approval Management</h1>
-                    <p class="approval-subtitle">Review and manage account registration requests.</p>
+                    <p class="approval-subtitle"><i class="fa-solid fa-user-check"></i> Review and manage account registration requests.</p>
                 </div>
             </div>
         </div>

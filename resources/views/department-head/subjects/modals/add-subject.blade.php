@@ -63,16 +63,6 @@
 
                     <div class="row">
                         <div class="col-md-12 mb-3">
-                            <label for="add_description" class="form-label">
-                                Description
-                            </label>
-                            <textarea class="form-control" id="add_description" name="description" rows="3"
-                                placeholder="Optional description"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-12 mb-3">
                             <label for="add_is_active" class="form-label">Status</label>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="add_is_active" name="is_active" value="1" checked>
@@ -103,7 +93,6 @@
             const addSubjectBtn = document.getElementById('addSubjectBtn');
             const addSubjectAlert = document.getElementById('addSubjectAlert');
             const addSubjectModal = new bootstrap.Modal(document.getElementById('addSubjectModal'));
-            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
 
             addSubjectForm.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -142,23 +131,32 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            document.getElementById('successTitle').textContent = 'Subject Created';
-                            document.getElementById('successMessage').textContent = data.message;
                             addSubjectModal.hide();
-                            successModal.show();
-                            document.getElementById('successBtn').addEventListener('click', function() {
-                                location.reload();
-                            }, { once: true });
+                            window.openSystemModal({
+                                type: 'success',
+                                title: 'Success',
+                                message: 'The record has been successfully added.',
+                                confirmText: 'OK',
+                                onConfirm: function() {
+                                    location.reload();
+                                }
+                            });
                         } else {
-                            addSubjectAlert.className = 'alert alert-danger';
-                            addSubjectAlert.textContent = data.message || 'Failed to create subject.';
-                            addSubjectAlert.classList.remove('d-none');
+                            window.openSystemModal({
+                                type: 'error',
+                                title: 'Action Failed',
+                                message: 'An error occurred while processing your request. Please try again.',
+                                confirmText: 'OK'
+                            });
                         }
                     })
                     .catch(error => {
-                        addSubjectAlert.className = 'alert alert-danger';
-                        addSubjectAlert.textContent = 'An error occurred. Please try again.';
-                        addSubjectAlert.classList.remove('d-none');
+                        window.openSystemModal({
+                            type: 'error',
+                            title: 'Action Failed',
+                            message: 'An error occurred while processing your request. Please try again.',
+                            confirmText: 'OK'
+                        });
                         console.error('Error:', error);
                     })
                     .finally(() => {

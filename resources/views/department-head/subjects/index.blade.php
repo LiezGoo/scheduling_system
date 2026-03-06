@@ -77,7 +77,9 @@
     @include('department-head.subjects.modals.edit-subject')
     @include('department-head.subjects.modals.delete-subject')
     @include('department-head.subjects.modals.show-subject')
+    @include('components.modals.confirm-modal')
     @include('components.modals.success-modal')
+    @include('components.modals.error-modal')
 @endsection
 
 @push('styles')
@@ -109,6 +111,117 @@
 @endpush
 
 @push('scripts')
+    <script>
+        window.openSystemModal = function({
+            type = 'success',
+            title = '',
+            message = '',
+            confirmText = 'OK',
+            cancelText = 'Cancel',
+            onConfirm = null,
+        } = {}) {
+            if (type === 'confirm') {
+                const confirmModalEl = document.getElementById('confirmModal');
+                if (!confirmModalEl) return;
+
+                const confirmModal = new bootstrap.Modal(confirmModalEl);
+                const icon = document.getElementById('confirmIcon');
+                const modalTitle = document.getElementById('confirmTitle');
+                const modalMessage = document.getElementById('confirmMessage');
+                const cancelButton = confirmModalEl.querySelector('[data-bs-dismiss="modal"]');
+                const originalConfirmBtn = document.getElementById('confirmBtn');
+
+                if (icon) icon.className = 'fas fa-exclamation-triangle me-2';
+                if (modalTitle) modalTitle.textContent = title || 'Confirm Deletion';
+                if (modalMessage) {
+                    modalMessage.textContent =
+                        message || 'Are you sure you want to delete this record? This action cannot be undone.';
+                }
+                if (cancelButton) cancelButton.textContent = cancelText || 'Cancel';
+
+                if (originalConfirmBtn && originalConfirmBtn.parentNode) {
+                    const newConfirmBtn = originalConfirmBtn.cloneNode(true);
+                    newConfirmBtn.id = 'confirmBtn';
+                    newConfirmBtn.className = 'btn btn-danger fw-semibold';
+                    newConfirmBtn.innerHTML = '<i id="confirmBtnIcon" class="fas fa-trash me-2"></i><span id="confirmBtnText"></span>';
+                    const confirmTextSpan = newConfirmBtn.querySelector('#confirmBtnText');
+                    if (confirmTextSpan) confirmTextSpan.textContent = confirmText || 'Delete';
+                    originalConfirmBtn.parentNode.replaceChild(newConfirmBtn, originalConfirmBtn);
+
+                    if (typeof onConfirm === 'function') {
+                        newConfirmBtn.addEventListener(
+                            'click',
+                            function() {
+                                confirmModal.hide();
+                                onConfirm();
+                            },
+                            { once: true }
+                        );
+                    }
+                }
+
+                confirmModal.show();
+                return;
+            }
+
+            if (type === 'error') {
+                const errorModalEl = document.getElementById('errorModal');
+                if (!errorModalEl) return;
+
+                const errorModal = new bootstrap.Modal(errorModalEl);
+                const modalTitle = document.getElementById('errorTitle');
+                const modalMessage = document.getElementById('errorMessage');
+                const originalErrorBtn = document.getElementById('errorBtn');
+
+                if (modalTitle) modalTitle.textContent = title || 'Action Failed';
+                if (modalMessage) {
+                    modalMessage.textContent =
+                        message || 'An error occurred while processing your request. Please try again.';
+                }
+
+                if (originalErrorBtn && originalErrorBtn.parentNode) {
+                    const newErrorBtn = originalErrorBtn.cloneNode(true);
+                    newErrorBtn.id = 'errorBtn';
+                    newErrorBtn.textContent = confirmText || 'OK';
+                    originalErrorBtn.parentNode.replaceChild(newErrorBtn, originalErrorBtn);
+                    if (typeof onConfirm === 'function') {
+                        newErrorBtn.addEventListener('click', onConfirm, { once: true });
+                    }
+                }
+
+                errorModal.show();
+                return;
+            }
+
+            const successModalEl = document.getElementById('successModal');
+            if (!successModalEl) return;
+
+            const successModal = new bootstrap.Modal(successModalEl);
+            const modalTitle = document.getElementById('successTitle');
+            const modalMessage = document.getElementById('successMessage');
+            const originalSuccessBtn = document.getElementById('successBtn');
+
+            if (modalTitle) modalTitle.textContent = title || 'Success';
+            if (modalMessage) {
+                modalMessage.textContent =
+                    message || 'The record has been successfully added.';
+            }
+
+            if (originalSuccessBtn && originalSuccessBtn.parentNode) {
+                const newSuccessBtn = originalSuccessBtn.cloneNode(true);
+                newSuccessBtn.id = 'successBtn';
+                newSuccessBtn.className = 'btn btn-maroon fw-semibold';
+                newSuccessBtn.textContent = confirmText || 'OK';
+                originalSuccessBtn.parentNode.replaceChild(newSuccessBtn, originalSuccessBtn);
+                if (typeof onConfirm === 'function') {
+                    newSuccessBtn.addEventListener('click', onConfirm, { once: true });
+                }
+            }
+
+            successModal.show();
+        };
+    </script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const filterForm = document.getElementById('filterForm');

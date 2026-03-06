@@ -108,7 +108,6 @@
             const editSubjectBtn = document.getElementById('editSubjectBtn');
             const editSubjectAlert = document.getElementById('editSubjectAlert');
             const editSubjectModal = new bootstrap.Modal(document.getElementById('editSubjectModal'));
-            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
 
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.edit-subject-btn')) {
@@ -120,7 +119,10 @@
                     document.getElementById('edit_units').value = btn.dataset.units;
                     document.getElementById('edit_lecture_hours').value = btn.dataset.lectureHours;
                     document.getElementById('edit_lab_hours').value = btn.dataset.labHours;
-                    document.getElementById('edit_description').value = btn.dataset.description || '';
+                    const editDescription = document.getElementById('edit_description');
+                    if (editDescription) {
+                        editDescription.value = btn.dataset.description || '';
+                    }
                     document.getElementById('edit_is_active').checked = btn.dataset.isActive === 'true';
 
                     editSubjectModal.show();
@@ -165,23 +167,32 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            document.getElementById('successTitle').textContent = 'Subject Updated';
-                            document.getElementById('successMessage').textContent = data.message;
                             editSubjectModal.hide();
-                            successModal.show();
-                            document.getElementById('successBtn').addEventListener('click', function() {
-                                location.reload();
-                            }, { once: true });
+                            window.openSystemModal({
+                                type: 'success',
+                                title: 'Update Successful',
+                                message: 'The record has been successfully updated.',
+                                confirmText: 'OK',
+                                onConfirm: function() {
+                                    location.reload();
+                                }
+                            });
                         } else {
-                            editSubjectAlert.className = 'alert alert-danger';
-                            editSubjectAlert.textContent = data.message || 'Failed to update subject.';
-                            editSubjectAlert.classList.remove('d-none');
+                            window.openSystemModal({
+                                type: 'error',
+                                title: 'Action Failed',
+                                message: 'An error occurred while processing your request. Please try again.',
+                                confirmText: 'OK'
+                            });
                         }
                     })
                     .catch(error => {
-                        editSubjectAlert.className = 'alert alert-danger';
-                        editSubjectAlert.textContent = 'An error occurred. Please try again.';
-                        editSubjectAlert.classList.remove('d-none');
+                        window.openSystemModal({
+                            type: 'error',
+                            title: 'Action Failed',
+                            message: 'An error occurred while processing your request. Please try again.',
+                            confirmText: 'OK'
+                        });
                         console.error('Error:', error);
                     })
                     .finally(() => {
