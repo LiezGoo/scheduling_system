@@ -23,22 +23,6 @@
             </x-slot>
         </x-curriculum.page-header>
 
-        @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
-        @if (session('error'))
-            <div class="alert alert-danger">{{ session('error') }}</div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
         <x-curriculum.filter-card title="Program Selection" subtitle="Select a program and optional academic year to load curriculum." badge="Step 1">
             <form method="GET" action="{{ $indexRoute }}" id="programSelectForm" class="row g-3 align-items-end" novalidate>
                 <div class="col-lg-5 col-md-6">
@@ -117,8 +101,7 @@
                                     @forelse ($subjects as $subject)
                                         @php
                                             $subjectKeyList = $assignedMatrix[$subject->id] ?? [];
-                                            $currentKey = $selectedYearLevel . '|' . $selectedSemester;
-                                            $isAssigned = in_array($currentKey, $subjectKeyList, true);
+                                            $isAssigned = !empty($subjectKeyList);
                                         @endphp
                                         <tr class="subject-row {{ $isAssigned ? 'table-light is-assigned' : '' }}"
                                             data-subject-code="{{ $subject->subject_code }}"
@@ -135,7 +118,7 @@
                                             <td class="text-center" data-label="Units">{{ $subject->units ?? '—' }}</td>
                                             <td class="text-end" data-label="Status">
                                                 <span class="badge bg-secondary-subtle text-secondary assigned-badge {{ $isAssigned ? '' : 'd-none' }}">
-                                                    Already Assigned
+                                                    Already added to this program
                                                 </span>
                                                 <span class="badge bg-success-subtle text-success available-badge {{ $isAssigned ? 'd-none' : '' }}">
                                                     Available
@@ -157,7 +140,7 @@
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
                             <div class="text-muted small d-flex align-items-center gap-2">
                                 <i class="fa-regular fa-circle-question"></i>
-                                <span>Subjects already assigned for the selected term are disabled.</span>
+                                <span>Subjects already added to this program are disabled.</span>
                             </div>
                             @error('subject_ids')
                                 <div class="text-danger small">{{ $message }}</div>
@@ -451,14 +434,11 @@
             const subjectCountBadge = document.getElementById('subjectCountBadge');
             const programSelectHint = document.getElementById('programSelectHint');
 
-            const currentKey = () => `${yearLevel.value}|${semester.value}`;
-
             const refreshCheckboxStates = () => {
-                const key = currentKey();
                 checkboxes.forEach((cb) => {
                     const row = cb.closest('tr');
                     const subjectKeyList = assignedMatrix[cb.dataset.subjectId] || [];
-                    const alreadyAssigned = subjectKeyList.includes(key);
+                    const alreadyAssigned = subjectKeyList.length > 0;
                     cb.disabled = !programSelect.value || alreadyAssigned;
                     if (alreadyAssigned) {
                         cb.checked = false;

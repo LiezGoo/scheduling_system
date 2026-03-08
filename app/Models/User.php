@@ -239,6 +239,16 @@ class User extends Authenticatable
     {
         return $this->role === self::ROLE_ADMIN;
     }
+    /**
+     * Check if user has a specific role
+     *
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
 
     /**
      * Check if user account is active.

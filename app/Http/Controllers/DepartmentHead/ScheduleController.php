@@ -11,9 +11,11 @@ use App\Models\Subject;
 use App\Models\User;
 use App\Models\Room;
 use App\Models\Program;
+use App\Models\ScheduleConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use App\Services\NotificationService;
 use App\Services\ScheduleGenerationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -50,18 +52,22 @@ class ScheduleController extends Controller
             $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
         }
 
-        // Get semesters - fetch from database
-        $activeAcademicYear = AcademicYear::where('is_active', true)->first();
-        $semesters = [];
-        if ($activeAcademicYear) {
-            $semesters = Semester::where('academic_year_id', $activeAcademicYear->id)
-                ->where('status', Semester::STATUS_ACTIVE)
-                ->get()
-                ->mapWithKeys(function ($semester) {
-                    return [$semester->name => $semester->name];
-                })
-                ->toArray();
+        // Build semester filter options from semester records.
+        // If an academic year is selected, scope options to that year.
+        $semesterQuery = Semester::query();
+        if ($request->filled('academic_year_id')) {
+            $semesterQuery->where('academic_year_id', $request->academic_year_id);
+        } elseif ($academicYears->isNotEmpty()) {
+            $semesterQuery->whereIn('academic_year_id', $academicYears->pluck('id'));
         }
+
+        $semesters = $semesterQuery
+            ->whereNotNull('name')
+            ->distinct()
+            ->orderBy('name')
+            ->pluck('name')
+            ->values()
+            ->toArray();
 
         // Get all programs in this department
         $programs = Program::where('department_id', $user->department_id)
@@ -173,17 +179,34 @@ class ScheduleController extends Controller
             $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
         }
 
-        // Get semesters - fetch from database
-        $activeAcademicYear = AcademicYear::where('is_active', true)->first();
-        $semesters = [];
-        if ($activeAcademicYear) {
-            $semesters = Semester::where('academic_year_id', $activeAcademicYear->id)
-                ->where('status', Semester::STATUS_ACTIVE)
+        // Prefer an academic year that actually has semester records.
+        $defaultAcademicYearId = $academicYears
+            ->first(function ($academicYear) {
+                return Semester::where('academic_year_id', $academicYear->id)->exists();
+            })?->id ?? $academicYears->first()?->id;
+
+        $semesters = collect();
+
+        if ($defaultAcademicYearId) {
+            $semesters = Semester::where('academic_year_id', $defaultAcademicYearId)
+                ->orderBy('start_date')
+                ->orderBy('name')
+                ->get(['id', 'name']);
+        }
+
+        // Fallback: if the selected/default academic year has no semesters,
+        // still surface available semester names from the database.
+        if ($semesters->isEmpty()) {
+            $semesters = Semester::select('name')
+                ->distinct()
+                ->orderBy('name')
                 ->get()
-                ->mapWithKeys(function ($semester) {
-                    return [$semester->name => $semester->name];
-                })
-                ->toArray();
+                ->map(function ($semester) {
+                    return (object) [
+                        'id' => null,
+                        'name' => $semester->name,
+                    ];
+                });
         }
 
         // Get all programs in this department
@@ -205,6 +228,7 @@ class ScheduleController extends Controller
         return view('department-head.schedules.generate', compact(
             'academicYears',
             'semesters',
+            'defaultAcademicYearId',
             'programs',
             'faculty',
             'rooms'
@@ -236,9 +260,13 @@ class ScheduleController extends Controller
         $validated = $request->validate([
             'program_id' => 'required|integer|exists:programs,id',
             'academic_year_id' => 'required|integer|exists:academic_years,id',
-            'semester' => 'required|string',
+            'semester' => [
+                'required',
+                'string',
+                Rule::exists('semesters', 'name'),
+            ],
             'year_level' => 'required|integer|min:1|max:4',
-            'block' => 'nullable|string|max:50',
+            'number_of_blocks' => 'required|integer|min:1',
             'population_size' => 'nullable|integer|min:10|max:500',
             'generations' => 'nullable|integer|min:10|max:1000',
             'mutation_rate' => 'nullable|integer|min:1|max:100',
@@ -256,41 +284,60 @@ class ScheduleController extends Controller
         }
 
         try {
-            // Prepare parameters for GA
-            $parameters = [
+            // Persist the configuration used for this generation request.
+            $configuration = ScheduleConfiguration::create([
+                'program_id' => $validated['program_id'],
                 'academic_year_id' => $validated['academic_year_id'],
                 'semester' => $validated['semester'],
-                'program_id' => $validated['program_id'],
                 'year_level' => $validated['year_level'],
-                'block_section' => $validated['block'] ?? 'Block 1',
-                'created_by' => $user->id,
-                'population_size' => $validated['population_size'] ?? 50,
-                'generations' => $validated['generations'] ?? 100,
-                'mutation_rate' => $validated['mutation_rate'] ?? 15,
-                'crossover_rate' => $validated['crossover_rate'] ?? 80,
-                'elite_size' => $validated['elite_size'] ?? 5,
-            ];
+                'number_of_blocks' => $validated['number_of_blocks'],
+                'department_head_id' => $user->id,
+            ]);
 
-            // Execute GA
-            $result = $this->scheduleGenerationService->generateSchedule($parameters);
+            $generatedSchedules = [];
 
-            if ($result['success']) {
+            for ($block = 1; $block <= $validated['number_of_blocks']; $block++) {
+                $parameters = [
+                    'academic_year_id' => $validated['academic_year_id'],
+                    'semester' => $validated['semester'],
+                    'program_id' => $validated['program_id'],
+                    'year_level' => $validated['year_level'],
+                    'block_section' => 'Block ' . $block,
+                    'created_by' => $user->id,
+                    'population_size' => $validated['population_size'] ?? 50,
+                    'generations' => $validated['generations'] ?? 100,
+                    'mutation_rate' => $validated['mutation_rate'] ?? 15,
+                    'crossover_rate' => $validated['crossover_rate'] ?? 80,
+                    'elite_size' => $validated['elite_size'] ?? 5,
+                ];
+
+                $result = $this->scheduleGenerationService->generateSchedule($parameters);
+
+                if (!$result['success']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Schedule generation failed for Block ' . $block . ': ' . $result['error'],
+                    ], 500);
+                }
+
+                $generatedSchedules[] = [
+                    'block' => 'Block ' . $block,
+                    'schedule_id' => $result['schedule_id'],
+                    'fitness_score' => $result['fitness_score'],
+                    'items_count' => count($result['genes'] ?? []),
+                    'faculty_loads' => $result['faculty_loads'] ?? [],
+                ];
+            }
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Schedule generated successfully.',
+                    'message' => 'Schedules generated successfully.',
                     'data' => [
-                        'schedule_id' => $result['schedule_id'],
-                        'fitness_score' => $result['fitness_score'],
-                        'items_count' => count($result['genes'] ?? []),
-                        'faculty_loads' => $result['faculty_loads'] ?? [],
+                        'configuration_id' => $configuration->id,
+                        'total_blocks' => $validated['number_of_blocks'],
+                        'generated_schedules' => $generatedSchedules,
                     ],
                 ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Schedule generation failed: ' . $result['error'],
-                ], 500);
-            }
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

@@ -95,9 +95,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Alert for messages -->
-                    <div id="addSubjectAlert" class="alert d-none" role="alert"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -117,7 +114,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             const addSubjectForm = document.getElementById('addSubjectForm');
             const addSubjectBtn = document.getElementById('addSubjectBtn');
-            const addSubjectAlert = document.getElementById('addSubjectAlert');
             const addSubjectModal = new bootstrap.Modal(document.getElementById('addSubjectModal'));
 
             addSubjectForm.addEventListener('submit', function(e) {
@@ -148,24 +144,17 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            addSubjectAlert.className = 'alert alert-success';
-                            addSubjectAlert.textContent = data.message;
-                            addSubjectAlert.classList.remove('d-none');
-
-                            setTimeout(() => {
-                                addSubjectModal.hide();
-                                location.reload();
-                            }, 1500);
+                            window.showToast(data.message || 'Subject added successfully', 'success');
+                            addSubjectForm.reset();
+                            addSubjectForm.classList.remove('was-validated');
+                            addSubjectModal.hide();
+                            setTimeout(() => location.reload(), 500);
                         } else {
-                            addSubjectAlert.className = 'alert alert-danger';
-                            addSubjectAlert.textContent = data.message || 'Failed to create subject.';
-                            addSubjectAlert.classList.remove('d-none');
+                            window.showToast(data.message || 'Failed to create subject.', 'error');
                         }
                     })
                     .catch(error => {
-                        addSubjectAlert.className = 'alert alert-danger';
-                        addSubjectAlert.textContent = 'An error occurred. Please try again.';
-                        addSubjectAlert.classList.remove('d-none');
+                        window.showToast('An error occurred. Please try again.', 'error');
                         console.error('Error:', error);
                     })
                     .finally(() => {
@@ -179,7 +168,6 @@
             document.getElementById('addSubjectModal').addEventListener('hidden.bs.modal', function() {
                 addSubjectForm.reset();
                 addSubjectForm.classList.remove('was-validated');
-                addSubjectAlert.classList.add('d-none');
             });
         });
     </script>

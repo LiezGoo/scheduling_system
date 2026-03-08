@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Program;
 use App\Models\User;
 use App\Models\Subject;
+use App\Models\FacultyWorkloadConfiguration;
 use App\Services\FacultyLoadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,28 +37,69 @@ class FacultyLoadController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        // Build instructor loads query - scoped to program head's department
-        $query = DB::table('instructor_loads')
+        // Build instructor loads query - GROUP BY instructor to aggregate subjects
+        // Database-agnostic GROUP_CONCAT for SQLite and MySQL
+        $driver = DB::getDriverName();
+        
+        if ($driver === 'sqlite') {
+            // SQLite: GROUP_CONCAT without DISTINCT to avoid syntax errors
+            // GROUP BY prevents most duplicates; default separator is comma
+            $subjectCodesConcat = "GROUP_CONCAT(subjects.subject_code)";
+            $subjectNamesConcat = "GROUP_CONCAT(subjects.subject_name)";
+        } else {
+            // MySQL: use DISTINCT and explicit separator
+            $subjectCodesConcat = "GROUP_CONCAT(DISTINCT subjects.subject_code)";
+            $subjectNamesConcat = "GROUP_CONCAT(DISTINCT subjects.subject_name SEPARATOR ', ')";
+        }
+        
+        $baseQuery = DB::table('instructor_loads')
             ->join('users', 'instructor_loads.instructor_id', '=', 'users.id')
             ->join('subjects', 'instructor_loads.subject_id', '=', 'subjects.id')
             ->join('programs', 'instructor_loads.program_id', '=', 'programs.id')
             ->join('academic_years', 'instructor_loads.academic_year_id', '=', 'academic_years.id')
             ->join('departments', 'subjects.department_id', '=', 'departments.id')
+            ->where('subjects.department_id', $department->id)
             ->select(
-                'instructor_loads.*',
-                DB::raw("trim(users.first_name || ' ' || users.last_name) as full_name"),
+                'instructor_loads.instructor_id',
                 'users.school_id',
                 'users.role',
                 'users.contract_type',
-                'subjects.subject_code',
-                'subjects.subject_name',
-                'subjects.units',
+                'users.first_name',
+                'users.last_name',
+                DB::raw("trim(users.first_name || ' ' || users.last_name) as full_name"),
                 'programs.program_name',
                 'academic_years.name as academic_year_name',
                 'departments.id as department_id',
-                'departments.department_name'
-            )
-            ->where('subjects.department_id', $department->id);
+                'departments.department_name',
+                'instructor_loads.program_id',
+                'instructor_loads.academic_year_id',
+                'instructor_loads.semester',
+                'instructor_loads.year_level',
+                DB::raw($subjectCodesConcat . ' as subject_codes'),
+                DB::raw($subjectNamesConcat . ' as subject_names'),
+                DB::raw('COUNT(DISTINCT instructor_loads.id) as total_subjects'),
+                DB::raw('SUM(instructor_loads.lec_hours) as total_lec_hours'),
+                DB::raw('SUM(instructor_loads.lab_hours) as total_lab_hours'),
+                DB::raw('SUM(instructor_loads.total_hours) as total_teaching_hours'),
+                DB::raw('MIN(instructor_loads.id) as load_id')
+            );
+
+        $query = $baseQuery->groupBy(
+            'instructor_loads.instructor_id',
+            'users.school_id',
+            'users.role',
+            'users.contract_type',
+            'users.first_name',
+            'users.last_name',
+            'programs.program_name',
+            'academic_years.name',
+            'departments.id',
+            'departments.department_name',
+            'instructor_loads.program_id',
+            'instructor_loads.academic_year_id',
+            'instructor_loads.semester',
+            'instructor_loads.year_level'
+        );
 
         // Apply filters
         if ($request->filled('faculty')) {
@@ -66,10 +108,6 @@ class FacultyLoadController extends Controller
 
         if ($request->filled('role')) {
             $query->where('users.role', $request->role);
-        }
-
-        if ($request->filled('subject')) {
-            $query->where('subjects.id', $request->subject);
         }
 
         if ($request->filled('department')) {
@@ -88,10 +126,23 @@ class FacultyLoadController extends Controller
             $query->where('instructor_loads.semester', $request->semester);
         }
 
+        // Subject filter needs HAVING clause for grouped queries
+        if ($request->filled('subject')) {
+            $subjectId = $request->subject;
+            $query->whereIn('instructor_loads.id', function ($subQuery) use ($subjectId) {
+                $subQuery->select('id')
+                    ->from('instructor_loads')
+                    ->where('subject_id', $subjectId);
+            });
+        }
+
         $perPage = $request->input('per_page', 15);
         $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 15;
 
-        $facultyLoads = $query->orderBy('users.first_name')->orderBy('users.last_name')->paginate($perPage)->appends($request->query());
+        $facultyLoads = $query->orderBy('users.first_name')
+            ->orderBy('users.last_name')
+            ->paginate($perPage)
+            ->appends($request->query());
 
         $departments = Department::where('id', $department->id)
             ->orderBy('department_name')
@@ -189,6 +240,19 @@ class FacultyLoadController extends Controller
         }
 
         $forceAssign = (bool) ($validated['force_assign'] ?? false);
+
+        $workloadConfig = FacultyWorkloadConfiguration::query()
+            ->where('user_id', $userId)
+            ->where('program_id', $validated['program_id'])
+            ->where('is_active', true)
+            ->first();
+
+        if (!$workloadConfig || empty($workloadConfig->teaching_scheme)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Faculty teaching scheme is not configured. Please configure faculty workload availability first.',
+            ], 422);
+        }
 
         $subjectRows = $validated['subjects'] ?? [];
 

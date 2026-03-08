@@ -21,7 +21,7 @@
                 aria-atomic="true" data-auto-show="true">
                 <div class="d-flex">
                     <div class="toast-body">
-                        {{ session('success') }}
+                        <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
                     </div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
                         aria-label="Close"></button>
@@ -33,9 +33,21 @@
                 aria-atomic="true" data-auto-show="true">
                 <div class="d-flex">
                     <div class="toast-body">
-                        {{ session('error') }}
+                        <i class="fa-solid fa-circle-xmark me-2"></i>{{ session('error') }}
                     </div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                        aria-label="Close"></button>
+                </div>
+            </div>
+        @endif
+        @if (session('warning'))
+            <div class="toast align-items-center text-bg-warning border-0 shadow-sm" role="alert" aria-live="assertive"
+                aria-atomic="true" data-auto-show="true">
+                <div class="d-flex">
+                    <div class="toast-body text-dark">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ session('warning') }}
+                    </div>
+                    <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"
                         aria-label="Close"></button>
                 </div>
             </div>
@@ -45,7 +57,7 @@
                 aria-atomic="true" data-auto-show="true">
                 <div class="d-flex">
                     <div class="toast-body">
-                        {{ $errors->first() }}
+                        <i class="fa-solid fa-exclamation-circle me-2"></i>{{ $errors->first() }}
                     </div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
                         aria-label="Close"></button>
@@ -143,6 +155,13 @@
                 'roles' => ['program_head'],
                 'pattern' => 'program-head/curriculum*',
             ],
+              [
+                'label' => 'Faculty Workload',
+                'icon' => 'fa-solid fa-hourglass-end',
+                'href' => route('program-head.faculty-workload-configurations.index'),
+                'roles' => ['program_head'],
+                'pattern' => 'program-head/faculty-workload-configurations*',
+            ],
             [
                 'label' => 'Faculty Load',
                 'icon' => 'fa-solid fa-clipboard-list',
@@ -150,6 +169,7 @@
                 'roles' => ['program_head'],
                 'pattern' => 'program-head/faculty-load*',
             ],
+          
             [
                 'label' => 'View Schedules',
                 'icon' => 'fa-solid fa-calendar-days',
@@ -171,6 +191,21 @@
                 'href' => route('department-head.schedules.index'),
                 'roles' => ['department_head'],
                 'pattern' => 'department-head/schedules*',
+            ],
+            // Instructor Menu Items
+            [
+                'label' => 'My Loads',
+                'icon' => 'fa-solid fa-clipboard-list',
+                'href' => route('instructor.my-loads'),
+                'roles' => ['instructor'],
+                'pattern' => 'instructor/my-loads*',
+            ],
+            [
+                'label' => 'My Schedule',
+                'icon' => 'fa-solid fa-calendar-days',
+                'href' => route('instructor.my-schedule'),
+                'roles' => ['instructor'],
+                'pattern' => 'instructor/my-schedule*',
             ],
         ];
     @endphp
@@ -557,6 +592,70 @@
                 confirmModalInstance.show();
             });
         });
+    </script>
+
+    <script>
+        /**
+         * Show a toast notification programmatically (for AJAX responses)
+         * @param {string} message - The message to display
+         * @param {string} type - 'success', 'error', 'warning', or 'info'
+         * @param {number} delay - Auto-hide delay in milliseconds (default: 4000)
+         */
+        window.showToast = function(message, type = 'success', delay = 4000) {
+            const container = document.getElementById('globalToastContainer');
+            if (!container) return;
+
+            // Map types to Bootstrap classes
+            const bgClassMap = {
+                'success': 'text-bg-success',
+                'error': 'text-bg-danger',
+                'danger': 'text-bg-danger',
+                'warning': 'text-bg-warning',
+                'info': 'text-bg-info'
+            };
+            
+            const iconMap = {
+                'success': 'fa-circle-check',
+                'error': 'fa-circle-xmark',
+                'danger': 'fa-circle-xmark',
+                'warning': 'fa-triangle-exclamation',
+                'info': 'fa-info-circle'
+            };
+
+            const bgClass = bgClassMap[type] || 'text-bg-info';
+            const icon = iconMap[type] || 'fa-info-circle';
+            const textDarkClass = type === 'warning' ? 'text-dark' : '';
+            const closeButtonClass = type === 'warning' ? '' : 'btn-close-white';
+
+            // Create toast element
+            const toastEl = document.createElement('div');
+            toastEl.className = `toast align-items-center ${bgClass} border-0 shadow-sm`;
+            toastEl.setAttribute('role', 'alert');
+            toastEl.setAttribute('aria-live', 'assertive');
+            toastEl.setAttribute('aria-atomic', 'true');
+            toastEl.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body ${textDarkClass}">
+                        <i class="fa-solid ${icon} me-2"></i>${message}
+                    </div>
+                    <button type="button" class="btn-close ${closeButtonClass} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+
+            // Add to container
+            container.appendChild(toastEl);
+
+            // Auto-show and hide
+            const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: delay });
+            toast.show();
+
+            // Remove from DOM after it hides
+            toastEl.addEventListener('hidden.bs.toast', () => {
+                toastEl.remove();
+            });
+
+            return toast;
+        };
     </script>
 
     @stack('scripts')

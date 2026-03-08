@@ -5,20 +5,7 @@
 @section('content')
 <div class="container-fluid py-4">
 
-    <!-- Alerts -->
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show mb-4 rounded-3 border-0" role="alert">
-            <i class="fa-solid fa-circle-check me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
 
-    @if (session('error'))
-        <div class="alert alert-danger alert-dismissible fade show mb-4 rounded-3 border-0" role="alert">
-            <i class="fa-solid fa-circle-exclamation me-2"></i>{{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
 
     <!-- Page Header -->
     <div class="mb-4">
@@ -40,6 +27,8 @@
                 <div class="card-body p-4">
                     <form id="scheduleConfigForm">
                         @csrf
+
+                        <p class="text-muted mb-4">Configure scheduling parameters before generating class schedules.</p>
 
                         <!-- Program Selection -->
                         <div class="mb-3">
@@ -66,7 +55,7 @@
                             <select class="form-select border-1 focus-maroon" id="academicYear" name="academic_year_id" required>
                                 <option value="">-- Select Academic Year --</option>
                                 @foreach ($academicYears as $year)
-                                    <option value="{{ $year->id }}">{{ $year->name }}</option>
+                                    <option value="{{ $year->id }}" {{ (isset($defaultAcademicYearId) && (int) $defaultAcademicYearId === (int) $year->id) ? 'selected' : '' }}>{{ $year->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -81,7 +70,7 @@
                             <select class="form-select border-1 focus-maroon" id="semester" name="semester" required>
                                 <option value="">-- Select Semester --</option>
                                 @foreach ($semesters as $semester)
-                                    <option value="{{ $semester }}">{{ $semester }}</option>
+                                    <option value="{{ $semester->name }}">{{ $semester->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -101,69 +90,28 @@
                             </select>
                         </div>
 
-                        <!-- Block/Section -->
+                        <!-- Number of Blocks -->
                         <div class="mb-4">
-                            <label for="blockSection" class="form-label fw-semibold mb-2 text-dark d-flex align-items-center gap-2">
+                            <label for="numberOfBlocks" class="form-label fw-semibold mb-2 text-dark d-flex align-items-center gap-2">
                                 <i class="fas fa-object-group text-maroon"></i>
-                                <span>Block/Section</span>
+                                <span>Number of Blocks</span>
+                                <span class="text-danger ms-auto">*</span>
                             </label>
-                            <input type="text" class="form-control border-1 focus-maroon" id="blockSection" name="block" 
-                                   placeholder="e.g., Block 1" maxlength="50">
-                            <small class="form-text text-muted d-block mt-2">Leave blank to auto-generate</small>
-                        </div>
-
-                        <hr class="my-4">
-
-                        <!-- Genetic Algorithm Parameters -->
-                        <h6 class="fw-bold mb-3 text-maroon">
-                            <i class="fas fa-dna me-2"></i>Algorithm Parameters
-                        </h6>
-
-                        <div class="mb-3">
-                            <label for="populationSize" class="form-label fw-semibold">Population Size</label>
-                            <input type="number" class="form-control border-1 focus-maroon" id="populationSize" 
-                                   name="population_size" value="50" min="10" max="500" required>
-                            <small class="text-muted">Recommended: 50-100</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="generations" class="form-label fw-semibold">Generations</label>
-                            <input type="number" class="form-control border-1 focus-maroon" id="generations" 
-                                   name="generations" value="100" min="10" max="1000" required>
-                            <small class="text-muted">Recommended: 100-300</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="mutationRate" class="form-label fw-semibold">Mutation Rate (%)</label>
-                            <input type="number" class="form-control border-1 focus-maroon" id="mutationRate" 
-                                   name="mutation_rate" value="15" min="1" max="100" required>
-                            <small class="text-muted">Recommended: 10-20%</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="crossoverRate" class="form-label fw-semibold">Crossover Rate (%)</label>
-                            <input type="number" class="form-control border-1 focus-maroon" id="crossoverRate" 
-                                   name="crossover_rate" value="80" min="1" max="100" required>
-                            <small class="text-muted">Recommended: 70-90%</small>
-                        </div>
-
-                        <div class="mb-4">
-                            <label for="eliteSize" class="form-label fw-semibold">Elite Size</label>
-                            <input type="number" class="form-control border-1 focus-maroon" id="eliteSize" 
-                                   name="elite_size" value="5" min="1" max="50" required>
-                            <small class="text-muted">Recommended: 3-10</small>
+                            <input type="number" class="form-control border-1 focus-maroon" id="numberOfBlocks" name="number_of_blocks"
+                                   placeholder="Enter number of blocks" min="1" required>
+                            <small class="form-text text-muted d-block mt-2">This determines how many class sections will be generated for the selected year level.</small>
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="button" class="btn btn-maroon fw-semibold py-2 rounded-2 generate-btn w-100" 
+                        <div class="d-flex gap-2 mt-4">
+                            <a href="{{ route('department-head.schedules.index') }}" class="btn btn-outline-secondary fw-semibold py-2 rounded-2 flex-fill text-center">
+                                Cancel
+                            </a>
+                            <button type="button" class="btn btn-maroon fw-semibold py-2 rounded-2 generate-btn flex-fill"
                                     id="generateScheduleBtn" 
                                     onclick="showConfirmationModal()">
-                                <i class="fas fa-play-circle me-2"></i> Generate Schedule
+                                Generate Schedule
                             </button>
-                            <a href="{{ route('department-head.schedules.index') }}" class="btn btn-outline-secondary fw-semibold py-2 rounded-2">
-                                <i class="fas fa-arrow-left me-2"></i> Back to Schedules
-                            </a>
                         </div>
                     </form>
                 </div>
@@ -311,7 +259,7 @@
                     <li><strong>Academic Year:</strong> <span id="confirmAcademicYear">-</span></li>
                     <li><strong>Semester:</strong> <span id="confirmSemester">-</span></li>
                     <li><strong>Year Level:</strong> <span id="confirmYearLevel">-</span></li>
-                    <li><strong>Block:</strong> <span id="confirmBlock">-</span></li>
+                    <li><strong>Number of Blocks:</strong> <span id="confirmNumberOfBlocks">-</span></li>
                 </ul>
                 <p class="text-muted small mt-3 mb-0">
                     <i class="fas fa-info-circle me-1"></i> Generation may take several seconds depending on complexity.
@@ -408,6 +356,72 @@
 <script>
     let isRunning = false;
 
+    async function loadSemestersByAcademicYear(academicYearId, selectedSemester = '') {
+        const semesterSelect = document.getElementById('semester');
+
+        semesterSelect.innerHTML = '<option value="">-- Select Semester --</option>';
+
+        try {
+            let url = '{{ route('api.semesters.index') }}';
+            if (academicYearId) {
+                url += `?academic_year_id=${encodeURIComponent(academicYearId)}`;
+            }
+
+            let response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            let payload = await response.json();
+            let semesters = payload.data || [];
+
+            // Fallback: if selected academic year has no semesters, load from all semesters.
+            if (academicYearId && semesters.length === 0) {
+                response = await fetch('{{ route('api.semesters.index') }}', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                payload = await response.json();
+                semesters = payload.data || [];
+            }
+
+            // De-duplicate by semester name when loading all records.
+            const seenNames = new Set();
+            semesters.forEach((semester) => {
+                if (!semester?.name || seenNames.has(semester.name)) {
+                    return;
+                }
+
+                seenNames.add(semester.name);
+                const option = document.createElement('option');
+                option.value = semester.name;
+                option.textContent = semester.name;
+                if (selectedSemester && selectedSemester === semester.name) {
+                    option.selected = true;
+                }
+                semesterSelect.appendChild(option);
+            });
+        } catch (error) {
+            showToast('Unable to load semesters from the database.', 'error');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const academicYearSelect = document.getElementById('academicYear');
+        const semesterSelect = document.getElementById('semester');
+
+        // Load semesters from DB on first load for preselected academic year.
+        if (academicYearSelect.value) {
+            loadSemestersByAcademicYear(academicYearSelect.value, semesterSelect.value);
+        }
+
+        academicYearSelect.addEventListener('change', (event) => {
+            loadSemestersByAcademicYear(event.target.value);
+        });
+    });
+
     // Show Confirmation Modal
     function showConfirmationModal() {
         const form = document.getElementById('scheduleConfigForm');
@@ -421,13 +435,13 @@
         const academicYear = document.getElementById('academicYear');
         const semester = document.getElementById('semester');
         const yearLevel = document.getElementById('yearLevel');
-        const block = document.getElementById('blockSection');
+        const numberOfBlocks = document.getElementById('numberOfBlocks');
 
         document.getElementById('confirmProgram').textContent = program.options[program.selectedIndex].text;
         document.getElementById('confirmAcademicYear').textContent = academicYear.options[academicYear.selectedIndex].text;
         document.getElementById('confirmSemester').textContent = semester.options[semester.selectedIndex].text;
         document.getElementById('confirmYearLevel').textContent = yearLevel.options[yearLevel.selectedIndex].text;
-        document.getElementById('confirmBlock').textContent = block.value || 'Auto-generate';
+        document.getElementById('confirmNumberOfBlocks').textContent = numberOfBlocks.value;
 
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));

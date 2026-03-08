@@ -168,31 +168,14 @@
                     .then(data => {
                         if (data.success) {
                             editSubjectModal.hide();
-                            window.openSystemModal({
-                                type: 'success',
-                                title: 'Update Successful',
-                                message: 'The record has been successfully updated.',
-                                confirmText: 'OK',
-                                onConfirm: function() {
-                                    location.reload();
-                                }
-                            });
+                            window.showToast('Subject updated successfully!', 'success');
+                            setTimeout(() => location.reload(), 1000);
                         } else {
-                            window.openSystemModal({
-                                type: 'error',
-                                title: 'Action Failed',
-                                message: 'An error occurred while processing your request. Please try again.',
-                                confirmText: 'OK'
-                            });
+                            window.showToast(data.message || 'An error occurred while processing your request. Please try again.', 'error');
                         }
                     })
                     .catch(error => {
-                        window.openSystemModal({
-                            type: 'error',
-                            title: 'Action Failed',
-                            message: 'An error occurred while processing your request. Please try again.',
-                            confirmText: 'OK'
-                        });
+                        window.showToast('An error occurred while processing your request. Please try again.', 'error');
                         console.error('Error:', error);
                     })
                     .finally(() => {

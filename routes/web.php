@@ -20,11 +20,13 @@ use App\Http\Controllers\Admin\SemesterController as AdminSemesterController;
 use App\Http\Controllers\Api\SemesterController as ApiSemesterController;
 use App\Http\Controllers\ProgramHead\CurriculumController as ProgramHeadCurriculumController;
 use App\Http\Controllers\ProgramHead\FacultyLoadController as ProgramHeadFacultyLoadController;
+use App\Http\Controllers\ProgramHead\FacultyWorkloadConfigurationController as ProgramHeadFacultyWorkloadConfigurationController;
 use App\Http\Controllers\ProgramHead\ScheduleController as ProgramHeadScheduleController;
 use App\Http\Controllers\DepartmentHead\SubjectController as DepartmentHeadSubjectController;
 use App\Http\Controllers\DepartmentHead\ScheduleController as DepartmentHeadScheduleController;
 use App\Http\Controllers\DepartmentHead\ScheduleReviewController as DepartmentHeadScheduleReviewController;
 use App\Http\Controllers\DepartmentHead\ScheduleAdjustmentController;
+use App\Http\Controllers\DepartmentHead\ScheduleConfigurationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -196,6 +198,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/faculty-load/api/unassigned', [FacultyLoadController::class, 'getUnassignedInstructors'])->name('faculty-load.api.unassigned');
         Route::get('/faculty-load/api/subject/{subject}/instructors', [FacultyLoadController::class, 'getSubjectInstructors'])->name('faculty-load.api.subject-instructors');
         Route::get('/faculty-load/api/summary', [FacultyLoadController::class, 'getSummary'])->name('faculty-load.api.summary');
+        Route::get('/faculty-load/api/assignment-context', [FacultyLoadController::class, 'getAssignmentContext'])->name('faculty-load.api.assignment-context');
+    Route::get('/faculty-load/api/workload-configuration', [FacultyLoadController::class, 'getFacultyWorkloadConfiguration'])->name('faculty-load.api.workload-configuration');
 
         // Schedule Generation
         Route::get('/schedule-generation', function() {
@@ -210,6 +214,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Department Head Routes
     Route::middleware(['role:department_head'])->prefix('department-head')->name('department-head.')->group(function () {
+        // Schedule Configurations
+        Route::post('/schedule-configurations', [ScheduleConfigurationController::class, 'store'])->name('schedule-configurations.store');
+        Route::get('/schedule-configurations', [ScheduleConfigurationController::class, 'index'])->name('schedule-configurations.index');
+
         // Subject Management
         Route::get('/subjects', [DepartmentHeadSubjectController::class, 'index'])->name('subjects.index');
         Route::post('/subjects', [DepartmentHeadSubjectController::class, 'store'])->name('subjects.store');
@@ -254,6 +262,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/faculty-load/update-constraints', [ProgramHeadFacultyLoadController::class, 'updateConstraints'])->name('faculty-load.update-constraints');
         Route::post('/faculty-load/remove', [ProgramHeadFacultyLoadController::class, 'removeAssignment'])->name('faculty-load.remove');
 
+        // Faculty Workload Configuration
+        Route::resource('faculty-workload-configurations', ProgramHeadFacultyWorkloadConfigurationController::class);
+        Route::get('/faculty-workload-configurations/{faculty_workload_configuration}/edit', [ProgramHeadFacultyWorkloadConfigurationController::class, 'edit'])->name('faculty-workload-configurations.edit');
+        Route::post('/faculty-workload-configurations/get-faculty-department', [ProgramHeadFacultyWorkloadConfigurationController::class, 'getFacultyDepartment'])->name('faculty-workload-configurations.get-faculty-department');
+
         // Schedule Management (View-Only with Adjustment Requests)
         Route::get('/schedules', [ProgramHeadScheduleController::class, 'index'])->name('schedules.index');
         Route::get('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'show'])->name('schedules.show');
@@ -264,6 +277,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/instructor/dashboard', function() {
         return view('dashboards.instructor');
     })->middleware(['role:instructor'])->name('instructor.dashboard');
+
+    // Instructor Pages
+    Route::get('/instructor/my-loads', function() {
+        return view('instructor.my-loads');
+    })->middleware(['role:instructor'])->name('instructor.my-loads');
+
+    Route::get('/instructor/my-schedule', function() {
+        return view('instructor.my-schedule');
+    })->middleware(['role:instructor'])->name('instructor.my-schedule');
 
     // Student Dashboard
     Route::get('/student/dashboard', function() {

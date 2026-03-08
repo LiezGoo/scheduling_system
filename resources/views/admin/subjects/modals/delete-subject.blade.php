@@ -16,9 +16,6 @@
                     This action cannot be undone.
                 </p>
                 <input type="hidden" id="delete_subject_id">
-
-                <!-- Alert for messages -->
-                <div id="deleteSubjectAlert" class="alert d-none mt-3" role="alert"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -72,25 +69,15 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            deleteSubjectAlert.className = 'alert alert-success';
-                            deleteSubjectAlert.textContent = data.message;
-                            deleteSubjectAlert.classList.remove('d-none');
-
-                            setTimeout(() => {
-                                deleteSubjectModal.hide();
-                                location.reload();
-                            }, 1500);
+                            window.showToast(data.message || 'Subject deleted successfully', 'success');
+                            deleteSubjectModal.hide();
+                            setTimeout(() => location.reload(), 500);
                         } else {
-                            deleteSubjectAlert.className = 'alert alert-danger';
-                            deleteSubjectAlert.textContent = data.message ||
-                                'Failed to delete subject.';
-                            deleteSubjectAlert.classList.remove('d-none');
+                            window.showToast(data.message || 'Failed to delete subject.', 'error');
                         }
                     })
                     .catch(error => {
-                        deleteSubjectAlert.className = 'alert alert-danger';
-                        deleteSubjectAlert.textContent = 'An error occurred. Please try again.';
-                        deleteSubjectAlert.classList.remove('d-none');
+                        window.showToast('An error occurred. Please try again.', 'error');
                         console.error('Error:', error);
                     })
                     .finally(() => {
@@ -102,7 +89,7 @@
 
             // Reset when modal is closed
             document.getElementById('deleteSubjectModal').addEventListener('hidden.bs.modal', function() {
-                deleteSubjectAlert.classList.add('d-none');
+                // Modal cleanup if needed
             });
         });
     </script>

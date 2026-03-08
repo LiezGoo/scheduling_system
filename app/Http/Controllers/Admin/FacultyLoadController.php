@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Subject;
 use App\Models\Department;
 use App\Services\FacultyLoadService;
+use App\Models\FacultyWorkloadConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
@@ -537,6 +538,79 @@ class FacultyLoadController extends Controller
         } catch (\Exception $e) {
             Log::error("Error fetching summary", ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'An error occurred.'], 500);
+        }
+    }
+
+    /**
+     * Fetch faculty workload configuration for a specific faculty and program.
+     */
+    public function getFacultyWorkloadConfiguration(Request $request)
+    {
+        $validated = $request->validate([
+            'faculty_id' => 'required|integer|exists:users,id',
+            'program_id' => 'required|integer|exists:programs,id',
+        ]);
+
+        try {
+            $user = User::findOrFail($validated['faculty_id']);
+            $program = Program::findOrFail($validated['program_id']);
+
+            $workloadConfig = FacultyWorkloadConfiguration::where('user_id', $validated['faculty_id'])
+                ->where('program_id', $validated['program_id'])
+                ->active()
+                ->first();
+
+            if (!$workloadConfig) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No workload configuration found for this faculty in the selected program.',
+                    'data' => null
+                ], 404);
+            }
+
+            $teachingSchedule = [];
+            $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            $scheme = $workloadConfig->teaching_scheme ?? [];
+            
+            foreach ($days as $day) {
+                if (isset($scheme[$day])) {
+                    $teachingSchedule[] = [
+                        'day' => $day,
+                        'start_time' => $scheme[$day]['start'] ?? null,
+                        'end_time' => $scheme[$day]['end'] ?? null,
+                        'is_available' => !empty($scheme[$day]['start']) && !empty($scheme[$day]['end']),
+                    ];
+                } else {
+                    $teachingSchedule[] = [
+                        'day' => $day,
+                        'start_time' => null,
+                        'end_time' => null,
+                        'is_available' => false,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'faculty_id' => $user->id,
+                    'faculty_name' => $user->full_name,
+                    'program_id' => $program->id,
+                    'program_name' => $program->program_name,
+                    'contract_type' => $workloadConfig->contract_type,
+                    'max_lecture_hours' => $workloadConfig->max_lecture_hours,
+                    'max_lab_hours' => $workloadConfig->max_lab_hours,
+                    'max_hours_per_day' => $workloadConfig->max_hours_per_day,
+                    'teaching_schedule' => $teachingSchedule,
+                    'available_days' => $workloadConfig->available_days ?? [],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching faculty workload configuration', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load faculty workload configuration.',
+            ], 500);
         }
     }
 }

@@ -9,11 +9,6 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="add-alert" class="alert alert-dismissible fade hide" role="alert" style="display: none;">
-                    <span id="add-alert-message"></span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-
                 <form id="addRoomForm" novalidate>
                     @csrf
 
@@ -21,7 +16,7 @@
                         <label for="room_code" class="form-label fw-bold">Room Code <span
                                 class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="room_code" name="room_code"
-                            placeholder="e.g., A101" required>
+                            placeholder="e.g., CCB-RM-1, CCB-LAB-A" required>
                         <div class="invalid-feedback">
                             Room code is required and must be unique.
                         </div>
@@ -31,7 +26,7 @@
                         <label for="room_name" class="form-label fw-bold">Room Name <span
                                 class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="room_name" name="room_name"
-                            placeholder="e.g., Computer Lab A" required>
+                            placeholder="e.g., CCB Room 1" required>
                         <div class="invalid-feedback">
                             Room name is required.
                         </div>
@@ -41,7 +36,7 @@
                         <label for="room_type" class="form-label fw-bold">Room Type <span
                                 class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="room_type" name="room_type"
-                            placeholder="e.g., Lecture, Laboratory, Computer Lab, Physics Lab" maxlength="50" required>
+                            placeholder="e.g., Lecture, Laboratory" maxlength="50" required>
                         <div class="invalid-feedback">
                             Room type is required (max 50 characters).
                         </div>
@@ -109,33 +104,21 @@
             })
             .then(response => response.json())
             .then(data => {
-                const alertDiv = document.getElementById('add-alert');
-                const alertMessage = document.getElementById('add-alert-message');
-
                 if (data.success) {
-                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                    alertMessage.textContent = data.message;
-
+                    window.showToast(data.message || 'Room added successfully', 'success');
                     form.reset();
                     form.classList.remove('was-validated');
-
                     setTimeout(() => {
                         bootstrap.Modal.getInstance(document.getElementById('addRoomModal')).hide();
                         location.reload();
-                    }, 1500);
+                    }, 500);
                 } else {
-                    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                    alertMessage.textContent = data.message;
+                    window.showToast(data.message || 'Failed to create room.', 'error');
                 }
-                alertDiv.style.display = 'block';
             })
             .catch(error => {
                 console.error('Error:', error);
-                const alertDiv = document.getElementById('add-alert');
-                const alertMessage = document.getElementById('add-alert-message');
-                alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                alertMessage.textContent = 'An error occurred while creating the room.';
-                alertDiv.style.display = 'block';
+                window.showToast('An error occurred while creating the room.', 'error');
             })
             .finally(() => {
                 addRoomBtn.disabled = false;

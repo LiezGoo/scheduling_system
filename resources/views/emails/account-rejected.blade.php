@@ -21,14 +21,14 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .header {
-            background: linear-gradient(135deg, #660000 0%, #8B0000 100%);
+            background: linear-gradient(135deg, #8B0000 0%, #660000 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
         }
         .header img {
-            width: 80px;
-            height: 80px;
+            max-width: 120px;
+            height: auto;
             margin-bottom: 15px;
         }
         .header h1 {
@@ -96,7 +96,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <img src="{{ asset('images/logo.png') }}" alt="SorSU Logo">
+            <img src="{{ url('images/logo.png') }}" alt="SorSU Logo" width="120">
             <h1>Registration Update</h1>
         </div>
 

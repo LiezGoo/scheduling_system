@@ -98,9 +98,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Alert for messages -->
-                    <div id="editSubjectAlert" class="alert d-none" role="alert"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -171,24 +168,17 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            editSubjectAlert.className = 'alert alert-success';
-                            editSubjectAlert.textContent = data.message;
-                            editSubjectAlert.classList.remove('d-none');
-
-                            setTimeout(() => {
-                                editSubjectModal.hide();
-                                location.reload();
-                            }, 1500);
+                            window.showToast(data.message || 'Subject updated successfully', 'success');
+                            editSubjectForm.reset();
+                            editSubjectForm.classList.remove('was-validated');
+                            editSubjectModal.hide();
+                            setTimeout(() => location.reload(), 500);
                         } else {
-                            editSubjectAlert.className = 'alert alert-danger';
-                            editSubjectAlert.textContent = data.message || 'Failed to update subject.';
-                            editSubjectAlert.classList.remove('d-none');
+                            window.showToast(data.message || 'Failed to update subject.', 'error');
                         }
                     })
                     .catch(error => {
-                        editSubjectAlert.className = 'alert alert-danger';
-                        editSubjectAlert.textContent = 'An error occurred. Please try again.';
-                        editSubjectAlert.classList.remove('d-none');
+                        window.showToast('An error occurred. Please try again.', 'error');
                         console.error('Error:', error);
                     })
                     .finally(() => {

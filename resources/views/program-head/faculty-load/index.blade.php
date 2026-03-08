@@ -179,9 +179,8 @@
                                 <th>Academic Year</th>
                                 <th class="text-center">Semester</th>
                                 <th class="text-center">Year Level</th>
-                                <th class="text-center">Block/Section</th>
-                                <th>Subject Code</th>
-                                <th>Subject Name</th>
+                                <th class="text-center"># Subjects</th>
+                                <th>Subjects Assigned</th>
                                 <th class="text-center">Lecture Hrs</th>
                                 <th class="text-center">Lab Hrs</th>
                                 <th class="text-center">Total Hrs</th>

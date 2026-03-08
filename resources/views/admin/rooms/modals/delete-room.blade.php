@@ -66,28 +66,17 @@
             })
             .then(data => {
                 if (data.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('deleteRoomModal')).hide();
-
-                    // Show success message
-                    const alertDiv = document.createElement('div');
-                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                    alertDiv.innerHTML = `
-                    ${data.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                    document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector(
-                        '.row'));
-
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
+                    window.showToast(data.message || 'Room deleted successfully', 'success');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteRoomModal'));
+                    modal.hide();
+                    setTimeout(() => location.reload(), 500);
                 } else {
-                    alert('Error: ' + data.message);
+                    window.showToast(data.message || 'Failed to delete room. Please try again.', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while deleting the room.');
+                window.showToast('An error occurred while deleting the room.', 'error');
             })
             .finally(() => {
                 deleteRoomBtn.disabled = false;

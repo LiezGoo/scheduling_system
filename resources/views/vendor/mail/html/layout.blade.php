@@ -27,18 +27,18 @@
 </head>
 
 <body
-    style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; background-color: #f5f5f5; color: #3c3c3c; margin: 0; padding: 0; width: 100%; -webkit-text-size-adjust: none;">
+    style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; background-color: #F8F9FA; color: #333333; margin: 0; padding: 0; width: 100%; -webkit-text-size-adjust: none;">
     <table class="wrapper" width="100%" cellpadding="0" cellspacing="0"
-        style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; background-color: #f5f5f5; margin: 0; padding: 0; width: 100%; -premailer-width: 100%; -premailer-cellpadding: 0; -premailer-cellspacing: 0;">
+        style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; background-color: #F8F9FA; margin: 0; padding: 0; width: 100%; -premailer-width: 100%; -premailer-cellpadding: 0; -premailer-cellspacing: 0;">
         <tr>
             <td align="center" style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; padding: 0;">
                 <table class="content" width="100%" cellpadding="0" cellspacing="0"
                     style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; margin: 0; padding: 0; width: 100%; -premailer-width: 100%; -premailer-cellpadding: 0; -premailer-cellspacing: 0;">
                     <tr>
                         <td class="header"
-                            style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; padding: 25px 0; text-align: center;">
+                            style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; padding: 30px 0; text-align: center; background: linear-gradient(135deg, #8B0000 0%, #660000 100%);">
                             <a href="{{ url('/') }}"
-                                style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; color: #3869d4; text-decoration: none;">
+                                style="font-family: Helvetica, Arial, sans-serif; box-sizing: border-box; color: #ffffff; text-decoration: none; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">
                                 {{ config('app.name') }}
                             </a>
                         </td>

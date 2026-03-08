@@ -40,7 +40,7 @@
             font-size: 1rem;
             color: #6c757d;
             margin: 0;
-            font-weight: 500;
+            /* font-weight: 500; */
         }
 
         .filter-card {
@@ -469,23 +469,6 @@
             }
         }
     </style>
-
-    <!-- Alerts -->
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="fa-solid fa-circle-check me-2"></i>
-            <strong>Success!</strong> {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
-    @if (session('error'))
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="fa-solid fa-circle-exclamation me-2"></i>
-            <strong>Error!</strong> {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
 
     <!-- Page Header -->
     <div class="page-header d-flex justify-content-between align-items-start mb-5">

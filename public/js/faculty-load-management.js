@@ -329,8 +329,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const assignSemester = document.getElementById('assignSemester');
     const assignYearLevel = document.getElementById('assignYearLevel');
     const assignBlockSection = document.getElementById('assignBlockSection');
+    const assignSubject = document.getElementById('assignSubject');
     const assignSelectAllSubjects = document.getElementById('assignSelectAllSubjects');
     const assignSubjectsTableBody = document.getElementById('assignSubjectsTableBody');
+
+    const isBulkAssignMode = !!assignSubjectsTableBody;
+    const isOneByOneAssignMode = !isBulkAssignMode && !!assignSubject;
 
     let assignableSubjects = [];
     let loadSummary = {
@@ -513,6 +517,191 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    const hasCompleteOneByOneContext = () => {
+        if (!isOneByOneAssignMode) return false;
+
+        return [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel, assignBlockSection, assignSubject]
+            .every((field) => field && String(field.value || '').trim() !== '');
+    };
+
+    function updateSelectedSubjectPreview() {
+        if (!isOneByOneAssignMode || !assignSubject) return;
+
+        const selectedOption = assignSubject.options[assignSubject.selectedIndex];
+        const subjectCode = selectedOption?.dataset?.subjectCode || '-';
+        const subjectName = selectedOption?.dataset?.subjectName || 'Select a subject to view details';
+        const lectureHours = parseInt(selectedOption?.dataset?.lectureHours || '0', 10) || 0;
+        const labHours = parseInt(selectedOption?.dataset?.labHours || '0', 10) || 0;
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        setText('assignSubjectCode', subjectCode);
+        setText('assignSubjectName', subjectName);
+        setText('assignSubjectLecture', lectureHours);
+        setText('assignSubjectLab', labHours);
+
+        const lectureInput = document.getElementById('assignLectureHours');
+        const labInput = document.getElementById('assignLabHours');
+        if (lectureInput) lectureInput.value = String(lectureHours);
+        if (labInput) labInput.value = String(labHours);
+    }
+
+    function renderAvailabilityRows(rows = []) {
+        const body = document.getElementById('assignAvailabilityTableBody');
+        if (!body) return;
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+            body.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-muted">No faculty availability configured.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        body.innerHTML = rows.map((row) => `
+            <tr>
+                <td>${row.day || '-'}</td>
+                <td>${row.start_time || '-'}</td>
+                <td>${row.end_time || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function updateOneByOneSummaryPanel(payload = null) {
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        const warningEl = document.getElementById('assignLimitWarning');
+        const warningTextEl = document.getElementById('assignLimitWarningText');
+        const availabilityWarningEl = document.getElementById('assignAvailabilityWarning');
+        const availabilityWarningTextEl = document.getElementById('assignAvailabilityWarningText');
+        const generalInfoEl = document.getElementById('assignGeneralInfo');
+        const submitButton = assignForm?.querySelector('button[type="submit"]');
+
+        if (!payload) {
+            setText('assignCurrentLecture', '0 / 0');
+            setText('assignCurrentLab', '0 / 0');
+            setText('assignRemainingLecture', '0');
+            setText('assignRemainingLab', '0');
+            setText('assignMaxHoursPerDay', '0');
+            renderAvailabilityRows([]);
+
+            if (warningEl) warningEl.classList.add('d-none');
+            if (availabilityWarningEl) availabilityWarningEl.classList.add('d-none');
+            if (generalInfoEl) generalInfoEl.textContent = 'Select all required fields to view real-time workload validation.';
+            if (submitButton) submitButton.disabled = true;
+            return;
+        }
+
+        const summary = payload.load_summary || {};
+        const currentLecture = Number(summary.current_lecture_hours || 0);
+        const currentLab = Number(summary.current_lab_hours || 0);
+        const maxLecture = summary.max_lecture_hours;
+        const maxLab = summary.max_lab_hours;
+
+        setText('assignCurrentLecture', `${currentLecture} / ${maxLecture ?? 'N/A'}`);
+        setText('assignCurrentLab', `${currentLab} / ${maxLab ?? 'N/A'}`);
+        setText('assignRemainingLecture', summary.remaining_lecture_hours ?? 'N/A');
+        setText('assignRemainingLab', summary.remaining_lab_hours ?? 'N/A');
+        setText('assignMaxHoursPerDay', summary.max_hours_per_day ?? 'N/A');
+        renderAvailabilityRows(payload.availability || []);
+
+        const warningMessages = [];
+        const generalWarnings = payload?.warnings?.general || [];
+        const dailyWarnings = payload?.warnings?.daily_hours || [];
+
+        if (Array.isArray(generalWarnings) && generalWarnings.length > 0) {
+            warningMessages.push(generalWarnings[0]?.message || 'Workload limit exceeded.');
+        }
+        if (Array.isArray(dailyWarnings) && dailyWarnings.length > 0) {
+            warningMessages.push(dailyWarnings[0]?.message || 'Maximum teaching hours per day would be exceeded.');
+        }
+
+        if (warningMessages.length > 0) {
+            if (warningTextEl) warningTextEl.textContent = warningMessages[0];
+            if (warningEl) warningEl.classList.remove('d-none');
+        } else if (warningEl) {
+            warningEl.classList.add('d-none');
+        }
+
+        const availabilityWarnings = payload?.warnings?.availability || [];
+        if (Array.isArray(availabilityWarnings) && availabilityWarnings.length > 0) {
+            if (availabilityWarningTextEl) {
+                availabilityWarningTextEl.textContent = availabilityWarnings[0]?.message || 'Selected subject schedule conflicts with faculty availability.';
+            }
+            if (availabilityWarningEl) availabilityWarningEl.classList.remove('d-none');
+        } else if (availabilityWarningEl) {
+            availabilityWarningEl.classList.add('d-none');
+        }
+
+        if (generalInfoEl) {
+            generalInfoEl.textContent = payload.can_assign
+                ? 'Assignment is valid based on current faculty workload configuration.'
+                : 'Assignment cannot proceed due to workload configuration limits.';
+        }
+
+        if (submitButton) {
+            submitButton.disabled = !payload.can_assign;
+        }
+    }
+
+    function loadOneByOneAssignmentContext() {
+        if (!isOneByOneAssignMode) return;
+
+        updateSelectedSubjectPreview();
+
+        if (!hasCompleteOneByOneContext()) {
+            updateOneByOneSummaryPanel(null);
+            return;
+        }
+
+        const params = new URLSearchParams({
+            faculty_id: assignFaculty.value,
+            program_id: assignProgram.value,
+            academic_year_id: assignAcademicYear.value,
+            semester: assignSemester.value,
+            year_level: assignYearLevel.value,
+            block_section: assignBlockSection.value.trim(),
+            subject_id: assignSubject.value,
+        }).toString();
+
+        fetch(`${baseUrl}/api/assignment-context?${params}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().then((data) => {
+                        throw new Error(data.message || 'Failed to load assignment context.');
+                    });
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                const data = payload?.data || null;
+                if (data?.subject) {
+                    const lectureInput = document.getElementById('assignLectureHours');
+                    const labInput = document.getElementById('assignLabHours');
+                    if (lectureInput) lectureInput.value = String(data.subject.lecture_hours || 0);
+                    if (labInput) labInput.value = String(data.subject.lab_hours || 0);
+                }
+                updateOneByOneSummaryPanel(data);
+            })
+            .catch((error) => {
+                updateOneByOneSummaryPanel(null);
+                showAssignMessage('error', error.message || 'Failed to load assignment context.');
+            });
+    }
+
     function syncRowBlocksWithGlobalBlock() {
         const block = assignBlockSection?.value?.trim() || '';
         document.querySelectorAll('#assignSubjectsTableBody .assign-row-block').forEach((input) => {
@@ -568,29 +757,49 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
-        if (!field) return;
-        field.addEventListener('change', loadAssignableSubjects);
-    });
-
-    if (assignBlockSection) {
-        assignBlockSection.addEventListener('input', () => {
-            syncRowBlocksWithGlobalBlock();
-            updateBulkLoadSummary();
-            if (hasCompleteAssignmentContext()) {
-                loadAssignableSubjects();
-            }
+    if (isBulkAssignMode) {
+        [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
+            if (!field) return;
+            field.addEventListener('change', loadAssignableSubjects);
         });
+
+        if (assignBlockSection) {
+            assignBlockSection.addEventListener('input', () => {
+                syncRowBlocksWithGlobalBlock();
+                updateBulkLoadSummary();
+                if (hasCompleteAssignmentContext()) {
+                    loadAssignableSubjects();
+                }
+            });
+        }
+
+        if (assignSelectAllSubjects) {
+            assignSelectAllSubjects.addEventListener('change', function () {
+                const shouldCheck = this.checked;
+                document.querySelectorAll('#assignSubjectsTableBody .assign-subject-checkbox:not(:disabled)').forEach((checkbox) => {
+                    checkbox.checked = shouldCheck;
+                });
+                updateBulkLoadSummary();
+            });
+        }
     }
 
-    if (assignSelectAllSubjects) {
-        assignSelectAllSubjects.addEventListener('change', function () {
-            const shouldCheck = this.checked;
-            document.querySelectorAll('#assignSubjectsTableBody .assign-subject-checkbox:not(:disabled)').forEach((checkbox) => {
-                checkbox.checked = shouldCheck;
-            });
-            updateBulkLoadSummary();
+    if (isOneByOneAssignMode) {
+        [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
+            if (!field) return;
+            field.addEventListener('change', loadOneByOneAssignmentContext);
         });
+
+        if (assignBlockSection) {
+            assignBlockSection.addEventListener('input', loadOneByOneAssignmentContext);
+        }
+
+        if (assignSubject) {
+            assignSubject.addEventListener('change', loadOneByOneAssignmentContext);
+        }
+
+        updateSelectedSubjectPreview();
+        updateOneByOneSummaryPanel(null);
     }
 
     const submitAssign = (forceAssign = false) => {
@@ -602,9 +811,14 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const selectedSubjects = getSelectedSubjectRows();
-        if (selectedSubjects.length === 0) {
+        const selectedSubjects = isBulkAssignMode ? getSelectedSubjectRows() : [];
+        if (isBulkAssignMode && selectedSubjects.length === 0) {
             showAssignMessage('error', 'Select at least one subject before submitting.');
+            return;
+        }
+
+        if (isOneByOneAssignMode && !hasCompleteOneByOneContext()) {
+            showAssignMessage('error', 'Please complete all required fields before submitting.');
             return;
         }
 
@@ -614,16 +828,18 @@ document.addEventListener('DOMContentLoaded', function () {
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Assigning...';
 
         const formData = new FormData(assignForm);
-        formData.delete('subject_id');
-        formData.delete('lecture_hours');
-        formData.delete('lab_hours');
+        if (isBulkAssignMode) {
+            formData.delete('subject_id');
+            formData.delete('lecture_hours');
+            formData.delete('lab_hours');
 
-        selectedSubjects.forEach((subject, index) => {
-            formData.append(`subjects[${index}][subject_id]`, subject.subject_id.toString());
-            formData.append(`subjects[${index}][block]`, subject.block);
-            formData.append(`subjects[${index}][lecture_hours]`, subject.lecture_hours.toString());
-            formData.append(`subjects[${index}][lab_hours]`, subject.lab_hours.toString());
-        });
+            selectedSubjects.forEach((subject, index) => {
+                formData.append(`subjects[${index}][subject_id]`, subject.subject_id.toString());
+                formData.append(`subjects[${index}][block]`, subject.block);
+                formData.append(`subjects[${index}][lecture_hours]`, subject.lecture_hours.toString());
+                formData.append(`subjects[${index}][lab_hours]`, subject.lab_hours.toString());
+            });
+        }
 
         if (forceAssign) {
             formData.set('force_assign', '1');
@@ -656,9 +872,15 @@ document.addEventListener('DOMContentLoaded', function () {
             .then((data) => {
                 assignForm.reset();
                 assignForm.classList.remove('was-validated');
-                assignableSubjects = [];
-                renderAssignableSubjectsTable([]);
-                updateBulkLoadSummary();
+                if (isBulkAssignMode) {
+                    assignableSubjects = [];
+                    renderAssignableSubjectsTable([]);
+                    updateBulkLoadSummary();
+                }
+                if (isOneByOneAssignMode) {
+                    updateSelectedSubjectPreview();
+                    updateOneByOneSummaryPanel(null);
+                }
                 showAssignMessage('success', data?.message || 'Faculty load assigned successfully.');
                 setTimeout(() => {
                     assignModal.hide();
@@ -685,6 +907,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Assign Faculty Load Form
     assignForm.addEventListener('submit', function (e) {
         e.preventDefault();
+
+        if (isOneByOneAssignMode) {
+            submitAssign(false);
+            return;
+        }
+
         const selectedSubjects = getSelectedSubjectRows();
         if (selectedSubjects.length === 0) {
             showAssignMessage('error', 'Select at least one subject before submitting.');
@@ -960,6 +1188,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (assignSelectAllSubjects) {
             assignSelectAllSubjects.checked = false;
         }
+
+        if (isOneByOneAssignMode) {
+            updateSelectedSubjectPreview();
+            updateOneByOneSummaryPanel(null);
+        }
     });
 
     document.getElementById('editFacultyLoadModal').addEventListener('hidden.bs.modal', function () {
@@ -967,3 +1200,80 @@ document.addEventListener('DOMContentLoaded', function () {
         editForm.reset();
     });
 });
+        
+                // Load workload configuration when faculty or program changes
+                if (assignFaculty) {
+                    assignFaculty.addEventListener('change', loadFacultyWorkloadConfiguration);
+                }
+                if (assignProgram) {
+                    assignProgram.addEventListener('change', loadFacultyWorkloadConfiguration);
+                }
+        
+            // Load workload configuration when faculty or program changes
+            if (assignFaculty) {
+                assignFaculty.addEventListener('change', loadFacultyWorkloadConfiguration);
+            }
+            if (assignProgram) {
+                assignProgram.addEventListener('change', loadFacultyWorkloadConfiguration);
+            }
+    function loadFacultyWorkloadConfiguration() {
+        // Only fetch when both faculty and program are selected
+        if (!assignFaculty?.value || !assignProgram?.value) {
+            renderAvailabilityRows([]);
+            return;
+        }
+
+        const params = new URLSearchParams({
+            faculty_id: assignFaculty.value,
+            program_id: assignProgram.value,
+        }).toString();
+
+        fetch(`${baseUrl}/api/workload-configuration?${params}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().then((data) => {
+                        const errorMsg = data.message || 'Failed to load workload configuration.';
+                        throw new Error(errorMsg);
+                    });
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                if (payload.success && payload.data) {
+                    const config = payload.data;
+                    
+                    // Render the teaching schedule availability
+                    const availabilityRows = (config.teaching_schedule || [])
+                        .filter(s => s.is_available)
+                        .map(s => ({
+                            day: s.day,
+                            start_time: s.start_time,
+                            end_time: s.end_time,
+                        }));
+                    
+                    renderAvailabilityRows(availabilityRows);
+                    
+                    // Update max hours per day if displayed
+                    const maxHoursElement = document.getElementById('assignMaxHoursPerDay');
+                    if (maxHoursElement) {
+                        maxHoursElement.textContent = config.max_hours_per_day || 'N/A';
+                    }
+                    
+                    console.log('Faculty workload configuration loaded:', config);
+                } else {
+                    renderAvailabilityRows([]);
+                    console.warn('No workload configuration found for the selected faculty and program.');
+                }
+            })
+            .catch((error) => {
+                renderAvailabilityRows([]);
+                console.warn('Warning: Could not load faculty workload configuration.', error.message);
+            });
+    }
+

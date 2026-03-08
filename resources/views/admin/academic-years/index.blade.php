@@ -4,26 +4,7 @@
 
 @section('content')
 <div class="container-fluid py-4 ps-3 pe-3">
-    <!-- Alerts -->
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show mb-3 rounded-3 border-0" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="fa-solid fa-circle-check me-2 flex-shrink-0"></i>
-                <div>{{ session('success') }}</div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
 
-    @if (session('error'))
-        <div class="alert alert-danger alert-dismissible fade show mb-3 rounded-3 border-0" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="fa-solid fa-circle-exclamation me-2 flex-shrink-0"></i>
-                <div>{{ session('error') }}</div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
 
     <!-- Header Section -->
     <div class="d-flex justify-content-between align-items-center mb-4">

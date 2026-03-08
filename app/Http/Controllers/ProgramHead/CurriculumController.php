@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Program;
 use App\Models\Subject;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -104,25 +105,42 @@ class CurriculumController extends Controller
         }
 
         $alreadyAssigned = $program->subjects()
-            ->wherePivot('year_level', $yearLevel)
-            ->wherePivot('semester', $semester)
+            ->whereIn('subjects.id', $subjects)
             ->pluck('subjects.id')
             ->all();
 
-        $subjectIds = array_values(array_diff($subjects, $alreadyAssigned));
+        if (!empty($alreadyAssigned)) {
+            $programLabel = $program->program_code ?: $program->program_name;
 
-        if (empty($subjectIds)) {
-            return back()->with('error', 'All selected subjects are already assigned for this year/semester.');
+            return back()
+                ->withErrors([
+                    'subject_ids' => "This subject has already been added to the {$programLabel} curriculum and cannot be assigned to another year level.",
+                ])
+                ->withInput();
         }
 
-        $pivotData = collect($subjectIds)->mapWithKeys(fn ($id) => [
+        $pivotData = collect($subjects)->mapWithKeys(fn ($id) => [
             $id => [
                 'year_level' => $yearLevel,
                 'semester' => $semester,
             ],
         ])->toArray();
 
-        $program->subjects()->syncWithoutDetaching($pivotData);
+        try {
+            $program->subjects()->syncWithoutDetaching($pivotData);
+        } catch (QueryException $e) {
+            if ($e->getCode() === '23000') {
+                $programLabel = $program->program_code ?: $program->program_name;
+
+                return back()
+                    ->withErrors([
+                        'subject_ids' => "This subject has already been added to the {$programLabel} curriculum and cannot be assigned to another year level.",
+                    ])
+                    ->withInput();
+            }
+
+            throw $e;
+        }
 
         return back()->with('success', 'Subjects assigned to curriculum successfully.');
     }

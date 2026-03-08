@@ -132,31 +132,14 @@
                     .then(data => {
                         if (data.success) {
                             addSubjectModal.hide();
-                            window.openSystemModal({
-                                type: 'success',
-                                title: 'Success',
-                                message: 'The record has been successfully added.',
-                                confirmText: 'OK',
-                                onConfirm: function() {
-                                    location.reload();
-                                }
-                            });
+                            window.showToast('Subject created successfully!', 'success');
+                            setTimeout(() => location.reload(), 1000);
                         } else {
-                            window.openSystemModal({
-                                type: 'error',
-                                title: 'Action Failed',
-                                message: 'An error occurred while processing your request. Please try again.',
-                                confirmText: 'OK'
-                            });
+                            window.showToast(data.message || 'An error occurred while processing your request. Please try again.', 'error');
                         }
                     })
                     .catch(error => {
-                        window.openSystemModal({
-                            type: 'error',
-                            title: 'Action Failed',
-                            message: 'An error occurred while processing your request. Please try again.',
-                            confirmText: 'OK'
-                        });
+                        window.showToast('An error occurred while processing your request. Please try again.', 'error');
                         console.error('Error:', error);
                     })
                     .finally(() => {

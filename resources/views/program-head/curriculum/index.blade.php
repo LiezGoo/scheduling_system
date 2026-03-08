@@ -15,32 +15,7 @@
             $yearLevels = [1, 2, 3, 4];
         @endphp
 
-        <!-- Alerts -->
-        @if (session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="fa-solid fa-circle-check me-2"></i>
-                <strong>Success!</strong> {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-        @if (session('error'))
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="fa-solid fa-circle-exclamation me-2"></i>
-                <strong>Error!</strong> {{ session('error') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <strong>Validation Error!</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                <ul class="mb-0 mt-2">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+
 
         <!-- Loading Indicator -->
         <div id="curriculumLoading" class="alert alert-info alert-dismissible fade d-none" role="alert">
@@ -188,8 +163,7 @@
                                             @forelse ($subjects as $subject)
                                                 @php
                                                     $subjectKeyList = $assignedMatrix[$subject->id] ?? [];
-                                                    $currentKey = $selectedYearLevel . '|' . $selectedSemester;
-                                                    $isAssigned = in_array($currentKey, $subjectKeyList, true);
+                                                    $isAssigned = !empty($subjectKeyList);
                                                 @endphp
                                                 <tr class="subject-row transition-all {{ $isAssigned ? 'subject-assigned opacity-65' : '' }}"
                                                     data-subject-code="{{ $subject->subject_code }}"
@@ -211,7 +185,7 @@
                                                         @if($isAssigned)
                                                             <span class="badge bg-secondary text-white px-3 py-2 rounded-2">
                                                                 <i class="fa-solid fa-check-circle me-1"></i>
-                                                                <span class="d-none d-sm-inline">Already Assigned</span><span class="d-sm-none">Assigned</span>
+                                                                <span class="d-none d-sm-inline">Already added to this program</span><span class="d-sm-none">Added</span>
                                                             </span>
                                                         @else
                                                             <span class="badge bg-success text-white px-3 py-2 rounded-2">
@@ -238,7 +212,7 @@
                             <!-- Help Text -->
                             <div class="alert alert-info border-0 mt-3 mb-0 rounded-2">
                                 <i class="fa-solid fa-circle-info text-info me-2"></i>
-                                <small class="text-info">Subjects already assigned for the selected term are <strong>disabled</strong>. Only available subjects can be selected.</small>
+                                <small class="text-info">Subjects already added to this program are <strong>disabled</strong>. Only available subjects can be selected.</small>
                             </div>
 
                             @error('subject_ids')
@@ -1315,15 +1289,12 @@
                 }
             };
 
-            const currentKey = () => `${yearLevel.value}|${semester.value}`;
-
             // Refresh checkbox states based on selection
             const refreshCheckboxStates = () => {
-                const key = currentKey();
                 checkboxes.forEach((cb) => {
                     const row = cb.closest('tr');
                     const subjectKeyList = assignedMatrix[cb.dataset.subjectId] || [];
-                    const alreadyAssigned = subjectKeyList.includes(key);
+                    const alreadyAssigned = subjectKeyList.length > 0;
                     cb.disabled = !programSelect.value || alreadyAssigned;
 
                     if (alreadyAssigned) {

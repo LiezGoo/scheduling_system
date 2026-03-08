@@ -67,18 +67,21 @@ class ProgramSubjectController extends Controller
         $semester = strtolower($validated['semester']);
 
         $alreadyAssigned = $program->subjects()
-            ->wherePivot('year_level', $yearLevel)
-            ->wherePivot('semester', $semester)
+            ->whereIn('subjects.id', $validated['subject_ids'])
             ->pluck('subjects.id')
             ->all();
 
-        $subjectIds = array_values(array_diff($validated['subject_ids'], $alreadyAssigned));
+        if (!empty($alreadyAssigned)) {
+            $programLabel = $program->program_code ?: $program->program_name;
 
-        if (empty($subjectIds)) {
-            return back()->with('error', 'All selected subjects are already assigned for this year/semester.');
+            return back()
+                ->withErrors([
+                    'subject_ids' => "This subject has already been added to the {$programLabel} curriculum and cannot be assigned to another year level.",
+                ])
+                ->withInput();
         }
 
-        $pivotData = collect($subjectIds)->mapWithKeys(fn ($id) => [
+        $pivotData = collect($validated['subject_ids'])->mapWithKeys(fn ($id) => [
             $id => [
                 'year_level' => $yearLevel,
                 'semester' => $semester,
@@ -89,8 +92,15 @@ class ProgramSubjectController extends Controller
             $program->subjects()->syncWithoutDetaching($pivotData);
         } catch (QueryException $e) {
             if ($e->getCode() === '23000') {
-                return back()->with('error', 'Duplicate curriculum entries detected. Please review selections.');
+                $programLabel = $program->program_code ?: $program->program_name;
+
+                return back()
+                    ->withErrors([
+                        'subject_ids' => "This subject has already been added to the {$programLabel} curriculum and cannot be assigned to another year level.",
+                    ])
+                    ->withInput();
             }
+
             throw $e;
         }
 

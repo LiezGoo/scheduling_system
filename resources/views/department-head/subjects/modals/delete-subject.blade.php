@@ -4,17 +4,10 @@
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.delete-subject-btn')) {
                     const btn = e.target.closest('.delete-subject-btn');
-
-                    window.openSystemModal({
-                        type: 'confirm',
-                        title: 'Confirm Deletion',
-                        message: 'Are you sure you want to delete this record? This action cannot be undone.',
-                        confirmText: 'Delete',
-                        cancelText: 'Cancel',
-                        onConfirm: function() {
-                            executeDeleteSubject(btn.dataset.subjectId);
-                        }
-                    });
+                    
+                    if (confirm('Are you sure you want to delete this subject? This action cannot be undone.')) {
+                        executeDeleteSubject(btn.dataset.subjectId);
+                    }
                 }
             });
 
@@ -30,31 +23,14 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            window.openSystemModal({
-                                type: 'success',
-                                title: 'Deleted Successfully',
-                                message: 'The record has been successfully removed from the system.',
-                                confirmText: 'OK',
-                                onConfirm: function() {
-                                    location.reload();
-                                }
-                            });
+                            window.showToast('Subject deleted successfully!', 'success');
+                            setTimeout(() => location.reload(), 1000);
                         } else {
-                            window.openSystemModal({
-                                type: 'error',
-                                title: 'Action Failed',
-                                message: 'An error occurred while processing your request. Please try again.',
-                                confirmText: 'OK'
-                            });
+                            window.showToast(data.message || 'An error occurred while processing your request. Please try again.', 'error');
                         }
                     })
                     .catch(error => {
-                        window.openSystemModal({
-                            type: 'error',
-                            title: 'Action Failed',
-                            message: 'An error occurred while processing your request. Please try again.',
-                            confirmText: 'OK'
-                        });
+                        window.showToast('An error occurred while processing your request. Please try again.', 'error');
                         console.error('Error:', error);
                     });
             }

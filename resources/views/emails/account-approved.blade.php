@@ -21,14 +21,14 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .header {
-            background: linear-gradient(135deg, #660000 0%, #8B0000 100%);
+            background: linear-gradient(135deg, #8B0000 0%, #660000 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
         }
         .header img {
-            width: 80px;
-            height: 80px;
+            max-width: 120px;
+            height: auto;
             margin-bottom: 15px;
         }
         .header h1 {
@@ -53,7 +53,7 @@
         }
         .cta-button {
             display: inline-block;
-            background: linear-gradient(135deg, #660000 0%, #8B0000 100%);
+            background: linear-gradient(135deg, #8B0000 0%, #5A0000 100%);
             color: white !important;
             padding: 14px 40px;
             text-decoration: none;
@@ -61,11 +61,11 @@
             font-weight: 600;
             margin: 25px 0;
             font-size: 16px;
-            box-shadow: 0 4px 12px rgba(102, 0, 0, 0.3);
+            box-shadow: 0 4px 12px rgba(139, 0, 0, 0.3);
         }
         .cta-button:hover {
-            background: linear-gradient(135deg, #8B0000 0%, #660000 100%);
-            box-shadow: 0 6px 16px rgba(102, 0, 0, 0.4);
+            background: linear-gradient(135deg, #5A0000 0%, #8B0000 100%);
+            box-shadow: 0 6px 16px rgba(139, 0, 0, 0.4);
         }
         .footer-note {
             font-size: 14px;
@@ -93,7 +93,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <img src="{{ asset('images/logo.png') }}" alt="SorSU Logo">
+            <img src="{{ url('images/logo.png') }}" alt="SorSU Logo" width="120">
             <h1>Account Approved</h1>
         </div>
 

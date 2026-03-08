@@ -9,11 +9,6 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="edit-alert" class="alert alert-dismissible fade hide" role="alert" style="display: none;">
-                    <span id="edit-alert-message"></span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-
                 <form id="editRoomForm" novalidate>
                     @csrf
                     @method('PUT')
@@ -93,11 +88,7 @@
 
         const roomId = document.getElementById('edit_room_id').value;
         if (!roomId) {
-            const alertDiv = document.getElementById('edit-alert');
-            const alertMessage = document.getElementById('edit-alert-message');
-            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-            alertMessage.textContent = 'Missing room ID. Please refresh the page and try again.';
-            alertDiv.style.display = 'block';
+            window.showToast('Missing room ID. Please refresh the page and try again.', 'error');
             return;
         }
         const editRoomBtn = document.getElementById('editRoomBtn');
@@ -136,27 +127,19 @@
                 return data;
             })
             .then(data => {
-                const alertDiv = document.getElementById('edit-alert');
-                const alertMessage = document.getElementById('edit-alert-message');
-
                 if (data.success) {
-                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                    alertMessage.textContent = data.message;
-
-                    setTimeout(() => {
-                        bootstrap.Modal.getInstance(document.getElementById('editRoomModal')).hide();
-                        location.reload();
-                    }, 1500);
+                    window.showToast(data.message || 'Room updated successfully', 'success');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editRoomModal'));
+                    modal.hide();
+                    setTimeout(() => location.reload(), 500);
                 } else {
-                    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                    let errorMessage = data.message;
                     if (data.errors) {
                         const firstError = Object.values(data.errors).flat()[0];
-                        alertMessage.textContent = firstError || data.message;
-                    } else {
-                        alertMessage.textContent = data.message;
+                        errorMessage = firstError || data.message;
                     }
+                    window.showToast(errorMessage || 'Failed to update room. Please try again.', 'error');
                 }
-                alertDiv.style.display = 'block';
             })
             .catch(error => {
                 console.error('Error:', error);

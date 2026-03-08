@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Schedule;
 use App\Models\ScheduleAdjustmentRequest;
 use App\Models\ScheduleItem;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -268,10 +269,17 @@ class ScheduleAdjustmentController extends Controller
             }
         }
 
-        // Additional validations can be added here
-        // - Faculty load check
-        // - Break time validation
-        // - Daily scheme validation
+        $instructorId = $changes['instructor_id'] ?? $item->instructor_id;
+        $day = $changes['day'] ?? $item->day ?? $item->day_of_week;
+        $startTime = $changes['start_time'] ?? $item->start_time;
+        $endTime = $changes['end_time'] ?? $item->end_time;
+
+        if ($instructorId && $day && $startTime && $endTime) {
+            $instructor = User::find($instructorId);
+            if ($instructor && !$this->constraintValidator->isWithinInstructorScheme($instructor, $startTime, $endTime, $day, $schedule->program_id)) {
+                $errors['teaching_scheme'] = 'Class time is outside faculty teaching availability.';
+            }
+        }
 
         return $errors;
     }

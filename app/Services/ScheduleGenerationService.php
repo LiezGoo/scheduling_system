@@ -323,11 +323,12 @@ class ScheduleGenerationService
 
             // Check scheme violation
             $instructor = $item->instructor;
-            if (!$this->validator->isWithinInstructorScheme($instructor, $item->start_time, $item->end_time)) {
+            if (!$this->validator->isWithinInstructorScheme($instructor, $item->start_time, $item->end_time, $item->day_of_week, $schedule->program_id)) {
                 $violations[] = [
                     'type' => 'scheme_violation',
                     'item_id' => $item->id,
                     'instructor' => $instructor->first_name . ' ' . $instructor->last_name,
+                    'day' => $item->day_of_week,
                     'time' => $item->start_time . ' - ' . $item->end_time,
                 ];
             }
@@ -500,13 +501,18 @@ class ScheduleGenerationService
 
         // 4. Check scheme violations
         foreach ($items as $item) {
-            if (!$this->validator->isWithinInstructorScheme($item->instructor, $item->start_time, $item->end_time)) {
+            if (!$this->validator->isWithinInstructorScheme($item->instructor, $item->start_time, $item->end_time, $item->day_of_week, $schedule->program_id)) {
+                $allowedRange = $this->validator->getAllowedRangeForDay($item->instructor_id, $item->day_of_week, $schedule->program_id);
+
                 $report['scheme_violations']++;
                 $report['conflicts_detail'][] = [
                     'type' => 'scheme_violation',
                     'instructor' => $item->instructor->first_name . ' ' . $item->instructor->last_name,
+                    'day' => $item->day_of_week,
                     'scheduled_time' => $item->start_time . '-' . $item->end_time,
-                    'allowed_range' => $item->instructor->daily_scheme_start . '-' . $item->instructor->daily_scheme_end,
+                    'allowed_range' => $allowedRange
+                        ? ($allowedRange['start'] . '-' . $allowedRange['end'])
+                        : 'Not configured',
                 ];
             }
         }

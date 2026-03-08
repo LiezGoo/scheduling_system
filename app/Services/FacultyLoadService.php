@@ -5,6 +5,11 @@ namespace App\Services;
 use App\Models\InstructorLoad;
 use App\Models\User;
 use App\Models\Subject;
+use App\Models\Schedule;
+use App\Models\ScheduleItem;
+use App\Models\AcademicYear;
+use App\Models\FacultyWorkloadConfiguration;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +24,13 @@ use Illuminate\Support\Facades\DB;
  */
 class FacultyLoadService
 {
+    protected ConstraintValidator $constraintValidator;
+
+    public function __construct(ConstraintValidator $constraintValidator)
+    {
+        $this->constraintValidator = $constraintValidator;
+    }
+
     /**
      * Normalize and validate assignment hour values.
      */
@@ -33,6 +45,424 @@ class FacultyLoadService
         }
 
         return null;
+    }
+
+    /**
+     * Validate assignment against Faculty Workload Configuration limits.
+     *
+     * @return array<string, mixed>
+     */
+    public function validateConfigurationDrivenAssignment(
+        User $user,
+        Subject $subject,
+        int $programId,
+        int $academicYearId,
+        string $semester,
+        int $yearLevel,
+        string $blockSection,
+        int $additionalLectureHours,
+        int $additionalLabHours,
+        ?int $excludeLoadId = null
+    ): array {
+        $config = FacultyWorkloadConfiguration::query()
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->where(function ($query) use ($programId) {
+                $query->where('program_id', $programId)
+                    ->orWhereNull('program_id');
+            })
+            ->orderByRaw('CASE WHEN program_id = ? THEN 0 ELSE 1 END', [$programId])
+            ->latest('id')
+            ->first();
+
+        if (!$config) {
+            return [
+                'valid' => false,
+                'message' => 'Faculty workload configuration is not set. Please configure workload limits and availability first.',
+                'current' => [
+                    'lecture_hours' => 0,
+                    'lab_hours' => 0,
+                    'total_hours' => 0,
+                ],
+                'new' => [
+                    'lecture_hours' => $additionalLectureHours,
+                    'lab_hours' => $additionalLabHours,
+                    'total_hours' => $additionalLectureHours + $additionalLabHours,
+                ],
+                'limits' => [
+                    'max_lecture_hours' => null,
+                    'max_lab_hours' => null,
+                    'max_hours_per_day' => null,
+                ],
+                'availability' => [],
+                'availability_conflicts' => [],
+                'daily_hours_conflicts' => [],
+                'schedule_slots_checked' => false,
+            ];
+        }
+
+        $current = $user->getInstructorLoadSummaryForTerm($academicYearId, $semester, $excludeLoadId);
+        $currentLectureHours = (int) ($current['total_lecture_hours'] ?? 0);
+        $currentLabHours = (int) ($current['total_lab_hours'] ?? 0);
+
+        $newLectureHours = $currentLectureHours + $additionalLectureHours;
+        $newLabHours = $currentLabHours + $additionalLabHours;
+
+        $maxLectureHours = $config->max_lecture_hours !== null ? (int) $config->max_lecture_hours : null;
+        $maxLabHours = $config->max_lab_hours !== null ? (int) $config->max_lab_hours : null;
+        $maxHoursPerDay = $config->max_hours_per_day !== null ? (int) $config->max_hours_per_day : null;
+
+        $limits = [
+            'max_lecture_hours' => $maxLectureHours,
+            'max_lab_hours' => $maxLabHours,
+            'max_hours_per_day' => $maxHoursPerDay,
+        ];
+
+        if ($maxLectureHours !== null && $newLectureHours > $maxLectureHours) {
+            return [
+                'valid' => false,
+                'message' => "Lecture hour limit exceeded. {$user->full_name} would have {$newLectureHours} lecture hours (max: {$maxLectureHours} hours).",
+                'current' => [
+                    'lecture_hours' => $currentLectureHours,
+                    'lab_hours' => $currentLabHours,
+                    'total_hours' => $currentLectureHours + $currentLabHours,
+                ],
+                'new' => [
+                    'lecture_hours' => $newLectureHours,
+                    'lab_hours' => $newLabHours,
+                    'total_hours' => $newLectureHours + $newLabHours,
+                ],
+                'limits' => $limits,
+                'availability' => $this->formatAvailabilityRows($config),
+                'availability_conflicts' => [],
+                'daily_hours_conflicts' => [],
+                'schedule_slots_checked' => false,
+            ];
+        }
+
+        if ($maxLabHours !== null && $newLabHours > $maxLabHours) {
+            return [
+                'valid' => false,
+                'message' => "Laboratory hour limit exceeded. {$user->full_name} would have {$newLabHours} lab hours (max: {$maxLabHours} hours).",
+                'current' => [
+                    'lecture_hours' => $currentLectureHours,
+                    'lab_hours' => $currentLabHours,
+                    'total_hours' => $currentLectureHours + $currentLabHours,
+                ],
+                'new' => [
+                    'lecture_hours' => $newLectureHours,
+                    'lab_hours' => $newLabHours,
+                    'total_hours' => $newLectureHours + $newLabHours,
+                ],
+                'limits' => $limits,
+                'availability' => $this->formatAvailabilityRows($config),
+                'availability_conflicts' => [],
+                'daily_hours_conflicts' => [],
+                'schedule_slots_checked' => false,
+            ];
+        }
+
+        $subjectScheduleSlots = $this->getSubjectScheduleSlotsForTerm(
+            $subject->id,
+            $programId,
+            $academicYearId,
+            $semester,
+            $yearLevel,
+            $blockSection
+        );
+
+        $availabilityConflicts = [];
+        $dailyHourConflicts = [];
+
+        if (!empty($subjectScheduleSlots)) {
+            $subjectHoursByDay = [];
+            foreach ($subjectScheduleSlots as $slot) {
+                $subjectHoursByDay[$slot['day']] = ($subjectHoursByDay[$slot['day']] ?? 0) + $slot['duration_hours'];
+
+                if (!$this->constraintValidator->isWithinInstructorScheme($user, $slot['start_time'], $slot['end_time'], $slot['day'], $programId)) {
+                    $allowedRange = $this->constraintValidator->getAllowedRangeForDay($user->id, $slot['day'], $programId);
+                    $availabilityConflicts[] = [
+                        'day' => $slot['day'],
+                        'start_time' => $slot['start_time'],
+                        'end_time' => $slot['end_time'],
+                        'allowed_range' => $allowedRange,
+                        'message' => 'Selected subject schedule conflicts with faculty availability.',
+                    ];
+                }
+            }
+
+            if ($maxHoursPerDay !== null) {
+                $currentDailyHours = $this->getInstructorDailyHoursForTerm($user->id, $academicYearId, $semester);
+
+                foreach ($subjectHoursByDay as $day => $subjectDayHours) {
+                    $currentHours = (float) ($currentDailyHours[$day] ?? 0);
+                    $projectedHours = $currentHours + (float) $subjectDayHours;
+
+                    if ($projectedHours > $maxHoursPerDay) {
+                        $dailyHourConflicts[] = [
+                            'day' => $day,
+                            'current_hours' => round($currentHours, 2),
+                            'subject_hours' => round((float) $subjectDayHours, 2),
+                            'projected_hours' => round($projectedHours, 2),
+                            'max_hours_per_day' => $maxHoursPerDay,
+                            'message' => "Daily teaching hour limit exceeded on {$day}.",
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (!empty($availabilityConflicts)) {
+            return [
+                'valid' => false,
+                'message' => 'Selected subject schedule conflicts with faculty availability.',
+                'current' => [
+                    'lecture_hours' => $currentLectureHours,
+                    'lab_hours' => $currentLabHours,
+                    'total_hours' => $currentLectureHours + $currentLabHours,
+                ],
+                'new' => [
+                    'lecture_hours' => $newLectureHours,
+                    'lab_hours' => $newLabHours,
+                    'total_hours' => $newLectureHours + $newLabHours,
+                ],
+                'limits' => $limits,
+                'availability' => $this->formatAvailabilityRows($config),
+                'availability_conflicts' => $availabilityConflicts,
+                'daily_hours_conflicts' => [],
+                'schedule_slots_checked' => true,
+            ];
+        }
+
+        if (!empty($dailyHourConflicts)) {
+            return [
+                'valid' => false,
+                'message' => 'Maximum teaching hours per day would be exceeded.',
+                'current' => [
+                    'lecture_hours' => $currentLectureHours,
+                    'lab_hours' => $currentLabHours,
+                    'total_hours' => $currentLectureHours + $currentLabHours,
+                ],
+                'new' => [
+                    'lecture_hours' => $newLectureHours,
+                    'lab_hours' => $newLabHours,
+                    'total_hours' => $newLectureHours + $newLabHours,
+                ],
+                'limits' => $limits,
+                'availability' => $this->formatAvailabilityRows($config),
+                'availability_conflicts' => [],
+                'daily_hours_conflicts' => $dailyHourConflicts,
+                'schedule_slots_checked' => true,
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'message' => 'Faculty load is within configured workload limits.',
+            'current' => [
+                'lecture_hours' => $currentLectureHours,
+                'lab_hours' => $currentLabHours,
+                'total_hours' => $currentLectureHours + $currentLabHours,
+            ],
+            'new' => [
+                'lecture_hours' => $newLectureHours,
+                'lab_hours' => $newLabHours,
+                'total_hours' => $newLectureHours + $newLabHours,
+            ],
+            'limits' => $limits,
+            'availability' => $this->formatAvailabilityRows($config),
+            'availability_conflicts' => [],
+            'daily_hours_conflicts' => [],
+            'schedule_slots_checked' => !empty($subjectScheduleSlots),
+        ];
+    }
+
+    /**
+     * Build assignment context details for real-time UI summary.
+     *
+     * @return array<string, mixed>
+     */
+    public function getAssignmentContextData(
+        int $userId,
+        int $subjectId,
+        int $programId,
+        int $academicYearId,
+        string $semester,
+        int $yearLevel,
+        string $blockSection
+    ): array {
+        $user = User::findOrFail($userId);
+        $subject = Subject::findOrFail($subjectId);
+
+        $lectureHours = (int) round((float) ($subject->lecture_hours ?? 0));
+        $labHours = (int) round((float) ($subject->lab_hours ?? 0));
+
+        $validation = $this->validateConfigurationDrivenAssignment(
+            $user,
+            $subject,
+            $programId,
+            $academicYearId,
+            $semester,
+            $yearLevel,
+            $blockSection,
+            $lectureHours,
+            $labHours
+        );
+
+        $limits = $validation['limits'] ?? [];
+        $current = $validation['current'] ?? [];
+        $new = $validation['new'] ?? [];
+
+        $maxLectureHours = $limits['max_lecture_hours'] ?? null;
+        $maxLabHours = $limits['max_lab_hours'] ?? null;
+
+        return [
+            'subject' => [
+                'id' => $subject->id,
+                'subject_code' => $subject->subject_code,
+                'subject_name' => $subject->subject_name,
+                'lecture_hours' => $lectureHours,
+                'lab_hours' => $labHours,
+            ],
+            'load_summary' => [
+                'current_lecture_hours' => (int) ($current['lecture_hours'] ?? 0),
+                'current_lab_hours' => (int) ($current['lab_hours'] ?? 0),
+                'projected_lecture_hours' => (int) ($new['lecture_hours'] ?? 0),
+                'projected_lab_hours' => (int) ($new['lab_hours'] ?? 0),
+                'max_lecture_hours' => $maxLectureHours,
+                'max_lab_hours' => $maxLabHours,
+                'remaining_lecture_hours' => $maxLectureHours === null ? null : ($maxLectureHours - (int) ($new['lecture_hours'] ?? 0)),
+                'remaining_lab_hours' => $maxLabHours === null ? null : ($maxLabHours - (int) ($new['lab_hours'] ?? 0)),
+                'max_hours_per_day' => $limits['max_hours_per_day'] ?? null,
+            ],
+            'availability' => $validation['availability'] ?? [],
+            'warnings' => [
+                'availability' => $validation['availability_conflicts'] ?? [],
+                'daily_hours' => $validation['daily_hours_conflicts'] ?? [],
+                'general' => $validation['valid'] ? [] : [
+                    ['message' => $validation['message'] ?? 'Assignment validation failed.'],
+                ],
+            ],
+            'can_assign' => (bool) ($validation['valid'] ?? false),
+            'validation' => $validation,
+        ];
+    }
+
+    /**
+     * @return array<int, array{day:string,start_time:string,end_time:string}>
+     */
+    private function formatAvailabilityRows(FacultyWorkloadConfiguration $config): array
+    {
+        $teachingScheme = is_array($config->teaching_scheme) ? $config->teaching_scheme : [];
+        $rows = [];
+
+        foreach ($teachingScheme as $day => $slot) {
+            $enabled = (bool) ($slot['enabled'] ?? true);
+            $start = isset($slot['start']) ? trim((string) $slot['start']) : '';
+            $end = isset($slot['end']) ? trim((string) $slot['end']) : '';
+
+            if (!$enabled || $start === '' || $end === '') {
+                continue;
+            }
+
+            $rows[] = [
+                'day' => (string) $day,
+                'start_time' => $this->formatTimeForDisplay($start),
+                'end_time' => $this->formatTimeForDisplay($end),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function formatTimeForDisplay(string $time): string
+    {
+        try {
+            return Carbon::parse($time)->format('g:i A');
+        } catch (\Throwable $e) {
+            return $time;
+        }
+    }
+
+    /**
+     * @return array<int, array{day:string,start_time:string,end_time:string,duration_hours:float}>
+     */
+    private function getSubjectScheduleSlotsForTerm(
+        int $subjectId,
+        int $programId,
+        int $academicYearId,
+        string $semester,
+        int $yearLevel,
+        string $blockSection
+    ): array {
+        $academicYear = AcademicYear::find($academicYearId);
+        if (!$academicYear) {
+            return [];
+        }
+
+        $items = ScheduleItem::query()
+            ->select('schedule_items.day_of_week', 'schedule_items.start_time', 'schedule_items.end_time')
+            ->join('schedules', 'schedule_items.schedule_id', '=', 'schedules.id')
+            ->where('schedule_items.subject_id', $subjectId)
+            ->where('schedules.program_id', $programId)
+            ->where('schedules.academic_year', $academicYear->name)
+            ->where('schedules.semester', $semester)
+            ->where('schedules.year_level', $yearLevel)
+            ->where('schedules.block', $blockSection)
+            ->whereIn('schedules.status', [
+                Schedule::STATUS_DRAFT,
+                Schedule::STATUS_GENERATED,
+                Schedule::STATUS_FINALIZED,
+            ])
+            ->get();
+
+        return $items->map(function ($item) {
+            $start = Carbon::parse((string) $item->start_time);
+            $end = Carbon::parse((string) $item->end_time);
+            $durationHours = $start->diffInMinutes($end) / 60;
+
+            return [
+                'day' => (string) $item->day_of_week,
+                'start_time' => $start->format('H:i'),
+                'end_time' => $end->format('H:i'),
+                'duration_hours' => $durationHours,
+            ];
+        })->all();
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function getInstructorDailyHoursForTerm(int $instructorId, int $academicYearId, string $semester): array
+    {
+        $academicYear = AcademicYear::find($academicYearId);
+        if (!$academicYear) {
+            return [];
+        }
+
+        $items = ScheduleItem::query()
+            ->select('schedule_items.day_of_week', 'schedule_items.start_time', 'schedule_items.end_time')
+            ->join('schedules', 'schedule_items.schedule_id', '=', 'schedules.id')
+            ->where('schedule_items.instructor_id', $instructorId)
+            ->where('schedules.academic_year', $academicYear->name)
+            ->where('schedules.semester', $semester)
+            ->whereIn('schedules.status', [
+                Schedule::STATUS_DRAFT,
+                Schedule::STATUS_GENERATED,
+                Schedule::STATUS_FINALIZED,
+            ])
+            ->get();
+
+        $hoursByDay = [];
+        foreach ($items as $item) {
+            $start = Carbon::parse((string) $item->start_time);
+            $end = Carbon::parse((string) $item->end_time);
+            $durationHours = $start->diffInMinutes($end) / 60;
+            $day = (string) $item->day_of_week;
+            $hoursByDay[$day] = ($hoursByDay[$day] ?? 0) + $durationHours;
+        }
+
+        return $hoursByDay;
     }
 
     /**
@@ -118,12 +548,22 @@ class FacultyLoadService
             if ($exists) {
                 return [
                     'success' => false,
-                    'message' => "{$user->full_name} is already assigned to {$subject->subject_name}.",
+                    'message' => 'This subject is already assigned to this instructor.',
                 ];
             }
 
-            // Validate faculty load limits before assignment
-            $loadValidation = $user->validateFacultyLoad($lectureHours, $labHours, $academicYearId, $semester);
+            // Validate assignment against configured faculty workload limits and availability
+            $loadValidation = $this->validateConfigurationDrivenAssignment(
+                $user,
+                $subject,
+                $programId,
+                $academicYearId,
+                $semester,
+                $yearLevel,
+                $blockSection,
+                $lectureHours,
+                $labHours
+            );
             if (!$loadValidation['valid'] && !$forceAssign) {
                 return [
                     'success' => false,
@@ -257,7 +697,7 @@ class FacultyLoadService
 
                 if ($exists) {
                     $errors[$index] = [
-                        'duplicate' => "{$user->full_name} is already assigned to {$subject->subject_name} (Block {$blockSection}).",
+                        'duplicate' => 'This subject is already assigned to this instructor.',
                     ];
                     continue;
                 }

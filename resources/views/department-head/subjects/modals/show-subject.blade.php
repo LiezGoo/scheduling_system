@@ -122,17 +122,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <div class="card border-0 bg-light">
-                                        <div class="card-body">
-                                            <h6 class="text-muted text-uppercase small mb-2">Description</h6>
-                                            <p class="mb-0">${subject.description ? escapeHtml(subject.description) : 'N/A'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         `;
 
                         subjectDetailsContent.innerHTML = detailsHTML;

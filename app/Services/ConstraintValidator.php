@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FacultyWorkloadConfiguration;
 use App\Models\User;
 use App\Models\Room;
 use Carbon\Carbon;
@@ -30,38 +31,88 @@ class ConstraintValidator
     public const LUNCH_BREAK_END = '13:00';
 
     /**
-     * Check if time slot is within instructor's daily scheme
+     * Check if time slot is within instructor's configured daily scheme.
      */
-    public function isWithinInstructorScheme(User $instructor, string $startTime, string $endTime): bool
-    {
-        if (!$instructor->daily_scheme_start || !$instructor->daily_scheme_end) {
-            // If no scheme defined, assume standard 7 AM - 7 PM
+    public function isWithinInstructorScheme(
+        User $instructor,
+        string $startTime,
+        string $endTime,
+        ?string $day = null,
+        ?int $programId = null
+    ): bool {
+        $config = $this->getInstructorWorkloadConfiguration($instructor->id, $programId);
+
+        if (!$config) {
             return true;
         }
 
-        $schemeStart = Carbon::parse($instructor->daily_scheme_start);
-        $schemeEnd = Carbon::parse($instructor->daily_scheme_end);
-        $slotStart = Carbon::parse($startTime);
-        $slotEnd = Carbon::parse($endTime);
+        $slotStart = $this->normalizeTime($startTime);
+        $slotEnd = $this->normalizeTime($endTime);
 
-        return $slotStart->greaterThanOrEqualTo($schemeStart) 
-            && $slotEnd->lessThanOrEqualTo($schemeEnd);
+        if (!$slotStart || !$slotEnd || $slotStart >= $slotEnd) {
+            return false;
+        }
+
+        $teachingScheme = is_array($config->teaching_scheme) ? $config->teaching_scheme : [];
+
+        if ($day) {
+            if (!empty($teachingScheme)) {
+                $dayScheme = $teachingScheme[$day] ?? null;
+                if (!$dayScheme || empty($dayScheme['start']) || empty($dayScheme['end'])) {
+                    return false;
+                }
+
+                $schemeStart = $this->normalizeTime((string) $dayScheme['start']);
+                $schemeEnd = $this->normalizeTime((string) $dayScheme['end']);
+
+                if (!$schemeStart || !$schemeEnd || $schemeStart >= $schemeEnd) {
+                    return false;
+                }
+
+                return $slotStart >= $schemeStart && $slotEnd <= $schemeEnd;
+            }
+
+            $availableDays = is_array($config->available_days) ? $config->available_days : [];
+            if (!empty($availableDays) && !in_array($day, $availableDays, true)) {
+                return false;
+            }
+        }
+
+        if ($config->start_time && $config->end_time) {
+            $schemeStart = $this->normalizeTime((string) $config->start_time);
+            $schemeEnd = $this->normalizeTime((string) $config->end_time);
+
+            if ($schemeStart && $schemeEnd && $schemeStart < $schemeEnd) {
+                return $slotStart >= $schemeStart && $slotEnd <= $schemeEnd;
+            }
+        }
+
+        return true;
     }
 
     /**
-     * Calculate penalty if instructor scheme is violated
+     * Calculate penalty if instructor scheme is violated.
      */
-    public function getSchemeViolationPenalty(User $instructor, string $startTime, string $endTime): int
-    {
-        if ($this->isWithinInstructorScheme($instructor, $startTime, $endTime)) {
+    public function getSchemeViolationPenalty(
+        User $instructor,
+        string $startTime,
+        string $endTime,
+        ?string $day = null,
+        ?int $programId = null
+    ): int {
+        if ($this->isWithinInstructorScheme($instructor, $startTime, $endTime, $day, $programId)) {
             return 0;
         }
 
-        // Calculate how many minutes the slot extends beyond the scheme
-        $schemeStart = Carbon::parse($instructor->daily_scheme_start ?? '07:00');
-        $schemeEnd = Carbon::parse($instructor->daily_scheme_end ?? '19:00');
-        $slotStart = Carbon::parse($startTime);
-        $slotEnd = Carbon::parse($endTime);
+        $allowedRange = $this->getAllowedRangeForDay($instructor->id, $day, $programId);
+        if (!$allowedRange) {
+            return self::PENALTY_SCHEME_VIOLATION;
+        }
+
+        $schemeStart = Carbon::createFromFormat('H:i', $allowedRange['start']);
+        $schemeEnd = Carbon::createFromFormat('H:i', $allowedRange['end']);
+        $slotStart = Carbon::createFromFormat('H:i', $this->normalizeTime($startTime));
+        $slotEnd = Carbon::createFromFormat('H:i', $this->normalizeTime($endTime));
 
         $violationMinutes = 0;
 
@@ -73,8 +124,75 @@ class ConstraintValidator
             $violationMinutes += $slotEnd->diffInMinutes($schemeEnd);
         }
 
-        // Penalty increases with violation severity
-        return self::PENALTY_SCHEME_VIOLATION + ($violationMinutes / 10);
+        return self::PENALTY_SCHEME_VIOLATION + (int) ($violationMinutes / 10);
+    }
+
+    /**
+     * Get the allowed range for display or conflict details.
+     */
+    public function getAllowedRangeForDay(int $instructorId, ?string $day = null, ?int $programId = null): ?array
+    {
+        $config = $this->getInstructorWorkloadConfiguration($instructorId, $programId);
+        if (!$config) {
+            return null;
+        }
+
+        $teachingScheme = is_array($config->teaching_scheme) ? $config->teaching_scheme : [];
+        if ($day && !empty($teachingScheme) && isset($teachingScheme[$day])) {
+            $start = $this->normalizeTime((string) ($teachingScheme[$day]['start'] ?? ''));
+            $end = $this->normalizeTime((string) ($teachingScheme[$day]['end'] ?? ''));
+
+            if ($start && $end) {
+                return ['start' => $start, 'end' => $end];
+            }
+        }
+
+        $start = $config->start_time ? $this->normalizeTime((string) $config->start_time) : null;
+        $end = $config->end_time ? $this->normalizeTime((string) $config->end_time) : null;
+
+        if ($start && $end) {
+            return ['start' => $start, 'end' => $end];
+        }
+
+        return null;
+    }
+
+    private function getInstructorWorkloadConfiguration(int $instructorId, ?int $programId = null): ?FacultyWorkloadConfiguration
+    {
+        $query = FacultyWorkloadConfiguration::query()
+            ->where('user_id', $instructorId)
+            ->where('is_active', true);
+
+        if ($programId !== null) {
+            $programConfig = (clone $query)
+                ->where('program_id', $programId)
+                ->first();
+
+            if ($programConfig) {
+                return $programConfig;
+            }
+        }
+
+        return $query->latest('id')->first();
+    }
+
+    private function normalizeTime(string $time): ?string
+    {
+        $trimmed = trim($time);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $trimmed)) {
+            return substr($trimmed, 0, 5);
+        }
+
+        if (preg_match('/^\d{2}:\d{2}$/', $trimmed)) {
+            return $trimmed;
+        }
+
+        $parsed = strtotime($trimmed);
+        return $parsed !== false ? date('H:i', $parsed) : null;
     }
 
     /**
