@@ -30,18 +30,18 @@
                         <label for="filterDepartment" class="form-label">Department</label>
                         <select class="form-select" id="filterDepartment" name="department">
                             <option value="">All Departments</option>
-                            <option value="1">Computer Science</option>
-                            <option value="2">Information Technology</option>
-                            <option value="3">Engineering</option>
+                            @foreach ($departmentOptions as $departmentOption)
+                                <option value="{{ $departmentOption->id }}">{{ $departmentOption->department_name }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label for="filterContractType" class="form-label">Contract Type</label>
                         <select class="form-select" id="filterContractType" name="contract_type">
                             <option value="">All Types</option>
-                            <option value="Full-Time">Full-Time</option>
-                            <option value="Part-Time">Part-Time</option>
-                            <option value="Contractual">Contractual</option>
+                            @foreach ($contractTypeOptions as $contractTypeOption)
+                                <option value="{{ $contractTypeOption }}">{{ $contractTypeOption }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-center gap-2">
@@ -76,51 +76,8 @@
                         </tr>
                     </thead>
                     <tbody id="facultyWorkloadTableBody">
-                        <!-- Sample data row -->
-                        <tr>
-                            <td>
-                                <div class="fw-semibold">Dr. Juan Dela Cruz</div>
-                                <small class="text-muted">juan.delacruz@sorsu.edu.ph</small>
-                            </td>
-                            <td>Computer Science</td>
-                            <td class="text-center">
-                                <span class="badge bg-primary">Full-Time</span>
-                            </td>
-                            <td class="text-center">21</td>
-                            <td class="text-center">12</td>
-                            <td class="text-center">6</td>
-                            <td>
-                                <span class="badge bg-light text-dark border me-1">Mon</span>
-                                <span class="badge bg-light text-dark border me-1">Tue</span>
-                                <span class="badge bg-light text-dark border me-1">Wed</span>
-                                <span class="badge bg-light text-dark border me-1">Thu</span>
-                                <span class="badge bg-light text-dark border">Fri</span>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge bg-success">Active</span>
-                            </td>
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-info" 
-                                            onclick="viewWorkload(1)"
-                                            title="View" aria-label="View Details">
-                                        <i class="fa-solid fa-eye"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-warning" 
-                                            onclick="editWorkload(1)"
-                                            title="Edit" aria-label="Edit Configuration">
-                                        <i class="fa-solid fa-pencil"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" 
-                                            onclick="deleteWorkload(1)"
-                                            title="Delete" aria-label="Delete Configuration">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
                         <!-- Empty state (shown when no data) -->
-                        <tr id="emptyState" style="display: none;">
+                        <tr id="emptyState">
                             <td colspan="9" class="text-center py-5">
                                 <i class="fa-solid fa-user-clock text-muted fa-3x mb-3"></i>
                                 <p class="text-muted mb-3">No Faculty Workload Configurations Found</p>
@@ -164,9 +121,12 @@
                         </label>
                         <select class="form-select" id="faculty_id" name="faculty_id" required>
                             <option value="">Select Faculty Member</option>
-                            <option value="1">Dr. Juan Dela Cruz</option>
-                            <option value="2">Prof. Maria Santos</option>
-                            <option value="3">Dr. Pedro Reyes</option>
+                            @foreach ($facultyOptions as $facultyOption)
+                                <option value="{{ $facultyOption->id }}"
+                                        data-department="{{ $facultyOption->department?->department_name ?? '' }}">
+                                    {{ $facultyOption->name }}
+                                </option>
+                            @endforeach
                         </select>
                         <div class="invalid-feedback">
                             Please select a faculty member.
@@ -179,7 +139,7 @@
                             Department
                         </label>
                         <input type="text" class="form-control" id="department_name" 
-                               value="Computer Science" readonly disabled>
+                               value="" readonly disabled>
                         <small class="text-muted">Auto-filled based on faculty assignment</small>
                     </div>
 
@@ -190,9 +150,9 @@
                         </label>
                         <select class="form-select" id="contract_type" name="contract_type" required>
                             <option value="">Select Contract Type</option>
-                            <option value="Full-Time">Full-Time</option>
-                            <option value="Part-Time">Part-Time</option>
-                            <option value="Contractual">Contractual</option>
+                            @foreach ($contractTypeOptions as $contractTypeOption)
+                                <option value="{{ $contractTypeOption }}">{{ $contractTypeOption }}</option>
+                            @endforeach
                         </select>
                         <div class="invalid-feedback">
                             Please select a contract type.
@@ -373,9 +333,9 @@
                             Contract Type <span class="text-danger">*</span>
                         </label>
                         <select class="form-select" id="edit_contract_type" name="contract_type" required>
-                            <option value="Full-Time">Full-Time</option>
-                            <option value="Part-Time">Part-Time</option>
-                            <option value="Contractual">Contractual</option>
+                            @foreach ($contractTypeOptions as $contractTypeOption)
+                                <option value="{{ $contractTypeOption }}">{{ $contractTypeOption }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -494,11 +454,11 @@
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label class="text-muted small">Faculty Name</label>
-                        <p class="fw-semibold" id="view_faculty_name">Dr. Juan Dela Cruz</p>
+                        <p class="fw-semibold" id="view_faculty_name">--</p>
                     </div>
                     <div class="col-md-6">
                         <label class="text-muted small">Department</label>
-                        <p class="fw-semibold" id="view_department_name">Computer Science</p>
+                        <p class="fw-semibold" id="view_department_name">--</p>
                     </div>
                 </div>
                 <div class="row mb-3">
@@ -716,9 +676,9 @@
     function editWorkload(id) {
         // Populate form with data
         document.getElementById('edit_workload_id').value = id;
-        document.getElementById('edit_faculty_name').value = 'Dr. Juan Dela Cruz';
-        document.getElementById('edit_department_name').value = 'Computer Science';
-        document.getElementById('edit_contract_type').value = 'Full-Time';
+        document.getElementById('edit_faculty_name').value = '';
+        document.getElementById('edit_department_name').value = '';
+        document.getElementById('edit_contract_type').selectedIndex = 0;
         document.getElementById('edit_lecture_limit').value = 21;
         document.getElementById('edit_lab_limit').value = 12;
         document.getElementById('edit_max_hours_per_day').value = 6;
@@ -768,8 +728,8 @@
     document.getElementById('faculty_id').addEventListener('change', function() {
         const departmentField = document.getElementById('department_name');
         if (this.value) {
-            // In real implementation, fetch department from API
-            departmentField.value = 'Computer Science';
+            const selectedOption = this.options[this.selectedIndex];
+            departmentField.value = selectedOption?.dataset?.department || '';
         } else {
             departmentField.value = '';
         }

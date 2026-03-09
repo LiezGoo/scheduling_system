@@ -340,18 +340,37 @@ document.addEventListener('DOMContentLoaded', function () {
     let loadSummary = {
         current_lecture_hours: 0,
         current_lab_hours: 0,
-        contract_type: 'unspecified',
         max_lecture_hours: null,
         max_lab_hours: null,
+        max_hours_per_day: null,
+    };
+
+    const getSelectedSemesterName = () => {
+        if (!assignSemester) return '';
+        const option = assignSemester.options[assignSemester.selectedIndex];
+        return option ? option.text.trim() : '';
+    };
+
+    const getSelectedBlockName = () => {
+        if (!assignBlockSection) return '';
+        const option = assignBlockSection.options[assignBlockSection.selectedIndex];
+        return option ? option.text.trim() : '';
+    };
+
+    const hasCompleteBlockContext = () => {
+        return [assignProgram, assignAcademicYear, assignSemester, assignYearLevel]
+            .every((field) => field && String(field.value || '').trim() !== '');
     };
 
     const getAssignmentContext = () => ({
         faculty_id: assignFaculty?.value || '',
         program_id: assignProgram?.value || '',
         academic_year_id: assignAcademicYear?.value || '',
-        semester: assignSemester?.value || '',
+        semester_id: assignSemester?.value || '',
+        semester: getSelectedSemesterName(),
         year_level: assignYearLevel?.value || '',
-        block_section: assignBlockSection?.value?.trim() || '',
+        block_id: assignBlockSection?.value || '',
+        block_section: getSelectedBlockName(),
     });
 
     const hasCompleteAssignmentContext = () => {
@@ -371,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .map((row) => ({
                 rowIndex: parseInt(row.dataset.rowIndex, 10),
                 subject_id: parseInt(row.dataset.subjectId, 10),
-                block: row.querySelector('.assign-row-block')?.value?.trim() || assignBlockSection?.value?.trim() || '',
+                block: getSelectedBlockName(),
                 lecture_hours: parseInt(row.dataset.lectureHours || '0', 10),
                 lab_hours: parseInt(row.dataset.labHours || '0', 10),
             }));
@@ -391,11 +410,13 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const blockDefault = assignBlockSection?.value?.trim() || '';
+        const blockDefault = getSelectedBlockName();
 
         assignSubjectsTableBody.innerHTML = subjects.map((subject, index) => {
             const disabled = subject.already_assigned ? 'disabled' : '';
-            const errorText = subject.error ? `<span class="text-danger small">${subject.error}</span>` : '';
+            const statusBadge = subject.already_assigned 
+                ? '<span class="status-badge-error">Already Assigned</span>' 
+                : '<span class="status-badge-valid" data-row-status="valid">✓ Available</span>';
 
             return `
                 <tr data-row-index="${index}" data-subject-id="${subject.subject_id}" data-lecture-hours="${subject.lecture_hours}" data-lab-hours="${subject.lab_hours}">
@@ -407,10 +428,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td class="text-center">${subject.lecture_hours}</td>
                     <td class="text-center">${subject.lab_hours}</td>
                     <td class="text-center fw-semibold">${subject.total_hours}</td>
-                    <td>
-                        <input type="text" class="form-control form-control-sm assign-row-block" value="${blockDefault}" ${disabled}>
-                    </td>
-                    <td class="assign-row-error">${errorText}</td>
+                    <td class="text-center">${blockDefault || '-'}</td>
+                    <td class="assign-row-status">${statusBadge}</td>
                 </tr>
             `;
         }).join('');
@@ -419,20 +438,36 @@ document.addEventListener('DOMContentLoaded', function () {
             assignSelectAllSubjects.checked = false;
         }
 
-        assignSubjectsTableBody.querySelectorAll('.assign-subject-checkbox, .assign-row-block').forEach((element) => {
+        assignSubjectsTableBody.querySelectorAll('.assign-subject-checkbox').forEach((element) => {
             element.addEventListener('change', updateBulkLoadSummary);
-            element.addEventListener('input', updateBulkLoadSummary);
         });
 
         updateBulkLoadSummary();
     }
 
+    function renderContextSelectionMessage() {
+        if (!assignSubjectsTableBody) return;
+
+        assignSubjectsTableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-3">Select faculty, program, academic year, semester, year level, and block to load subjects.</td>
+            </tr>
+        `;
+
+        if (assignSelectAllSubjects) {
+            assignSelectAllSubjects.checked = false;
+        }
+    }
+
     function resetSubjectRowErrors() {
         document.querySelectorAll('#assignSubjectsTableBody tr[data-row-index]').forEach((row) => {
-            row.classList.remove('table-danger');
-            const errorCell = row.querySelector('.assign-row-error');
-            if (errorCell) {
-                errorCell.innerHTML = '';
+            row.classList.remove('table-danger', 'table-warning');
+            const statusCell = row.querySelector('.assign-row-status');
+            if (statusCell) {
+                const checkbox = row.querySelector('.assign-subject-checkbox');
+                if (checkbox && !checkbox.disabled) {
+                    statusCell.innerHTML = '<span class="status-badge-valid" data-row-status="valid">✓ Available</span>';
+                }
             }
         });
     }
@@ -444,8 +479,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const row = document.querySelector(`#assignSubjectsTableBody tr[data-row-index="${index}"]`);
             if (!row) return;
             row.classList.add('table-danger');
-            const errorCell = row.querySelector('.assign-row-error');
-            if (!errorCell) return;
+            const statusCell = row.querySelector('.assign-row-status');
+            if (!statusCell) return;
 
             const messages = Object.values(errorBag || {})
                 .flatMap((value) => (Array.isArray(value) ? value : [value]))
@@ -453,7 +488,56 @@ document.addEventListener('DOMContentLoaded', function () {
                 .map((value) => `<div class="small text-danger">${value}</div>`)
                 .join('');
 
-            errorCell.innerHTML = messages;
+            statusCell.innerHTML = `<span class="status-badge-error">${messages}</span>`;
+        });
+    }
+
+    function updateLoadStatusVisuals(status) {
+        // Update projected load card
+        const projectedCard = document.getElementById('projectedLoadCard');
+        const remainingCard = document.getElementById('remainingLoadCard');
+        
+        if (projectedCard) {
+            projectedCard.classList.remove('status-valid', 'status-approaching', 'status-exceeded');
+            
+            if (status.lecture === 'exceeded' || status.lab === 'exceeded') {
+                projectedCard.classList.add('status-exceeded');
+            } else if (status.lecture === 'approaching' || status.lab === 'approaching') {
+                projectedCard.classList.add('status-approaching');
+            } else {
+                projectedCard.classList.add('status-valid');
+            }
+        }
+
+        if (remainingCard) {
+            remainingCard.classList.remove('status-valid', 'status-approaching', 'status-exceeded');
+            
+            if (status.lecture === 'exceeded' || status.lab === 'exceeded') {
+                remainingCard.classList.add('status-exceeded');
+            } else if (status.lecture === 'approaching' || status.lab === 'approaching') {
+                remainingCard.classList.add('status-approaching');
+            } else {
+                remainingCard.classList.add('status-valid');
+            }
+        }
+
+        // Update subject row status badges based on whether selection would exceed limits
+        document.querySelectorAll('#assignSubjectsTableBody tr[data-row-index]').forEach((row) => {
+            const checkbox = row.querySelector('.assign-subject-checkbox');
+            const statusCell = row.querySelector('.assign-row-status');
+            
+            if (checkbox && !checkbox.disabled && checkbox.checked && statusCell) {
+                if (status.lecture === 'exceeded' || status.lab === 'exceeded') {
+                    statusCell.innerHTML = '<span class="status-badge-error">⚠ Exceeds Limit</span>';
+                    row.classList.add('table-warning');
+                } else if (status.lecture === 'approaching' || status.lab === 'approaching') {
+                    statusCell.innerHTML = '<span class="status-badge-warning">⚡ Near Limit</span>';
+                    row.classList.remove('table-warning');
+                } else {
+                    statusCell.innerHTML = '<span class="status-badge-valid">✓ Valid</span>';
+                    row.classList.remove('table-warning');
+                }
+            }
         });
     }
 
@@ -481,39 +565,63 @@ document.addEventListener('DOMContentLoaded', function () {
 
         setText('summaryCurrentLecture', currentLecture);
         setText('summaryCurrentLab', currentLab);
-        setText('summaryContractType', toTitleCase(loadSummary.contract_type));
         setText('summaryLectureLimit', lectureLimit === null ? 'N/A' : lectureLimit);
         setText('summaryLabLimit', labLimit === null ? 'N/A' : labLimit);
-        setText('summarySelectedLecture', selectedLecture);
-        setText('summarySelectedLab', selectedLab);
         setText('summaryProjectedLecture', projectedLecture);
         setText('summaryProjectedLab', projectedLab);
         setText('summaryRemainingLecture', remainingLecture === null ? 'N/A' : remainingLecture);
         setText('summaryRemainingLab', remainingLab === null ? 'N/A' : remainingLab);
 
-        const overLimit = (lectureLimit !== null && projectedLecture > lectureLimit)
-            || (labLimit !== null && projectedLab > labLimit);
+        // Determine status
+        let lectureStatus = 'valid';
+        let labStatus = 'valid';
+
+        if (lectureLimit !== null) {
+            const lectureRatio = lectureLimit > 0 ? (projectedLecture / lectureLimit) : 0;
+            if (projectedLecture > lectureLimit) {
+                lectureStatus = 'exceeded';
+            } else if (lectureRatio >= 0.85) {
+                lectureStatus = 'approaching';
+            }
+        }
+
+        if (labLimit !== null) {
+            const labRatio = labLimit > 0 ? (projectedLab / labLimit) : 0;
+            if (projectedLab > labLimit) {
+                labStatus = 'exceeded';
+            } else if (labRatio >= 0.85) {
+                labStatus = 'approaching';
+            }
+        }
+
+        const overLimit = lectureStatus === 'exceeded' || labStatus === 'exceeded';
 
         const warningEl = document.getElementById('summaryLimitWarning');
+        const warningTextEl = document.getElementById('summaryWarningText');
+        
         if (warningEl) {
-            warningEl.classList.toggle('d-none', !overLimit);
+            if (overLimit) {
+                warningEl.classList.remove('d-none');
+                if (warningTextEl) {
+                    const messages = [];
+                    if (lectureStatus === 'exceeded') messages.push('Lecture hours exceed limit');
+                    if (labStatus === 'exceeded') messages.push('Lab hours exceed limit');
+                    warningTextEl.textContent = messages.join(' | ');
+                }
+            } else {
+                warningEl.classList.add('d-none');
+            }
         }
 
-        ['summaryProjectedLecture', 'summaryProjectedLab', 'summaryRemainingLecture', 'summaryRemainingLab'].forEach((id) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.classList.remove('text-danger');
+        // Update visual status
+        updateLoadStatusVisuals({
+            lecture: lectureStatus,
+            lab: labStatus,
+            can_assign: !overLimit
         });
 
-        if (overLimit) {
-            ['summaryProjectedLecture', 'summaryProjectedLab', 'summaryRemainingLecture', 'summaryRemainingLab'].forEach((id) => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('text-danger');
-            });
-        }
-
         if (assignSubmitBtn) {
-            assignSubmitBtn.disabled = selectedRows.length === 0;
+            assignSubmitBtn.disabled = selectedRows.length === 0 || overLimit;
         }
     }
 
@@ -665,9 +773,11 @@ document.addEventListener('DOMContentLoaded', function () {
             faculty_id: assignFaculty.value,
             program_id: assignProgram.value,
             academic_year_id: assignAcademicYear.value,
-            semester: assignSemester.value,
+            semester_id: assignSemester.value,
+            semester: getSelectedSemesterName(),
             year_level: assignYearLevel.value,
-            block_section: assignBlockSection.value.trim(),
+            block_id: assignBlockSection.value,
+            block_section: getSelectedBlockName(),
             subject_id: assignSubject.value,
         }).toString();
 
@@ -702,12 +812,54 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function syncRowBlocksWithGlobalBlock() {
-        const block = assignBlockSection?.value?.trim() || '';
-        document.querySelectorAll('#assignSubjectsTableBody .assign-row-block').forEach((input) => {
-            if (input.disabled) return;
-            input.value = block;
-        });
+    function loadBlocks() {
+        if (!assignBlockSection) return;
+
+        if (!hasCompleteBlockContext()) {
+            assignBlockSection.innerHTML = '<option value="">Select Program, Year, AY, and Semester first</option>';
+            assignBlockSection.disabled = true;
+            return;
+        }
+
+        const params = new URLSearchParams({
+            program_id: assignProgram.value,
+            year_level_id: assignYearLevel.value,
+            academic_year_id: assignAcademicYear.value,
+            semester_id: assignSemester.value,
+        }).toString();
+
+        fetch(`/program-head/blocks/filter?${params}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Unable to fetch blocks.');
+                }
+                return response.json();
+            })
+            .then((blocks) => {
+                if (!Array.isArray(blocks) || blocks.length === 0) {
+                    assignBlockSection.innerHTML = '<option value="">No blocks available</option>';
+                    assignBlockSection.disabled = true;
+                    renderContextSelectionMessage();
+                    return;
+                }
+
+                const options = ['<option value="">Select Block/Section</option>']
+                    .concat(blocks.map((block) => `<option value="${block.id}">${block.block_name}</option>`));
+
+                assignBlockSection.innerHTML = options.join('');
+                assignBlockSection.disabled = false;
+            })
+            .catch((error) => {
+                console.error('Block fetch error:', error);
+                assignBlockSection.innerHTML = '<option value="">No blocks available</option>';
+                assignBlockSection.disabled = true;
+            });
     }
 
     function loadAssignableSubjects() {
@@ -718,18 +870,23 @@ document.addEventListener('DOMContentLoaded', function () {
             loadSummary = {
                 current_lecture_hours: 0,
                 current_lab_hours: 0,
-                contract_type: 'unspecified',
                 max_lecture_hours: null,
                 max_lab_hours: null,
+                max_hours_per_day: null,
             };
-            renderAssignableSubjectsTable([]);
+            renderContextSelectionMessage();
+            updateBulkLoadSummary();
             return;
         }
 
         const context = getAssignmentContext();
         const params = new URLSearchParams(context).toString();
 
-        fetch(`${baseUrl}/api/assignable-subjects?${params}`, {
+        const subjectsEndpoint = window.location.pathname.includes('/program-head')
+            ? `/program-head/fetch-subjects?${params}`
+            : `${baseUrl}/api/assignable-subjects?${params}`;
+
+        fetch(subjectsEndpoint, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -757,18 +914,73 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function loadFacultyWorkloadLimits() {
+        if (!assignFaculty?.value) {
+            loadSummary.current_lecture_hours = 0;
+            loadSummary.current_lab_hours = 0;
+            loadSummary.max_lecture_hours = null;
+            loadSummary.max_lab_hours = null;
+            loadSummary.max_hours_per_day = null;
+            updateBulkLoadSummary();
+            return;
+        }
+
+        const params = new URLSearchParams({
+            program_id: assignProgram?.value || '',
+            academic_year_id: assignAcademicYear?.value || '',
+            semester_id: assignSemester?.value || '',
+            semester: getSelectedSemesterName(),
+        }).toString();
+
+        const workloadUrl = window.location.pathname.includes('/program-head')
+            ? `/program-head/faculty-workload/${assignFaculty.value}?${params}`
+            : `${baseUrl}/api/load-summary?faculty_id=${assignFaculty.value}`;
+
+        fetch(workloadUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().then((data) => {
+                        throw new Error(data.message || 'Failed to load faculty workload limits.');
+                    });
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                loadSummary.current_lecture_hours = Number(payload.current_lecture ?? 0);
+                loadSummary.current_lab_hours = Number(payload.current_lab ?? 0);
+                loadSummary.max_lecture_hours = payload.lecture_limit ?? null;
+                loadSummary.max_lab_hours = payload.lab_limit ?? null;
+                loadSummary.max_hours_per_day = payload.max_hours_per_day ?? null;
+                updateBulkLoadSummary();
+            })
+            .catch((error) => {
+                showAssignMessage('error', error.message || 'Failed to load faculty workload limits.');
+            });
+    }
+
     if (isBulkAssignMode) {
         [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
             if (!field) return;
-            field.addEventListener('change', loadAssignableSubjects);
+            field.addEventListener('change', () => {
+                loadBlocks();
+                loadFacultyWorkloadLimits();
+                loadAssignableSubjects();
+            });
         });
 
         if (assignBlockSection) {
-            assignBlockSection.addEventListener('input', () => {
-                syncRowBlocksWithGlobalBlock();
+            assignBlockSection.addEventListener('change', () => {
                 updateBulkLoadSummary();
                 if (hasCompleteAssignmentContext()) {
                     loadAssignableSubjects();
+                } else {
+                    renderContextSelectionMessage();
                 }
             });
         }
@@ -782,16 +994,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateBulkLoadSummary();
             });
         }
+
+        renderContextSelectionMessage();
+        loadBlocks();
+        loadFacultyWorkloadLimits();
     }
 
     if (isOneByOneAssignMode) {
         [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
             if (!field) return;
-            field.addEventListener('change', loadOneByOneAssignmentContext);
+            field.addEventListener('change', () => {
+                loadBlocks();
+                loadOneByOneAssignmentContext();
+            });
         });
 
         if (assignBlockSection) {
-            assignBlockSection.addEventListener('input', loadOneByOneAssignmentContext);
+            assignBlockSection.addEventListener('change', loadOneByOneAssignmentContext);
         }
 
         if (assignSubject) {
@@ -1179,11 +1398,11 @@ document.addEventListener('DOMContentLoaded', function () {
         loadSummary = {
             current_lecture_hours: 0,
             current_lab_hours: 0,
-            contract_type: 'unspecified',
             max_lecture_hours: null,
             max_lab_hours: null,
+            max_hours_per_day: null,
         };
-        renderAssignableSubjectsTable([]);
+        renderContextSelectionMessage();
         updateBulkLoadSummary();
         if (assignSelectAllSubjects) {
             assignSelectAllSubjects.checked = false;
@@ -1200,80 +1419,4 @@ document.addEventListener('DOMContentLoaded', function () {
         editForm.reset();
     });
 });
-        
-                // Load workload configuration when faculty or program changes
-                if (assignFaculty) {
-                    assignFaculty.addEventListener('change', loadFacultyWorkloadConfiguration);
-                }
-                if (assignProgram) {
-                    assignProgram.addEventListener('change', loadFacultyWorkloadConfiguration);
-                }
-        
-            // Load workload configuration when faculty or program changes
-            if (assignFaculty) {
-                assignFaculty.addEventListener('change', loadFacultyWorkloadConfiguration);
-            }
-            if (assignProgram) {
-                assignProgram.addEventListener('change', loadFacultyWorkloadConfiguration);
-            }
-    function loadFacultyWorkloadConfiguration() {
-        // Only fetch when both faculty and program are selected
-        if (!assignFaculty?.value || !assignProgram?.value) {
-            renderAvailabilityRows([]);
-            return;
-        }
-
-        const params = new URLSearchParams({
-            faculty_id: assignFaculty.value,
-            program_id: assignProgram.value,
-        }).toString();
-
-        fetch(`${baseUrl}/api/workload-configuration?${params}`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-            .then((response) => {
-                if (!response.ok) {
-                    return response.json().then((data) => {
-                        const errorMsg = data.message || 'Failed to load workload configuration.';
-                        throw new Error(errorMsg);
-                    });
-                }
-                return response.json();
-            })
-            .then((payload) => {
-                if (payload.success && payload.data) {
-                    const config = payload.data;
-                    
-                    // Render the teaching schedule availability
-                    const availabilityRows = (config.teaching_schedule || [])
-                        .filter(s => s.is_available)
-                        .map(s => ({
-                            day: s.day,
-                            start_time: s.start_time,
-                            end_time: s.end_time,
-                        }));
-                    
-                    renderAvailabilityRows(availabilityRows);
-                    
-                    // Update max hours per day if displayed
-                    const maxHoursElement = document.getElementById('assignMaxHoursPerDay');
-                    if (maxHoursElement) {
-                        maxHoursElement.textContent = config.max_hours_per_day || 'N/A';
-                    }
-                    
-                    console.log('Faculty workload configuration loaded:', config);
-                } else {
-                    renderAvailabilityRows([]);
-                    console.warn('No workload configuration found for the selected faculty and program.');
-                }
-            })
-            .catch((error) => {
-                renderAvailabilityRows([]);
-                console.warn('Warning: Could not load faculty workload configuration.', error.message);
-            });
-    }
 

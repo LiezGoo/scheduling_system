@@ -43,9 +43,11 @@
                             <label for="filterContractType" class="form-label">Contract Type</label>
                             <select class="form-select" id="filterContractType" name="contract_type">
                                 <option value="">All Types</option>
-                                <option value="Full-Time" @selected(request('contract_type') == 'Full-Time')>Full-Time</option>
-                                <option value="Part-Time" @selected(request('contract_type') == 'Part-Time')>Part-Time</option>
-                                <option value="Contractual" @selected(request('contract_type') == 'Contractual')>Contractual</option>
+                                @foreach ($contractTypeOptions as $contractTypeOption)
+                                    <option value="{{ $contractTypeOption }}" @selected(request('contract_type') == $contractTypeOption)>
+                                        {{ $contractTypeOption }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-center gap-2">
@@ -70,7 +72,6 @@
                             <tr>
                                 <th>Faculty Name</th>
                                 <th class="text-center">Department</th>
-                                <th class="text-center">Contract Type</th>
                                 <th class="text-center">Lecture Limit</th>
                                 <th class="text-center">Lab Limit</th>
                                 <th class="text-center">Max Hours/Day</th>
@@ -99,6 +100,7 @@
     </div>
 
     @include('program-head.faculty-workload-configurations.modals.configure-workload')
+    @include('program-head.faculty-workload-configurations.modals.view-workload')
     @include('components.modals.confirm-modal')
     @include('components.modals.success-modal')
     @include('components.modals.error-modal')
@@ -152,6 +154,47 @@
 
 @push('scripts')
     <script>
+        // Global toast notification function
+        window.showToast = function(type, message) {
+            const toastContainer = document.getElementById('globalToastContainer');
+            if (!toastContainer) return;
+
+            const iconMap = {
+                'success': 'fa-circle-check',
+                'error': 'fa-circle-xmark',
+                'warning': 'fa-triangle-exclamation'
+            };
+
+            const bgMap = {
+                'success': 'text-bg-success',
+                'error': 'text-bg-danger',
+                'warning': 'text-bg-warning'
+            };
+
+            const toastHtml = `
+                <div class="toast align-items-center ${bgMap[type] || 'text-bg-info'} border-0 shadow-sm" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fa-solid ${iconMap[type] || 'fa-info-circle'} me-2"></i>${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = toastHtml;
+            const toastElement = tempDiv.firstElementChild;
+            toastContainer.appendChild(toastElement);
+
+            const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+            toast.show();
+
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             const filterForm = document.getElementById('filterForm');
             const filterInputs = filterForm.querySelectorAll('input, select');
@@ -181,18 +224,28 @@
             });
 
             // Apply filters via AJAX
-            function applyFilters() {
+            function applyFilters(options = {}) {
+                const { silent = false } = options;
                 const formData = new FormData(filterForm);
                 const params = new URLSearchParams(formData);
 
                 spinner.classList.remove('d-none');
 
-                fetch(`${filterForm.dataset.listUrl}?${params}`, {
+                return fetch(`${filterForm.dataset.listUrl}?${params}`, {
                         headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
                         }
                     })
-                    .then(response => response.json())
+                    .then(async (response) => {
+                        const payload = await response.json().catch(() => null);
+
+                        if (!response.ok || !payload) {
+                            throw new Error('Invalid filter response.');
+                        }
+
+                        return payload;
+                    })
                     .then(data => {
                         if (data.success) {
                             tableBody.innerHTML = data.html;
@@ -205,15 +258,20 @@
                             }
                             // Re-attach click handlers
                             attachActionHandlers();
+
+                            return true;
                         }
+
+                        throw new Error('Filter request did not return success.');
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        openSystemModal({
-                            type: 'error',
-                            title: 'Error',
-                            message: 'An error occurred while filtering. Please refresh the page.'
-                        });
+
+                        if (!silent) {
+                            showToast('error', 'An error occurred while filtering. Please refresh the page.');
+                        }
+
+                        return false;
                     })
                     .finally(() => spinner.classList.add('d-none'));
             }
@@ -222,8 +280,8 @@
             attachActionHandlers();
 
             // Expose table refresh so modal save/delete can update list without full page reload.
-            window.refreshFacultyWorkloadTable = function() {
-                applyFilters();
+            window.refreshFacultyWorkloadTable = function(options = {}) {
+                return applyFilters(options);
             };
 
             function attachActionHandlers() {
@@ -270,11 +328,7 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                openSystemModal({
-                    type: 'error',
-                    title: 'Error',
-                    message: 'Failed to load configuration.'
-                });
+                showToast('error', 'Failed to load configuration.');
             });
         }
 
@@ -288,22 +342,118 @@
             .then(data => {
                 if (data.success) {
                     const config = data.configuration;
-                    alert(`Faculty: ${config.faculty.name}\nDepartment: ${config.program.department.department_name}\nContract Type: ${config.contract_type}\nLecture Limit: ${config.max_lecture_hours}\nLab Limit: ${config.max_lab_hours}\nMax Hours/Day: ${config.max_hours_per_day}\nAvailable Days: ${config.available_days.join(', ')}`);
+                    populateViewModal(config);
+                    const modal = new bootstrap.Modal(document.getElementById('viewWorkloadModal'));
+                    modal.show();
+                } else {
+                    showToast('error', 'Failed to load configuration.');
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'An error occurred while loading the configuration.');
+            });
+        }
+
+        function populateViewModal(config) {
+            const facultyName = [config?.faculty?.first_name, config?.faculty?.last_name].filter(Boolean).join(' ').trim();
+            const resolvedFacultyName = facultyName || config?.faculty?.full_name || config?.faculty?.name || '-';
+            const resolvedDepartmentName = config?.faculty?.department?.department_name || config?.program?.department?.department_name || '-';
+
+            // Faculty information
+            document.getElementById('viewFacultyName').textContent = resolvedFacultyName;
+            document.getElementById('viewDepartmentName').textContent = resolvedDepartmentName;
+
+            // Status badge
+            const statusBadge = document.getElementById('viewStatus');
+            if (config.is_active) {
+                statusBadge.className = 'badge bg-success';
+                statusBadge.textContent = 'Active';
+            } else {
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = 'Inactive';
+            }
+
+            // Teaching load constraints
+            document.getElementById('viewMaxLectureHours').textContent = config.max_lecture_hours + ' hrs/week';
+            document.getElementById('viewMaxLabHours').textContent = config.max_lab_hours + ' hrs/week';
+            document.getElementById('viewMaxHoursPerDay').textContent = config.max_hours_per_day + ' hrs/day';
+
+            // Availability schedule
+            const availabilityContainer = document.getElementById('viewAvailabilitySchedule');
+            availabilityContainer.innerHTML = '';
+
+            const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const teachingScheme = config.teaching_scheme || {};
+            const availableDays = Array.isArray(config.available_days) ? config.available_days : [];
+
+            const formatTime = (timeValue) => {
+                if (!timeValue) {
+                    return '-';
+                }
+
+                const hhmm = String(timeValue).substring(0, 5);
+                return new Date(`1970-01-01T${hhmm}:00`).toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+            };
+
+            daysOfWeek.forEach((day) => {
+                const scheme = teachingScheme[day] || teachingScheme[day.toLowerCase()] || {};
+                const hasStartEnd = !!(scheme.start && scheme.end);
+                const isEnabled = hasStartEnd || availableDays.includes(day);
+
+                const startTime = formatTime(scheme.start);
+                const endTime = formatTime(scheme.end);
+
+                const availabilityItem = document.createElement('div');
+                availabilityItem.className = `availability-item ${!isEnabled ? 'disabled' : ''}`;
+                availabilityItem.innerHTML = `
+                    <div class="availability-day">
+                        <i class="fa-solid fa-calendar-day me-2"></i>${day}
+                    </div>
+                    <div class="availability-time ${isEnabled ? '' : 'availability-time-muted'}">${isEnabled ? startTime : '-'}</div>
+                    <div class="availability-time ${isEnabled ? '' : 'availability-time-muted'}">${isEnabled ? endTime : '-'}</div>
+                    <div class="text-end">
+                        ${isEnabled
+                            ? '<span class="badge bg-success availability-badge">Available</span>'
+                            : '<span class="badge bg-secondary availability-badge">Not Available</span>'
+                        }
+                    </div>
+                `;
+                availabilityContainer.appendChild(availabilityItem);
             });
         }
 
         function deleteConfiguration(configId, facultyName) {
-            openSystemModal({
-                type: 'confirm',
-                title: 'Confirm Deletion',
-                message: `Are you sure you want to delete the workload configuration for ${facultyName}?`,
-                confirmText: 'Delete',
-                cancelText: 'Cancel',
-                onConfirm: function() {
+            const confirmModalEl = document.getElementById('confirmActionModal');
+            const confirmTitle = document.getElementById('confirmModalTitle');
+            const confirmMessage = document.getElementById('confirmModalMessage');
+            const confirmButton = document.getElementById('confirmActionButton');
+            const confirmForm = document.getElementById('confirmActionForm');
+
+            if (!confirmModalEl || !confirmTitle || !confirmMessage || !confirmButton || !confirmForm) {
+                if (confirm(`Are you sure you want to delete the workload configuration for ${facultyName}? This action cannot be undone.`)) {
                     performDelete(configId);
                 }
-            });
+                return;
+            }
+
+            const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+
+            confirmTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-2"></i>Confirm Deletion';
+            confirmMessage.textContent = `Are you sure you want to delete the workload configuration for ${facultyName}? This action cannot be undone.`;
+            confirmButton.className = 'btn btn-maroon';
+            confirmButton.innerHTML = '<i class="fa-solid fa-trash me-1"></i>Delete';
+
+            confirmForm.onsubmit = function(e) {
+                e.preventDefault();
+                confirmModal.hide();
+                performDelete(configId);
+            };
+
+            confirmModal.show();
         }
 
         function performDelete(configId) {
@@ -320,29 +470,22 @@
             .then(data => {
                 if (data.success) {
                     if (typeof window.refreshFacultyWorkloadTable === 'function') {
-                        window.refreshFacultyWorkloadTable();
+                        window.refreshFacultyWorkloadTable({ silent: true })
+                            .then((refreshed) => {
+                                if (!refreshed) {
+                                    console.warn('Table refresh failed after delete. Keeping success state visible.');
+                                }
+                            });
                     }
 
-                    openSystemModal({
-                        type: 'success',
-                        title: 'Success',
-                        message: data.message || 'Configuration deleted successfully.',
-                    });
+                    showToast('success', data.message || 'Faculty workload configuration deleted successfully!');
                 } else {
-                    openSystemModal({
-                        type: 'error',
-                        title: 'Error',
-                        message: data.message || 'Failed to delete configuration.'
-                    });
+                    showToast('error', data.message || 'Failed to delete configuration.');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                openSystemModal({
-                    type: 'error',
-                    title: 'Error',
-                    message: 'An error occurred while deleting.'
-                });
+                showToast('error', 'An error occurred while deleting.');
             });
         }
     </script>

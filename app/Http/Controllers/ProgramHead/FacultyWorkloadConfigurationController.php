@@ -22,11 +22,9 @@ class FacultyWorkloadConfigurationController extends Controller
         $department = $program->department;
 
         // Get eligible users for workload configuration dropdown (same as Faculty Load Management)
-        $facultyMembers = User::where('department_id', $department->id)
-            ->whereIn('role', [
-                'instructor',
-                'program_head',
-                'department_head'
+        $facultyMembers = User::whereNotIn('role', [
+                'admin',
+                'student'
             ])
             ->where('is_active', true)
             ->orderBy('first_name')
@@ -88,11 +86,9 @@ class FacultyWorkloadConfigurationController extends Controller
         $program = auth()->user()->program;
         $department = $program->department;
 
-        $facultyMembers = User::where('department_id', $department->id)
-            ->whereIn('role', [
-                'instructor',
-                'program_head',
-                'department_head'
+        $facultyMembers = User::whereNotIn('role', [
+                'admin',
+                'student'
             ])
             ->where('is_active', true)
             ->orderBy('first_name')
@@ -118,8 +114,10 @@ class FacultyWorkloadConfigurationController extends Controller
             $validated = $request->sanitized();
 
             // Check for duplicate
-            $existing = FacultyWorkloadConfiguration::where('user_id', $validated['user_id'])
+            $existing = FacultyWorkloadConfiguration::withTrashed()
+                ->where('user_id', $validated['user_id'])
                 ->where('program_id', $program->id)
+                ->whereNull('deleted_at')
                 ->first();
 
             if ($existing) {
@@ -167,7 +165,10 @@ class FacultyWorkloadConfigurationController extends Controller
     {
         $this->authorize('view', $facultyWorkloadConfiguration);
 
-        $facultyWorkloadConfiguration->load(['faculty', 'program']);
+        $facultyWorkloadConfiguration->load([
+            'faculty.department',
+            'program.department',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -185,11 +186,9 @@ class FacultyWorkloadConfigurationController extends Controller
         $program = auth()->user()->program;
         $department = $program->department;
 
-        $facultyMembers = User::where('department_id', $department->id)
-            ->whereIn('role', [
-                'instructor',
-                'program_head',
-                'department_head'
+        $facultyMembers = User::whereNotIn('role', [
+                'admin',
+                'student'
             ])
             ->where('is_active', true)
             ->orderBy('first_name')
@@ -198,7 +197,10 @@ class FacultyWorkloadConfigurationController extends Controller
 
         return response()->json([
             'success' => true,
-            'configuration' => $facultyWorkloadConfiguration->load(['faculty', 'program']),
+            'configuration' => $facultyWorkloadConfiguration->load([
+                'faculty.department',
+                'program.department',
+            ]),
             'faculty' => $facultyMembers,
         ]);
     }

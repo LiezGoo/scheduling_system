@@ -50,9 +50,9 @@
                             </label>
                             <select class="form-select form-select-sm" id="semester" name="semester" required>
                                 <option value="">-- Select Semester --</option>
-                                <option value="1">1st Semester</option>
-                                <option value="2">2nd Semester</option>
-                                <option value="3">Summer</option>
+                                @foreach ($semesterOptions as $semesterOption)
+                                    <option value="{{ $semesterOption }}">{{ $semesterOption }}</option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -63,9 +63,9 @@
                             </label>
                             <select class="form-select form-select-sm" id="department" name="department_id" required>
                                 <option value="">-- Select Department --</option>
-                                <option value="1">Computer Science</option>
-                                <option value="2">Engineering</option>
-                                <option value="3">Business</option>
+                                @foreach ($departmentOptions as $departmentOption)
+                                    <option value="{{ $departmentOption->id }}">{{ $departmentOption->department_name }}</option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -76,8 +76,9 @@
                             </label>
                             <select class="form-select form-select-sm" id="program" name="program_id" required>
                                 <option value="">-- Select Program --</option>
-                                <option value="1">BS Computer Science</option>
-                                <option value="2">BS Information Technology</option>
+                                @foreach ($programOptions as $programOption)
+                                    <option value="{{ $programOption->id }}">{{ $programOption->program_name }}</option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -88,10 +89,9 @@
                             </label>
                             <select class="form-select form-select-sm" id="yearLevel" name="year_level" required>
                                 <option value="">-- Select Year Level --</option>
-                                <option value="1">1st Year</option>
-                                <option value="2">2nd Year</option>
-                                <option value="3">3rd Year</option>
-                                <option value="4">4th Year</option>
+                                @foreach ($yearLevelOptions as $yearLevelOption)
+                                    <option value="{{ $yearLevelOption['value'] }}">{{ $yearLevelOption['label'] }}</option>
+                                @endforeach
                             </select>
                         </div>
 

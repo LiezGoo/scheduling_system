@@ -62,9 +62,11 @@
                             <label for="filterSemester" class="form-label">Semester</label>
                             <select class="form-select" id="filterSemester" name="semester">
                                 <option value="">All Semesters</option>
-                                <option value="1st" {{ request('semester') === '1st' ? 'selected' : '' }}>1st</option>
-                                <option value="2nd" {{ request('semester') === '2nd' ? 'selected' : '' }}>2nd</option>
-                                <option value="summer" {{ request('semester') === 'summer' ? 'selected' : '' }}>Summer</option>
+                                @foreach ($semesterOptions as $semesterOption)
+                                    <option value="{{ $semesterOption }}" {{ request('semester') === $semesterOption ? 'selected' : '' }}>
+                                        {{ $semesterOption }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -249,9 +251,9 @@
                                                 <label for="assignSemester" class="form-label">Semester <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="assignSemester" name="semester" required>
                                                     <option value="">Select Semester</option>
-                                                    <option value="1st">1st Semester</option>
-                                                    <option value="2nd">2nd Semester</option>
-                                                    <option value="summer">Summer</option>
+                                                    @foreach ($semesterOptions as $semesterOption)
+                                                        <option value="{{ $semesterOption }}">{{ $semesterOption }}</option>
+                                                    @endforeach
                                                 </select>
                                                 <div class="invalid-feedback"></div>
                                             </div>
@@ -271,12 +273,9 @@
                                                 <label for="assignYearLevel" class="form-label">Year Level <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="assignYearLevel" name="year_level" required>
                                                     <option value="">Select Year Level</option>
-                                                    <option value="1">1st Year</option>
-                                                    <option value="2">2nd Year</option>
-                                                    <option value="3">3rd Year</option>
-                                                    <option value="4">4th Year</option>
-                                                    <option value="5">5th Year</option>
-                                                    <option value="6">6th Year</option>
+                                                    @foreach ($yearLevelOptions as $yearLevelOption)
+                                                        <option value="{{ $yearLevelOption['value'] }}">{{ $yearLevelOption['label'] }}</option>
+                                                    @endforeach
                                                 </select>
                                                 <div class="invalid-feedback"></div>
                                             </div>
@@ -817,5 +816,5 @@
     </style>
 
     <!-- JavaScript for Faculty Load Management -->
-    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260221"></script>
+    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260308"></script>
 @endsection

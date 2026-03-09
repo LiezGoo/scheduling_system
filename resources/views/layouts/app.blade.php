@@ -127,6 +127,20 @@
                 'pattern' => 'admin/semesters*',
             ],
             [
+                'label' => 'Year Levels',
+                'icon' => 'fa-solid fa-layer-group',
+                'href' => route('admin.year-levels.index'),
+                'roles' => ['admin'],
+                'route' => 'admin.year-levels.*',
+            ],
+            [
+                'label' => 'Blocks / Sections',
+                'icon' => 'fa-solid fa-th-large',
+                'href' => route('admin.blocks.index'),
+                'roles' => ['admin'],
+                'route' => 'admin.blocks.*',
+            ],
+            [
                 'label' => 'Department',
                 'icon' => 'fa-solid fa-building',
                 'href' => route('admin.departments.index'),

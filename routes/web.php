@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\FacultyLoadController;
 use App\Http\Controllers\Admin\ProgramSubjectController;
 use App\Http\Controllers\Admin\AcademicYearController;
+use App\Http\Controllers\Admin\YearLevelController;
 use App\Http\Controllers\Admin\SemesterController as AdminSemesterController;
 use App\Http\Controllers\Api\SemesterController as ApiSemesterController;
 use App\Http\Controllers\ProgramHead\CurriculumController as ProgramHeadCurriculumController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\DepartmentHead\ScheduleController as DepartmentHeadSche
 use App\Http\Controllers\DepartmentHead\ScheduleReviewController as DepartmentHeadScheduleReviewController;
 use App\Http\Controllers\DepartmentHead\ScheduleAdjustmentController;
 use App\Http\Controllers\DepartmentHead\ScheduleConfigurationController;
+use App\Http\Controllers\StudentDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -183,6 +185,18 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/semesters/{semester}', [AdminSemesterController::class, 'update'])->name('semesters.update');
         Route::patch('/semesters/{semester}/toggle-status', [AdminSemesterController::class, 'toggleStatus'])->name('semesters.toggle-status');
         Route::delete('/semesters/{semester}', [AdminSemesterController::class, 'destroy'])->name('semesters.destroy');
+
+        // Year Level Management
+        Route::get('/year-levels', [YearLevelController::class, 'index'])->name('year-levels.index');
+        Route::post('/year-levels', [YearLevelController::class, 'store'])->name('year-levels.store');
+        Route::put('/year-levels/{yearLevel}', [YearLevelController::class, 'update'])->name('year-levels.update');
+        Route::delete('/year-levels/{yearLevel}', [YearLevelController::class, 'destroy'])->name('year-levels.destroy');
+
+        // Block / Section Management
+        Route::get('/blocks', [\App\Http\Controllers\Admin\BlockController::class, 'index'])->name('blocks.index');
+        Route::post('/blocks', [\App\Http\Controllers\Admin\BlockController::class, 'store'])->name('blocks.store');
+        Route::put('/blocks/{block}', [\App\Http\Controllers\Admin\BlockController::class, 'update'])->name('blocks.update');
+        Route::delete('/blocks/{block}', [\App\Http\Controllers\Admin\BlockController::class, 'destroy'])->name('blocks.destroy');
         
         // Legacy semester endpoints (kept for backward compatibility)
         Route::post('/academic-years/{academicYear}/semesters', [AdminSemesterController::class, 'store'])->name('academic-years.semesters.store');
@@ -257,7 +271,11 @@ Route::middleware(['auth'])->group(function () {
         // Faculty Load Management
         Route::get('/faculty-load', [ProgramHeadFacultyLoadController::class, 'index'])->name('faculty-load.index');
         Route::get('/faculty-load/{facultyLoadId}/details', [ProgramHeadFacultyLoadController::class, 'getDetails'])->name('faculty-load.details');
+        Route::get('/fetch-subjects', [ProgramHeadFacultyLoadController::class, 'fetchSubjects'])->name('faculty-load.fetch-subjects');
+        Route::get('/faculty-workload/{facultyId}', [ProgramHeadFacultyLoadController::class, 'getFacultyWorkload'])->name('faculty-load.faculty-workload');
         Route::get('/faculty-load/api/assignable-subjects', [ProgramHeadFacultyLoadController::class, 'getAssignableSubjects'])->name('faculty-load.api.assignable-subjects');
+        Route::get('/faculty-load/api/load-summary', [ProgramHeadFacultyLoadController::class, 'getFacultyLoadSummary'])->name('faculty-load.api.load-summary');
+        Route::get('/blocks/filter', [ProgramHeadFacultyLoadController::class, 'filterBlocks'])->name('blocks.filter');
         Route::post('/faculty-load/assign', [ProgramHeadFacultyLoadController::class, 'assignSubject'])->name('faculty-load.assign');
         Route::post('/faculty-load/update-constraints', [ProgramHeadFacultyLoadController::class, 'updateConstraints'])->name('faculty-load.update-constraints');
         Route::post('/faculty-load/remove', [ProgramHeadFacultyLoadController::class, 'removeAssignment'])->name('faculty-load.remove');
@@ -288,9 +306,9 @@ Route::middleware(['auth'])->group(function () {
     })->middleware(['role:instructor'])->name('instructor.my-schedule');
 
     // Student Dashboard
-    Route::get('/student/dashboard', function() {
-        return view('dashboards.student');
-    })->middleware(['role:student'])->name('student.dashboard');
+    Route::get('/student/dashboard', [StudentDashboardController::class, 'index'])
+        ->middleware(['role:student'])
+        ->name('student.dashboard');
 });
 
 /*

@@ -7,9 +7,6 @@
             <span class="badge bg-info">{{ $config->program->department->department_name }}</span>
         </td>
         <td class="text-center">
-            <span class="badge bg-secondary">{{ $config->contract_type }}</span>
-        </td>
-        <td class="text-center">
             {{ $config->max_lecture_hours }} hrs/week
         </td>
         <td class="text-center">
@@ -47,7 +44,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="9" class="text-center py-5 text-muted">
+        <td colspan="8" class="text-center py-5 text-muted">
             <i class="fa-solid fa-inbox fa-2x mb-3"></i>
             <p>No configurations found</p>
         </td>

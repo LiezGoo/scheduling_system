@@ -31,9 +31,9 @@
                             <select class="form-select form-select-sm form-select-md-normal" id="filterAcademicYear"
                                 name="academic_year" required>
                                 <option value="" selected>Select Year</option>
-                                <option value="2024-2025">2024–2025</option>
-                                <option value="2025-2026">2025–2026</option>
-                                <option value="2026-2027">2026–2027</option>
+                                @foreach ($academicYears as $academicYearOption)
+                                    <option value="{{ $academicYearOption->name }}">{{ $academicYearOption->name }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback small">Please select an academic year.</div>
                         </div>
@@ -46,8 +46,9 @@
                             <select class="form-select form-select-sm form-select-md-normal" id="filterSemester"
                                 name="semester" required>
                                 <option value="" selected>Select Semester</option>
-                                <option value="1">1st Semester</option>
-                                <option value="2">2nd Semester</option>
+                                @foreach ($semesterOptions as $semesterOption)
+                                    <option value="{{ $semesterOption }}">{{ $semesterOption }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback small">Please select a semester.</div>
                         </div>
@@ -60,10 +61,11 @@
                             <select class="form-select form-select-sm form-select-md-normal" id="filterProgram"
                                 name="program" required>
                                 <option value="" selected>Select Program</option>
-                                <option value="BSCS">BSCS</option>
-                                <option value="BSIT">BSIT</option>
-                                <option value="BSIS">BSIS</option>
-                                <option value="BTVTED">BTVTED</option>
+                                @foreach ($programOptions as $programOption)
+                                    <option value="{{ $programOption->program_code ?: $programOption->program_name }}">
+                                        {{ $programOption->program_code ?: $programOption->program_name }}
+                                    </option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback small">Please select a program.</div>
                         </div>
@@ -76,10 +78,9 @@
                             <select class="form-select form-select-sm form-select-md-normal" id="filterYearLevel"
                                 name="year_level" required>
                                 <option value="" selected>Select Year</option>
-                                <option value="1">1st Year</option>
-                                <option value="2">2nd Year</option>
-                                <option value="3">3rd Year</option>
-                                <option value="4">4th Year</option>
+                                @foreach ($yearLevelOptions as $yearLevelOption)
+                                    <option value="{{ $yearLevelOption['value'] }}">{{ $yearLevelOption['label'] }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback small">Please select a year level.</div>
                         </div>
@@ -92,11 +93,9 @@
                             <select class="form-select form-select-sm form-select-md-normal" id="filterBlock"
                                 name="block_section" required>
                                 <option value="" selected>Select Block</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
+                                @foreach ($blockSectionOptions as $blockSectionOption)
+                                    <option value="{{ $blockSectionOption }}">{{ $blockSectionOption }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback small">Please select a block.</div>
                         </div>

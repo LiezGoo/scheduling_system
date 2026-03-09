@@ -8,10 +8,13 @@ use App\Models\Program;
 use App\Models\User;
 use App\Models\Subject;
 use App\Models\Department;
+use App\Models\Semester;
+use App\Models\YearLevel;
 use App\Services\FacultyLoadService;
 use App\Models\FacultyWorkloadConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
@@ -281,14 +284,17 @@ class FacultyLoadController extends Controller
      */
     public function assignSubject(Request $request)
     {
+        $semesterOptions = $this->resolveSemesterOptions();
+        $yearLevelOptions = $this->resolveYearLevelOptions();
+
         $validated = $request->validate([
             'user_id' => 'nullable|integer|exists:users,id',
             'faculty_id' => 'required_without:user_id|integer|exists:users,id',
             'program_id' => 'required|integer|exists:programs,id',
             'subject_id' => 'required|integer|exists:subjects,id',
             'academic_year_id' => 'required|integer|exists:academic_years,id',
-            'semester' => 'required|string',
-            'year_level' => 'required|integer|min:1|max:6',
+            'semester' => ['required', 'string', Rule::in($semesterOptions->all())],
+            'year_level' => ['required', 'integer', Rule::in($yearLevelOptions->all())],
             'block_section' => 'required|string|max:20',
             'lecture_hours' => 'required|integer|min:0|max:40',
             'lab_hours' => 'required|integer|min:0|max:40',
@@ -612,5 +618,70 @@ class FacultyLoadController extends Controller
                 'message' => 'Failed to load faculty workload configuration.',
             ], 500);
         }
+    }
+
+    /**
+     * Resolve valid semester values from active semesters,
+     * with fallback to distinct semester values from curriculum data.
+     */
+    private function resolveSemesterOptions(): Collection
+    {
+        $semesterOptions = Semester::query()
+            ->where('status', Semester::STATUS_ACTIVE)
+            ->whereNotNull('name')
+            ->orderBy('name')
+            ->pluck('name')
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->values();
+
+        if ($semesterOptions->isEmpty()) {
+            $semesterOptions = DB::table('program_subjects')
+                ->whereNotNull('semester')
+                ->distinct()
+                ->pluck('semester')
+                ->map(fn ($value) => trim((string) $value))
+                ->filter(fn ($value) => $value !== '')
+                ->values();
+        }
+
+        return $semesterOptions;
+    }
+
+    /**
+     * Resolve valid numeric year levels from active year levels,
+     * with fallback to distinct curriculum year levels.
+     */
+    private function resolveYearLevelOptions(): Collection
+    {
+        $yearLevelOptions = YearLevel::query()
+            ->where('status', YearLevel::STATUS_ACTIVE)
+            ->orderByRaw('CAST(COALESCE(NULLIF(code, \'\'), id) AS UNSIGNED)')
+            ->get()
+            ->map(function (YearLevel $yearLevel) {
+                $value = $yearLevel->code !== null && trim((string) $yearLevel->code) !== ''
+                    ? trim((string) $yearLevel->code)
+                    : (string) $yearLevel->id;
+
+                return ctype_digit($value) ? (int) $value : null;
+            })
+            ->filter(fn ($value) => is_int($value) && $value > 0)
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($yearLevelOptions->isEmpty()) {
+            $yearLevelOptions = DB::table('program_subjects')
+                ->whereNotNull('year_level')
+                ->distinct()
+                ->pluck('year_level')
+                ->map(fn ($value) => (int) $value)
+                ->filter(fn ($value) => $value > 0)
+                ->unique()
+                ->sort()
+                ->values();
+        }
+
+        return $yearLevelOptions;
     }
 }

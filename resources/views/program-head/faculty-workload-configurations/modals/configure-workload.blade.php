@@ -15,7 +15,7 @@
                 @csrf
                 <input type="hidden" name="_method" value="POST">
                 <input type="hidden" name="config_id" id="configId">
-                <input type="hidden" name="contract_type" id="contractTypeHidden" value="Contractual">
+                <input type="hidden" name="contract_type" id="contractTypeHidden" value="{{ $contractTypeOptions->first() ?? '' }}">
 
                 <div class="modal-body bg-white">
                     <div class="alert alert-danger d-none mb-3" id="formAlert" role="alert"></div>
@@ -124,7 +124,7 @@
                     </section>
                 </div>
 
-                <div class="modal-footer border-top-0 pt-3 mt-2 justify-content-end">
+                <div class="modal-footer border-0 pt-3 mt-2 justify-content-end">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-maroon">Save Configuration</button>
                 </div>
@@ -379,14 +379,15 @@
                         modal.hide();
 
                         if (typeof window.refreshFacultyWorkloadTable === 'function') {
-                            window.refreshFacultyWorkloadTable();
+                            window.refreshFacultyWorkloadTable({ silent: true })
+                                .then((refreshed) => {
+                                    if (!refreshed) {
+                                        console.warn('Table refresh failed after save.');
+                                    }
+                                });
                         }
 
-                        openSystemModal({
-                            type: 'success',
-                            title: 'Success',
-                            message: data.message || (isEdit ? 'Configuration updated successfully.' : 'Configuration saved successfully.'),
-                        });
+                        showToast('success', data.message || (isEdit ? 'Faculty workload configuration updated successfully!' : 'Faculty workload configuration saved successfully!'));
                     } else {
                         formAlert.innerHTML = `
                             <div class="d-flex align-items-center">
@@ -480,7 +481,7 @@
 
                     document.getElementById('faculty').value = configuration.user_id;
                     document.getElementById('faculty').disabled = true;
-                    document.getElementById('contractTypeHidden').value = configuration.contract_type || 'Contractual';
+                    document.getElementById('contractTypeHidden').value = configuration.contract_type || '{{ $contractTypeOptions->first() ?? '' }}';
                     document.getElementById('maxLectureHours').value = configuration.max_lecture_hours;
                     document.getElementById('maxLabHours').value = configuration.max_lab_hours;
                     document.getElementById('maxHoursPerDay').value = configuration.max_hours_per_day;
@@ -509,6 +510,11 @@
         #configureWorkloadModal .modal-header {
             background-color: #660000;
             color: #ffffff;
+        }
+
+        #configureWorkloadModal .modal-footer {
+            background-color: #ffffff;
+            color: #212529;
         }
 
         #configureWorkloadModal .modal-title {

@@ -45,8 +45,9 @@
                             </label>
                             <select class="form-select" id="filterSemester" name="semester" required>
                                 <option value="">Select Semester</option>
-                                <option value="1">1st Semester</option>
-                                <option value="2">2nd Semester</option>
+                                @foreach ($semesterOptions as $semesterOption)
+                                    <option value="{{ $semesterOption }}">{{ $semesterOption }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback">
                                 Please select a semester.
@@ -86,10 +87,9 @@
                             </label>
                             <select class="form-select" id="filterYearLevel" name="year_level" required>
                                 <option value="">Select Year Level</option>
-                                <option value="1">1st Year</option>
-                                <option value="2">2nd Year</option>
-                                <option value="3">3rd Year</option>
-                                <option value="4">4th Year</option>
+                                @foreach ($yearLevelOptions as $yearLevelOption)
+                                    <option value="{{ $yearLevelOption['value'] }}">{{ $yearLevelOption['label'] }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback">
                                 Please select a year level.
@@ -103,11 +103,9 @@
                             </label>
                             <select class="form-select" id="filterBlock" name="block_section" required>
                                 <option value="">Select Block</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
+                                @foreach ($blockSectionOptions as $blockSectionOption)
+                                    <option value="{{ $blockSectionOption }}">{{ $blockSectionOption }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback">
                                 Please select a block / section.

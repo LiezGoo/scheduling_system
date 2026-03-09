@@ -62,7 +62,7 @@
         {{-- Email Field --}}
         <div class="mb-3">
             <label for="email" class="form-label">
-                <i class="fa-solid fa-envelope me-1"></i> Google Email Address
+                <i class="fa-solid fa-envelope me-1"></i> Email Address
                 <span class="text-danger">*</span>
             </label>
             <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email"
@@ -85,10 +85,11 @@
             </label>
             <select class="form-select @error('role') is-invalid @enderror" id="role" name="role" required>
                 <option value="" selected disabled>-- Select your role --</option>
-                <option value="instructor" @selected(old('role') === 'instructor')>Instructor / Faculty / Professor</option>
-                <option value="student" @selected(old('role') === 'student')>Student</option>
-                <option value="program_head" @selected(old('role') === 'program_head')>Program Head</option>
-                <option value="department_head" @selected(old('role') === 'department_head')>Department Head</option>
+                @foreach ($userRoleOptions->reject(fn($roleOption) => $roleOption === 'admin') as $roleOption)
+                    <option value="{{ $roleOption }}" @selected(old('role') === $roleOption)>
+                        {{ ucwords(str_replace('_', ' ', $roleOption)) }}
+                    </option>
+                @endforeach
             </select>
             @error('role')
                 <div class="invalid-feedback d-block">

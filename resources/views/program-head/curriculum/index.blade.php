@@ -7,12 +7,13 @@
         @php
             $indexRoute = route('program-head.curriculum.index');
             $storeRoute = route('program-head.curriculum.store');
-            $selectedYearLevel = old('year_level', 1);
-            $selectedSemester = old('semester', '1st');
+            $yearLevels = collect($curriculumYearLevels ?? [])->values();
+            $semesterOptions = collect($curriculumSemesters ?? [])->values();
+            $semesterOrder = $semesterOptions->pluck('value')->values()->all();
+            $semesterLabels = $semesterOptions->pluck('label', 'value')->all();
+            $selectedYearLevel = old('year_level', $yearLevels->first());
+            $selectedSemester = old('semester', $semesterOrder[0] ?? null);
             $selectedAcademicYearId = request('academic_year_id');
-            $semesterOrder = ['1st', '2nd'];
-            $semesterLabels = ['1st' => '1st Semester', '2nd' => '2nd Semester'];
-            $yearLevels = [1, 2, 3, 4];
         @endphp
 
 
@@ -100,7 +101,7 @@
                 <div class="d-flex align-items-center gap-3">
                     <span class="badge bg-light text-maroon rounded-circle step-badge">2</span>
                     <div>
-                        <h6 class="mb-0 fw-semibold fs-5">Bulk Subject Assignment</h6>
+                        <h6 class="mb-0 fw-semibold fs-5">Subject Assignment</h6>
                         <small class="text-white-50">Assign subjects to year levels and semesters</small>
                     </div>
                     <i class="fa-solid fa-tasks fa-lg opacity-25 ms-auto"></i>
@@ -239,8 +240,11 @@
                                             <i class="fa-solid fa-layer-group text-maroon"></i>Year Level
                                         </label>
                                         <select name="year_level" id="assignYearLevel" class="form-select form-select-md rounded-2" style="border-color: #d6d6d6;">
+                                            @if ($yearLevels->isEmpty())
+                                                <option value="">No active year levels available</option>
+                                            @endif
                                             @foreach ($yearLevels as $year)
-                                                <option value="{{ $year }}" {{ (int) $selectedYearLevel === $year ? 'selected' : '' }}>
+                                                <option value="{{ $year }}" {{ (int) $selectedYearLevel === (int) $year ? 'selected' : '' }}>
                                                     {{ $year }}{{ $year === 1 ? 'st' : ($year === 2 ? 'nd' : ($year === 3 ? 'rd' : 'th')) }} Year
                                                 </option>
                                             @endforeach
@@ -256,6 +260,9 @@
                                             <i class="fa-solid fa-calendar-days text-maroon"></i>Semester
                                         </label>
                                         <select name="semester" id="assignSemester" class="form-select form-select-md rounded-2" style="border-color: #d6d6d6;">
+                                            @if (empty($semesterOrder))
+                                                <option value="">No active semesters available</option>
+                                            @endif
                                             @foreach ($semesterOrder as $semesterKey)
                                                 <option value="{{ $semesterKey }}" {{ $selectedSemester === $semesterKey ? 'selected' : '' }}>
                                                     {{ $semesterLabels[$semesterKey] ?? ucfirst($semesterKey) }}
@@ -337,7 +344,8 @@
                                         <ul class="nav nav-pills gap-2 mb-4 flex-wrap" role="tablist">
                                             @foreach ($semesterOrder as $index => $semesterKey)
                                                 @php
-                                                    $tabId = $accordionId . '-' . $semesterKey;
+                                                    $semesterSlug = trim(preg_replace('/[^a-z0-9]+/i', '-', (string) $semesterKey), '-');
+                                                    $tabId = $accordionId . '-' . ($semesterSlug !== '' ? $semesterSlug : 'semester');
                                                     $semesterCount = $semesters->get($semesterKey, collect())->count();
                                                 @endphp
                                                 <li class="nav-item" role="presentation">
@@ -356,7 +364,8 @@
                                         <div class="tab-content">
                                             @foreach ($semesterOrder as $index => $semesterKey)
                                                 @php
-                                                    $tabId = $accordionId . '-' . $semesterKey;
+                                                    $semesterSlug = trim(preg_replace('/[^a-z0-9]+/i', '-', (string) $semesterKey), '-');
+                                                    $tabId = $accordionId . '-' . ($semesterSlug !== '' ? $semesterSlug : 'semester');
                                                     $items = $semesters->get($semesterKey, collect());
                                                 @endphp
                                                 <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}"

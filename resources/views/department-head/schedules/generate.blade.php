@@ -84,9 +84,9 @@
                             </label>
                             <select class="form-select border-1 focus-maroon" id="yearLevel" name="year_level" required>
                                 <option value="">-- Select Year Level --</option>
-                                @for ($level = 1; $level <= 4; $level++)
-                                    <option value="{{ $level }}">{{ $level }}{{ $level == 1 ? 'st' : ($level == 2 ? 'nd' : ($level == 3 ? 'rd' : 'th')) }} Year</option>
-                                @endfor
+                                @foreach ($yearLevelOptions as $yearLevelOption)
+                                    <option value="{{ $yearLevelOption['value'] }}">{{ $yearLevelOption['label'] }}</option>
+                                @endforeach
                             </select>
                         </div>
 

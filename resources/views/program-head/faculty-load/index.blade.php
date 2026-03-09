@@ -62,9 +62,11 @@
                             <label for="filterSemester" class="form-label">Semester</label>
                             <select class="form-select" id="filterSemester" name="semester">
                                 <option value="">All Semesters</option>
-                                <option value="1st" {{ request('semester') === '1st' ? 'selected' : '' }}>1st</option>
-                                <option value="2nd" {{ request('semester') === '2nd' ? 'selected' : '' }}>2nd</option>
-                                <option value="summer" {{ request('semester') === 'summer' ? 'selected' : '' }}>Summer</option>
+                                @foreach ($semesterOptions as $semesterOption)
+                                    <option value="{{ $semesterOption }}" {{ request('semester') === $semesterOption ? 'selected' : '' }}>
+                                        {{ $semesterOption }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -206,108 +208,127 @@
         aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="assignFacultyLoadModalLabel">
-                        <i class="fa-solid fa-plus me-2"></i>Assign Faculty Load (Bulk)
+                <div class="modal-header" style="background-color: #800000; color: #ffffff;">
+                    <h5 class="modal-title" id="assignFacultyLoadModalLabel" style="color: #ffffff;">
+                        <i class="fa-solid fa-plus me-2"></i>Assign Faculty Load
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="assignFacultyLoadForm" novalidate>
                     @csrf
                     <div class="modal-body">
                         <div id="assignFacultyLoadMessage" class="mb-3 d-none"></div>
 
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="assignFaculty" class="form-label">Faculty <span class="text-danger">*</span></label>
-                                <select class="form-select" id="assignFaculty" name="faculty_id" required>
-                                    <option value="">Select Faculty Member</option>
-                                    @foreach ($eligibleFaculty as $faculty)
-                                        <option value="{{ $faculty->id }}" data-contract-type="{{ $faculty->contract_type }}">
-                                            {{ $faculty->full_name }} ({{ $faculty->getRoleLabel() }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <div class="invalid-feedback"></div>
+                        <!-- SECTION 1: Faculty & Academic Context -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0 fw-semibold text-maroon">
+                                    <i class="fa-solid fa-user-graduate me-2"></i>Faculty & Academic Context
+                                </h6>
                             </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="assignFaculty" class="form-label">Faculty Member <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignFaculty" name="faculty_id" required>
+                                            <option value="">Select Faculty Member</option>
+                                            @foreach ($eligibleFaculty as $faculty)
+                                                <option value="{{ $faculty->id }}" data-contract-type="{{ $faculty->contract_type }}">
+                                                    {{ $faculty->full_name }} ({{ $faculty->getRoleLabel() }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
 
-                            <div class="col-md-6">
-                                <label for="assignProgram" class="form-label">Program <span class="text-danger">*</span></label>
-                                <select class="form-select" id="assignProgram" name="program_id" required>
-                                    <option value="">Select Program</option>
-                                    @foreach ($programs as $program)
-                                        <option value="{{ $program->id }}">{{ $program->program_name }}</option>
-                                    @endforeach
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
+                                    <div class="col-md-6">
+                                        <label for="assignProgram" class="form-label">Program <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignProgram" name="program_id" required>
+                                            <option value="">Select Program</option>
+                                            @foreach ($programs as $program)
+                                                <option value="{{ $program->id }}">{{ $program->program_name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
 
-                            <div class="col-md-3">
-                                <label for="assignAcademicYear" class="form-label">Academic Year <span class="text-danger">*</span></label>
-                                <select class="form-select" id="assignAcademicYear" name="academic_year_id" required>
-                                    <option value="">Select Academic Year</option>
-                                    @foreach ($academicYears as $year)
-                                        <option value="{{ $year->id }}">{{ $year->name }}</option>
-                                    @endforeach
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
+                                    <div class="col-md-6">
+                                        <label for="assignAcademicYear" class="form-label">Academic Year <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignAcademicYear" name="academic_year_id" required>
+                                            <option value="">Select Academic Year</option>
+                                            @foreach ($academicYears as $year)
+                                                <option value="{{ $year->id }}">{{ $year->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
 
-                            <div class="col-md-3">
-                                <label for="assignSemester" class="form-label">Semester <span class="text-danger">*</span></label>
-                                <select class="form-select" id="assignSemester" name="semester" required>
-                                    <option value="">Select Semester</option>
-                                    <option value="1st">1st</option>
-                                    <option value="2nd">2nd</option>
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
+                                    <div class="col-md-6">
+                                        <label for="assignSemester" class="form-label">Semester <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignSemester" name="semester_id" required>
+                                            <option value="">Select Semester</option>
+                                            @foreach ($semesters as $semester)
+                                                <option value="{{ $semester->id }}">{{ $semester->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
 
-                            <div class="col-md-3">
-                                <label for="assignYearLevel" class="form-label">Year Level <span class="text-danger">*</span></label>
-                                <select class="form-select" id="assignYearLevel" name="year_level" required>
-                                    <option value="">Select Year Level</option>
-                                    <option value="1">1st Year</option>
-                                    <option value="2">2nd Year</option>
-                                    <option value="3">3rd Year</option>
-                                    <option value="4">4th Year</option>
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
+                                    <div class="col-md-6">
+                                        <label for="assignYearLevel" class="form-label">Year Level <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignYearLevel" name="year_level" required>
+                                            <option value="">Select Year Level</option>
+                                            <option value="1">1st Year</option>
+                                            <option value="2">2nd Year</option>
+                                            <option value="3">3rd Year</option>
+                                            <option value="4">4th Year</option>
+                                        </select>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
 
-                            <div class="col-md-3">
-                                <label for="assignBlockSection" class="form-label">Block/Section <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="assignBlockSection" name="block_section"
-                                    placeholder="e.g., 1" required>
-                                <div class="invalid-feedback"></div>
+                                    <div class="col-md-6">
+                                        <label for="assignBlockSection" class="form-label">Block/Section <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignBlockSection" name="block_id" required disabled>
+                                            <option value="">Select Program, Year, AY, and Semester first</option>
+                                        </select>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-3">
+                        <!-- SECTION 2 & 3: Available Subjects and Load Summary -->
+                        <div class="row g-3">
+                            <!-- SECTION 2: Available Subjects -->
                             <div class="col-lg-8">
-                                <div class="card border-0 bg-light">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0 fw-semibold text-maroon">
+                                            <i class="fa-solid fa-book me-2"></i>Available Subjects
+                                        </h6>
+                                        <small class="text-muted">Subjects will appear after filling all fields above</small>
+                                    </div>
                                     <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <h6 class="mb-0 fw-semibold">Select Subjects</h6>
-                                            <small class="text-muted">Choose one or more subjects below</small>
-                                        </div>
                                         <div class="table-responsive">
-                                            <table class="table table-sm align-middle mb-0" id="assignSubjectsTable">
-                                                <thead>
+                                            <table class="table table-sm table-hover align-middle mb-0" id="assignSubjectsTable">
+                                                <thead class="table-light">
                                                     <tr>
-                                                        <th style="width: 40px;"><input type="checkbox" id="assignSelectAllSubjects"></th>
-                                                        <th>Subject Code</th>
+                                                        <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="assignSelectAllSubjects"></th>
+                                                        <th>Code</th>
                                                         <th>Subject Name</th>
-                                                        <th class="text-center">Lec</th>
-                                                        <th class="text-center">Lab</th>
-                                                        <th class="text-center">Total</th>
-                                                        <th>Block/Section</th>
-                                                        <th>Error</th>
+                                                        <th class="text-center" style="width: 70px;">Lec</th>
+                                                        <th class="text-center" style="width: 70px;">Lab</th>
+                                                        <th class="text-center" style="width: 80px;">Total</th>
+                                                        <th style="width: 120px;">Block</th>
+                                                        <th style="width: 120px;">Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="assignSubjectsTableBody">
                                                     <tr>
-                                                        <td colspan="8" class="text-center text-muted py-3">Select faculty, program, academic year, semester, year level, and block to load subjects.</td>
+                                                        <td colspan="8" class="text-center text-muted py-4">
+                                                            <i class="fa-solid fa-info-circle me-2"></i>
+                                                            Select faculty, program, academic year, semester, year level, and block to load subjects.
+                                                        </td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -316,27 +337,79 @@
                                 </div>
                             </div>
 
+                            <!-- SECTION 3: Load Summary Panel -->
                             <div class="col-lg-4">
-                                <div class="card border-0 bg-light h-100">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0 fw-semibold text-maroon">
+                                            <i class="fa-solid fa-chart-line me-2"></i>Load Summary
+                                        </h6>
+                                    </div>
                                     <div class="card-body">
-                                        <h6 class="fw-semibold mb-3">Load Summary</h6>
-                                        <div class="small text-muted mb-1">Faculty Current Load</div>
-                                        <div class="d-flex justify-content-between"><span>Lecture</span><strong id="summaryCurrentLecture">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Lab</span><strong id="summaryCurrentLab">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Contract Type</span><strong id="summaryContractType">N/A</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Lecture Limit</span><strong id="summaryLectureLimit">0</strong></div>
-                                        <div class="d-flex justify-content-between mb-3"><span>Lab Limit</span><strong id="summaryLabLimit">0</strong></div>
+                                        <!-- Faculty Current Load Card -->
+                                        <div class="summary-card mb-3 p-3 rounded" style="background-color: #f8f9fa; border-left: 4px solid #0d6efd;">
+                                            <div class="small text-muted mb-2 fw-semibold text-uppercase">
+                                                <i class="fa-solid fa-gauge me-1"></i>Faculty Current Load
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <span class="small">Lecture Hours:</span>
+                                                <strong id="summaryCurrentLecture" class="text-primary">0</strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span class="small">Lab Hours:</span>
+                                                <strong id="summaryCurrentLab" class="text-primary">0</strong>
+                                            </div>
+                                        </div>
 
-                                        <div class="small text-muted mb-1">Selected Subjects</div>
-                                        <div class="d-flex justify-content-between"><span>Lecture</span><strong id="summarySelectedLecture">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Lab</span><strong id="summarySelectedLab">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Projected Lecture</span><strong id="summaryProjectedLecture">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Projected Lab</span><strong id="summaryProjectedLab">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Remaining Lecture</span><strong id="summaryRemainingLecture">0</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Remaining Lab</span><strong id="summaryRemainingLab">0</strong></div>
+                                        <!-- Faculty Teaching Limits Card -->
+                                        <div class="summary-card mb-3 p-3 rounded" style="background-color: #f8f9fa; border-left: 4px solid #6c757d;">
+                                            <div class="small text-muted mb-2 fw-semibold text-uppercase">
+                                                <i class="fa-solid fa-sliders me-1"></i>Faculty Teaching Limits
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <span class="small">Lecture Limit:</span>
+                                                <strong id="summaryLectureLimit" class="text-secondary">0</strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span class="small">Lab Limit:</span>
+                                                <strong id="summaryLabLimit" class="text-secondary">0</strong>
+                                            </div>
+                                        </div>
 
-                                        <div id="summaryLimitWarning" class="alert alert-danger mt-3 mb-0 py-2 px-3 d-none">
-                                            <i class="fa-solid fa-triangle-exclamation me-1"></i>Projected load exceeds contract limit.
+                                        <!-- Projected Load Card -->
+                                        <div class="summary-card mb-3 p-3 rounded" id="projectedLoadCard" style="background-color: #f8f9fa; border-left: 4px solid #198754;">
+                                            <div class="small text-muted mb-2 fw-semibold text-uppercase">
+                                                <i class="fa-solid fa-arrow-trend-up me-1"></i>Projected Load
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <span class="small">Projected Lecture:</span>
+                                                <strong id="summaryProjectedLecture" class="status-text">0</strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span class="small">Projected Lab:</span>
+                                                <strong id="summaryProjectedLab" class="status-text">0</strong>
+                                            </div>
+                                        </div>
+
+                                        <!-- Remaining Load Card -->
+                                        <div class="summary-card p-3 rounded" id="remainingLoadCard" style="background-color: #f8f9fa; border-left: 4px solid #198754;">
+                                            <div class="small text-muted mb-2 fw-semibold text-uppercase">
+                                                <i class="fa-solid fa-battery-three-quarters me-1"></i>Remaining Load
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <span class="small">Remaining Lecture:</span>
+                                                <strong id="summaryRemainingLecture" class="status-text">0</strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span class="small">Remaining Lab:</span>
+                                                <strong id="summaryRemainingLab" class="status-text">0</strong>
+                                            </div>
+                                        </div>
+
+                                        <!-- Warning Alert -->
+                                        <div id="summaryLimitWarning" class="alert alert-danger mt-3 mb-0 py-2 px-3 d-none" style="font-size: 0.875rem;">
+                                            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                            <span id="summaryWarningText">Projected load exceeds limit!</span>
                                         </div>
                                     </div>
                                 </div>
@@ -345,9 +418,9 @@
 
                         <input type="hidden" name="force_assign" id="assignForceAssign" value="0">
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="assignSubmitBtn" disabled>
+                    <div class="modal-footer" style="background-color: #ffffff;">
+                        <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-maroon" id="assignSubmitBtn" disabled>
                             <i class="fa-solid fa-save me-2"></i>Assign Selected Subjects
                         </button>
                     </div>
@@ -712,8 +785,8 @@
     <!-- Custom CSS -->
     <style>
         /* ========================================
-                                                                                                   GLOBAL MODAL STYLING - SorSU Theme
-                                                                                                   ======================================== */
+           GLOBAL MODAL STYLING - SorSU Theme
+           ======================================== */
 
         /* Modal Header - Apply maroon background to ALL modals */
         .modal-header {
@@ -763,8 +836,8 @@
         }
 
         /* ========================================
-                                                                                                   UTILITY CLASSES
-                                                                                                   ======================================== */
+           UTILITY CLASSES
+           ======================================== */
 
         .text-maroon {
             color: #660000 !important;
@@ -794,8 +867,103 @@
             min-width: 75px;
             display: inline-block;
         }
+
+        /* ========================================
+           LOAD SUMMARY CARDS - Color Coding
+           ======================================== */
+
+        .summary-card {
+            transition: all 0.3s ease;
+        }
+
+        /* Valid status - Green */
+        .summary-card.status-valid {
+            border-left-color: #198754 !important;
+            background-color: #d1e7dd !important;
+        }
+
+        .summary-card.status-valid .status-text {
+            color: #198754 !important;
+        }
+
+        /* Approaching limit - Orange */
+        .summary-card.status-approaching {
+            border-left-color: #fd7e14 !important;
+            background-color: #ffe5d0 !important;
+        }
+
+        .summary-card.status-approaching .status-text {
+            color: #fd7e14 !important;
+        }
+
+        /* Exceeded limit - Red */
+        .summary-card.status-exceeded {
+            border-left-color: #dc3545 !important;
+            background-color: #f8d7da !important;
+        }
+
+        .summary-card.status-exceeded .status-text {
+            color: #dc3545 !important;
+        }
+
+        /* Status badges in table */
+        .status-badge-valid {
+            background-color: #198754;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge-warning {
+            background-color: #fd7e14;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge-error {
+            background-color: #dc3545;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Assign Faculty Load Modal specific overrides */
+        #assignFacultyLoadModal .modal-header {
+            background-color: #800000 !important;
+        }
+
+        #assignFacultyLoadModal .modal-footer {
+            background-color: #ffffff !important;
+            border-top: 1px solid #dee2e6;
+        }
+
+        #assignFacultyLoadModal .btn-close-white {
+            filter: brightness(0) invert(1);
+        }
+
+        /* Fix scrolling for modal-dialog-scrollable */
+        #assignFacultyLoadModal.modal .modal-dialog-scrollable {
+            max-height: calc(100vh - 3.5rem);
+        }
+
+        #assignFacultyLoadModal.modal .modal-dialog-scrollable .modal-body {
+            overflow-y: auto;
+            max-height: calc(100vh - 210px);
+        }
+
+        #assignFacultyLoadModal .table-responsive {
+            max-height: 400px;
+            overflow-y: auto;
+        }
     </style>
 
     <!-- JavaScript for Faculty Load Management -->
-    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260221"></script>
+    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260308"></script>
 @endsection

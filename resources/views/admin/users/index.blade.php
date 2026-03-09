@@ -41,10 +41,11 @@
                             <label for="filterStatus" class="form-label">Filter by Status</label>
                             <select class="form-select" id="filterStatus" name="status">
                                 <option value="">All Status</option>
-                                <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active
-                                </option>
-                                <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive
-                                </option>
+                                @foreach ($statusOptions as $statusOption)
+                                    <option value="{{ $statusOption }}" {{ request('status') === $statusOption ? 'selected' : '' }}>
+                                        {{ ucfirst($statusOption) }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-center gap-2">
@@ -183,8 +184,11 @@
                         <div class="mb-3">
                             <label for="addStatus" class="form-label">Status <span class="text-danger">*</span></label>
                             <select class="form-select" id="addStatus" name="status" required>
-                                <option value="active" selected>Active</option>
-                                <option value="inactive">Inactive</option>
+                                @foreach ($statusOptions as $statusOption)
+                                    <option value="{{ $statusOption }}" {{ $statusOption === 'active' ? 'selected' : '' }}>
+                                        {{ ucfirst($statusOption) }}
+                                    </option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback"></div>
                         </div>
@@ -296,8 +300,9 @@
                         <div class="mb-3">
                             <label for="editStatus" class="form-label">Status <span class="text-danger">*</span></label>
                             <select class="form-select" id="editStatus" name="status" required>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
+                                @foreach ($statusOptions as $statusOption)
+                                    <option value="{{ $statusOption }}">{{ ucfirst($statusOption) }}</option>
+                                @endforeach
                             </select>
                             <div class="invalid-feedback"></div>
                         </div>

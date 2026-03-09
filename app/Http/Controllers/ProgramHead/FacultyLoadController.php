@@ -4,16 +4,21 @@ namespace App\Http\Controllers\ProgramHead;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
+use App\Models\Block;
 use App\Models\Department;
 use App\Models\Program;
+use App\Models\Semester;
 use App\Models\User;
 use App\Models\Subject;
 use App\Models\FacultyWorkloadConfiguration;
+use App\Models\YearLevel;
 use App\Services\FacultyLoadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class FacultyLoadController extends Controller
 {
@@ -159,6 +164,10 @@ class FacultyLoadController extends Controller
 
         $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
 
+        $semesterOptions = $this->resolveDepartmentSemesterOptions($department->id);
+        $semesters = Semester::query()->orderBy('name')->get();
+        $yearLevelOptions = $this->resolveDepartmentYearLevelOptions($department->id);
+
         // Get eligible faculty
         $eligibleFaculty = User::eligibleInstructors()->active()
             ->orderBy('first_name')
@@ -182,6 +191,9 @@ class FacultyLoadController extends Controller
             'subjects' => $subjects,
             'programs' => $programs,
             'academicYears' => $academicYears,
+            'semesterOptions' => $semesterOptions,
+            'semesters' => $semesters,
+            'yearLevelOptions' => $yearLevelOptions,
             'eligibleFaculty' => $eligibleFaculty,
             'summary' => $summary,
             'currentFilters' => [
@@ -209,15 +221,18 @@ class FacultyLoadController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        $yearLevelOptions = $this->resolveDepartmentYearLevelOptions($department->id);
+
         $validated = $request->validate([
             'user_id' => 'nullable|integer|exists:users,id',
             'faculty_id' => 'required_without:user_id|integer|exists:users,id',
             'program_id' => 'required|integer|exists:programs,id',
             'subject_id' => 'required_without:subjects|nullable|integer|exists:subjects,id',
             'academic_year_id' => 'required|integer|exists:academic_years,id',
-            'semester' => 'required|string',
-            'year_level' => 'required|integer|min:1|max:6',
-            'block_section' => 'required_without:subjects|nullable|string|max:20',
+            'semester_id' => 'required|integer|exists:semesters,id',
+            'year_level' => ['required', 'integer', Rule::in($yearLevelOptions->all())],
+            'block_id' => 'required|integer|exists:blocks,id',
+            'block_section' => 'nullable|string|max:20',
             'lecture_hours' => 'required_without:subjects|nullable|integer|min:0|max:40',
             'lab_hours' => 'required_without:subjects|nullable|integer|min:0|max:40',
             'subjects' => 'nullable|array|min:1',
@@ -230,6 +245,23 @@ class FacultyLoadController extends Controller
         ]);
 
         $userId = $validated['user_id'] ?? $validated['faculty_id'];
+        $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
+        $block = Block::query()->find($validated['block_id']);
+        $blockSectionName = trim((string) ($block?->block_name ?? ''));
+
+        if ($semesterName === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The selected semester is invalid.'
+            ], 422);
+        }
+
+        if ($blockSectionName === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The selected block/section is invalid.'
+            ], 422);
+        }
 
         $program = Program::findOrFail($validated['program_id']);
         if ($program->department_id !== $department->id) {
@@ -257,6 +289,16 @@ class FacultyLoadController extends Controller
         $subjectRows = $validated['subjects'] ?? [];
 
         if (!empty($subjectRows)) {
+            $subjectRows = collect($subjectRows)
+                ->map(function (array $subjectRow) use ($blockSectionName) {
+                    $subjectRow['block'] = $blockSectionName;
+                    return $subjectRow;
+                })
+                ->values()
+                ->all();
+        }
+
+        if (!empty($subjectRows)) {
             foreach ($subjectRows as $index => $subjectRow) {
                 $subject = Subject::find($subjectRow['subject_id']);
                 if (!$subject || (int) $subject->department_id !== (int) $department->id) {
@@ -276,7 +318,7 @@ class FacultyLoadController extends Controller
                 $userId,
                 $validated['program_id'],
                 $validated['academic_year_id'],
-                $validated['semester'],
+                $semesterName,
                 $validated['year_level'],
                 $subjectRows,
                 $forceAssign
@@ -312,9 +354,9 @@ class FacultyLoadController extends Controller
                 $validated['subject_id'],
                 $validated['program_id'],
                 $validated['academic_year_id'],
-                $validated['semester'],
+                $semesterName,
                 $validated['year_level'],
-                $validated['block_section'],
+                $blockSectionName,
                 $validated['lecture_hours'],
                 $validated['lab_hours'],
                 $forceAssign
@@ -361,14 +403,35 @@ class FacultyLoadController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        $yearLevelOptions = $this->resolveDepartmentYearLevelOptions($department->id);
+
         $validated = $request->validate([
             'faculty_id' => 'required|integer|exists:users,id',
             'program_id' => 'required|integer|exists:programs,id',
             'academic_year_id' => 'required|integer|exists:academic_years,id',
-            'semester' => 'required|string',
-            'year_level' => 'required|integer|min:1|max:6',
+            'semester_id' => 'required|integer|exists:semesters,id',
+            'year_level' => ['required', 'integer', Rule::in($yearLevelOptions->all())],
+            'block_id' => 'required|integer|exists:blocks,id',
             'block_section' => 'nullable|string|max:20',
         ]);
+
+        $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
+
+        if ($semesterName === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The selected semester is invalid.',
+            ], 422);
+        }
+
+        $block = Block::query()->find($validated['block_id']);
+        $blockSection = trim((string) ($block?->block_name ?? ''));
+        if ($blockSection === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The selected block/section is invalid.',
+            ], 422);
+        }
 
         $program = Program::findOrFail($validated['program_id']);
         if ((int) $program->department_id !== (int) $department->id) {
@@ -393,28 +456,42 @@ class FacultyLoadController extends Controller
             ->where('subjects.is_active', true)
             ->where('program_subjects.program_id', $validated['program_id'])
             ->where('program_subjects.year_level', $validated['year_level'])
-            ->where('program_subjects.semester', $validated['semester'])
+            ->where('program_subjects.semester', $semesterName)
             ->orderBy('subjects.subject_code')
             ->get();
 
         $currentLoad = $faculty->getInstructorLoadSummaryForTerm(
             $validated['academic_year_id'],
-            $validated['semester']
+            $semesterName
         );
 
-        $limits = $faculty->getContractLoadLimits();
+        $workloadConfig = FacultyWorkloadConfiguration::query()
+            ->where('user_id', $faculty->id)
+            ->when(!empty($validated['program_id']), fn ($query) => $query->where('program_id', $validated['program_id']))
+            ->where('is_active', true)
+            ->first();
 
-        $blockSection = trim((string) ($validated['block_section'] ?? ''));
+        if (!$workloadConfig) {
+            $workloadConfig = FacultyWorkloadConfiguration::query()
+                ->where('user_id', $faculty->id)
+                ->where('is_active', true)
+                ->first();
+        }
+
+        $contractLimits = $faculty->getContractLoadLimits();
+        $lectureLimit = $workloadConfig->max_lecture_hours_per_week ?? ($contractLimits['max_lecture_hours'] ?? null);
+        $labLimit = $workloadConfig->max_lab_hours_per_week ?? ($contractLimits['max_lab_hours'] ?? null);
+
         $subjectIds = $subjects->pluck('id')->all();
 
         $existingAssignments = DB::table('instructor_loads')
             ->where('instructor_id', $validated['faculty_id'])
             ->where('program_id', $validated['program_id'])
             ->where('academic_year_id', $validated['academic_year_id'])
-            ->where('semester', $validated['semester'])
+            ->where('semester', $semesterName)
             ->where('year_level', $validated['year_level'])
             ->whereIn('subject_id', $subjectIds)
-            ->when($blockSection !== '', fn ($query) => $query->where('block_section', $blockSection))
+            ->where('block_section', $blockSection)
             ->pluck('subject_id')
             ->map(fn ($id) => (int) $id)
             ->all();
@@ -443,10 +520,139 @@ class FacultyLoadController extends Controller
             'load_summary' => [
                 'current_lecture_hours' => (int) ($currentLoad['total_lecture_hours'] ?? 0),
                 'current_lab_hours' => (int) ($currentLoad['total_lab_hours'] ?? 0),
-                'contract_type' => $limits['type'] ?? 'unspecified',
-                'max_lecture_hours' => $limits['max_lecture_hours'],
-                'max_lab_hours' => $limits['max_lab_hours'],
+                'contract_type' => $contractLimits['type'] ?? 'unspecified',
+                'max_lecture_hours' => $lectureLimit,
+                'max_lab_hours' => $labLimit,
             ],
+        ]);
+    }
+
+    /**
+     * Fetch subjects for assign faculty load modal once all required filters are selected.
+     */
+    public function fetchSubjects(Request $request)
+    {
+        $user = Auth::user();
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        // Reuse existing validated payload and response structure.
+        return $this->getAssignableSubjects($request);
+    }
+
+    /**
+     * Filter blocks by selected assignment context.
+     */
+    public function filterBlocks(Request $request)
+    {
+        $user = Auth::user();
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'program_id' => 'required|integer|exists:programs,id',
+            'year_level_id' => 'required|integer',
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'semester_id' => 'required|integer|exists:semesters,id',
+        ]);
+
+        $program = Program::query()->findOrFail($validated['program_id']);
+        if ((int) $program->department_id !== (int) $department->id) {
+            return response()->json([], 403);
+        }
+
+        // Year level select may provide either a YearLevel ID or numeric code (e.g. 1, 2, 3).
+        $yearLevelToken = (string) $validated['year_level_id'];
+        $yearLevelIds = YearLevel::query()
+            ->where('id', (int) $validated['year_level_id'])
+            ->orWhere('code', $yearLevelToken)
+            ->pluck('id')
+            ->unique()
+            ->values();
+
+        if ($yearLevelIds->isEmpty()) {
+            return response()->json([]);
+        }
+
+        $blocks = Block::query()
+            ->where('status', Block::STATUS_ACTIVE)
+            ->where('program_id', $validated['program_id'])
+            ->whereIn('year_level_id', $yearLevelIds->all())
+            ->where('academic_year_id', $validated['academic_year_id'])
+            ->where('semester_id', $validated['semester_id'])
+            ->orderBy('block_name')
+            ->get(['id', 'block_name']);
+
+        return response()->json($blocks);
+    }
+
+    /**
+     * Get faculty workload limits and current load for summary panel.
+     */
+    public function getFacultyWorkload(Request $request, int $facultyId)
+    {
+        $user = Auth::user();
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'program_id' => 'nullable|integer|exists:programs,id',
+            'academic_year_id' => 'nullable|integer|exists:academic_years,id',
+            'semester_id' => 'nullable|integer|exists:semesters,id',
+        ]);
+
+        $semesterName = null;
+        if (!empty($validated['semester_id'])) {
+            $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
+        }
+
+        $faculty = User::findOrFail($facultyId);
+
+        $workloadConfig = FacultyWorkloadConfiguration::query()
+            ->where('user_id', $facultyId)
+            ->when(!empty($validated['program_id']), fn ($query) => $query->where('program_id', $validated['program_id']))
+            ->where('is_active', true)
+            ->first();
+
+        if (!$workloadConfig) {
+            $workloadConfig = FacultyWorkloadConfiguration::query()
+                ->where('user_id', $facultyId)
+                ->where('is_active', true)
+                ->first();
+        }
+
+        $contractLimits = $faculty->getContractLoadLimits();
+        $lectureLimit = $workloadConfig->max_lecture_hours_per_week ?? ($contractLimits['max_lecture_hours'] ?? 0);
+        $labLimit = $workloadConfig->max_lab_hours_per_week ?? ($contractLimits['max_lab_hours'] ?? 0);
+
+        $currentLecture = 0;
+        $currentLab = 0;
+
+        if (!empty($validated['academic_year_id']) && !empty($semesterName)) {
+            $summary = $faculty->getInstructorLoadSummaryForTerm(
+                $validated['academic_year_id'],
+                $semesterName
+            );
+            $currentLecture = (int) ($summary['total_lecture_hours'] ?? 0);
+            $currentLab = (int) ($summary['total_lab_hours'] ?? 0);
+        }
+
+        return response()->json([
+            'success' => true,
+            'lecture_limit' => $lectureLimit,
+            'lab_limit' => $labLimit,
+            'current_lecture' => $currentLecture,
+            'current_lab' => $currentLab,
+            'max_hours_per_day' => $workloadConfig->max_hours_per_day ?? null,
         ]);
     }
 
@@ -628,6 +834,203 @@ class FacultyLoadController extends Controller
                 'message' => 'An error occurred.'
             ], 500);
         }
+    }
+
+    /**
+     * Get faculty load summary with selected subjects for dynamic validation.
+     */
+    public function getFacultyLoadSummary(Request $request)
+    {
+        $user = Auth::user();
+        $department = $user->getInferredDepartment();
+
+        if (!$user->isProgramHead() || !$department) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'faculty_id' => 'required|integer|exists:users,id',
+            'program_id' => 'nullable|integer|exists:programs,id',
+            'academic_year_id' => 'nullable|integer|exists:academic_years,id',
+            'semester_id' => 'nullable|integer|exists:semesters,id',
+            'selected_lecture_hours' => 'nullable|integer|min:0',
+            'selected_lab_hours' => 'nullable|integer|min:0',
+        ]);
+
+        $semesterName = null;
+        if (!empty($validated['semester_id'])) {
+            $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
+        }
+
+        $facultyId = $validated['faculty_id'];
+        $selectedLecture = (int) ($validated['selected_lecture_hours'] ?? 0);
+        $selectedLab = (int) ($validated['selected_lab_hours'] ?? 0);
+
+        $faculty = User::findOrFail($facultyId);
+        
+        // Get faculty workload configuration
+        $workloadConfig = null;
+        if (!empty($validated['program_id'])) {
+            $workloadConfig = FacultyWorkloadConfiguration::where('user_id', $facultyId)
+                ->where('program_id', $validated['program_id'])
+                ->where('is_active', true)
+                ->first();
+        }
+
+        // If no program-specific config, try to get any active config
+        if (!$workloadConfig) {
+            $workloadConfig = FacultyWorkloadConfiguration::where('user_id', $facultyId)
+                ->where('is_active', true)
+                ->first();
+        }
+
+        // Calculate current load for the term
+        $currentLecture = 0;
+        $currentLab = 0;
+        
+        if (!empty($validated['academic_year_id']) && !empty($semesterName)) {
+            $loadSummary = $faculty->getInstructorLoadSummaryForTerm(
+                $validated['academic_year_id'],
+                $semesterName
+            );
+            $currentLecture = (int) ($loadSummary['total_lecture_hours'] ?? 0);
+            $currentLab = (int) ($loadSummary['total_lab_hours'] ?? 0);
+        }
+
+        // Get limits from workload config or contract defaults
+        $lectureLimit = $workloadConfig->max_lecture_hours_per_week ?? null;
+        $labLimit = $workloadConfig->max_lab_hours_per_week ?? null;
+
+        // If no workload config, fall back to contract limits
+        if ($lectureLimit === null || $labLimit === null) {
+            $contractLimits = $faculty->getContractLoadLimits();
+            $lectureLimit = $lectureLimit ?? $contractLimits['max_lecture_hours'] ?? null;
+            $labLimit = $labLimit ?? $contractLimits['max_lab_hours'] ?? null;
+        }
+
+        // Calculate projected values
+        $projectedLecture = $currentLecture + $selectedLecture;
+        $projectedLab = $currentLab + $selectedLab;
+        
+        $remainingLecture = $lectureLimit !== null ? ($lectureLimit - $projectedLecture) : null;
+        $remainingLab = $labLimit !== null ? ($labLimit - $projectedLab) : null;
+
+        // Determine status with color coding
+        $lectureStatus = 'valid';
+        $labStatus = 'valid';
+
+        if ($lectureLimit !== null) {
+            $lectureRatio = $lectureLimit > 0 ? ($projectedLecture / $lectureLimit) : 0;
+            if ($projectedLecture > $lectureLimit) {
+                $lectureStatus = 'exceeded';
+            } elseif ($lectureRatio >= 0.85) {
+                $lectureStatus = 'approaching';
+            }
+        }
+
+        if ($labLimit !== null) {
+            $labRatio = $labLimit > 0 ? ($projectedLab / $labLimit) : 0;
+            if ($projectedLab > $labLimit) {
+                $labStatus = 'exceeded';
+            } elseif ($labRatio >= 0.85) {
+                $labStatus = 'approaching';
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'current_load' => [
+                'lecture_hours' => $currentLecture,
+                'lab_hours' => $currentLab,
+            ],
+            'limits' => [
+                'lecture_limit' => $lectureLimit,
+                'lab_limit' => $labLimit,
+            ],
+            'projected_load' => [
+                'lecture_hours' => $projectedLecture,
+                'lab_hours' => $projectedLab,
+            ],
+            'remaining_load' => [
+                'lecture_hours' => $remainingLecture,
+                'lab_hours' => $remainingLab,
+            ],
+            'status' => [
+                'lecture' => $lectureStatus,
+                'lab' => $labStatus,
+                'can_assign' => $lectureStatus !== 'exceeded' && $labStatus !== 'exceeded',
+            ],
+            'has_workload_config' => $workloadConfig !== null,
+        ]);
+    }
+
+    /**
+     * Resolve valid semester values for a department.
+     * Prefer active semester records, with curriculum fallback when empty.
+     */
+    private function resolveDepartmentSemesterOptions(int $departmentId): Collection
+    {
+        $semesterOptions = Semester::query()
+            ->where('status', Semester::STATUS_ACTIVE)
+            ->whereNotNull('name')
+            ->orderBy('name')
+            ->pluck('name')
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->values();
+
+        if ($semesterOptions->isEmpty()) {
+            $semesterOptions = DB::table('program_subjects')
+                ->join('programs', 'programs.id', '=', 'program_subjects.program_id')
+                ->where('programs.department_id', $departmentId)
+                ->whereNotNull('program_subjects.semester')
+                ->distinct()
+                ->pluck('program_subjects.semester')
+                ->map(fn ($value) => trim((string) $value))
+                ->filter(fn ($value) => $value !== '')
+                ->values();
+        }
+
+        return $semesterOptions;
+    }
+
+    /**
+     * Resolve valid numeric year level values for a department,
+     * preferring active year_levels and falling back to curriculum data.
+     */
+    private function resolveDepartmentYearLevelOptions(int $departmentId): Collection
+    {
+        $yearLevelOptions = YearLevel::query()
+            ->where('status', YearLevel::STATUS_ACTIVE)
+            ->orderByRaw('CAST(COALESCE(NULLIF(code, \'\'), id) AS UNSIGNED)')
+            ->get()
+            ->map(function (YearLevel $yearLevel) {
+                $value = $yearLevel->code !== null && trim((string) $yearLevel->code) !== ''
+                    ? trim((string) $yearLevel->code)
+                    : (string) $yearLevel->id;
+
+                return ctype_digit($value) ? (int) $value : null;
+            })
+            ->filter(fn ($value) => is_int($value) && $value > 0)
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($yearLevelOptions->isEmpty()) {
+            $yearLevelOptions = DB::table('program_subjects')
+                ->join('programs', 'programs.id', '=', 'program_subjects.program_id')
+                ->where('programs.department_id', $departmentId)
+                ->whereNotNull('program_subjects.year_level')
+                ->distinct()
+                ->pluck('program_subjects.year_level')
+                ->map(fn ($value) => (int) $value)
+                ->filter(fn ($value) => $value > 0)
+                ->unique()
+                ->sort()
+                ->values();
+        }
+
+        return $yearLevelOptions;
     }
 
     /**

@@ -228,8 +228,9 @@
                 <label for="filterStatus" class="form-label">Status</label>
                 <select id="filterStatus" class="form-select" onchange="filterSemesters()">
                     <option value="">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    @foreach ($statusOptions as $statusOption)
+                        <option value="{{ $statusOption }}">{{ ucfirst($statusOption) }}</option>
+                    @endforeach
                 </select>
             </div>
             <div class="col-lg-4 col-md-6">

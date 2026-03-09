@@ -112,9 +112,6 @@ class ScheduleController extends Controller
 
         $schedules = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        // Get year levels from programs in department
-        $yearLevels = [1, 2, 3, 4];
-
         // Get faculty from department
         $faculty = User::where('department_id', $user->department_id)
             ->whereIn('role', [User::ROLE_INSTRUCTOR, User::ROLE_DEPARTMENT_HEAD, User::ROLE_PROGRAM_HEAD])
@@ -130,7 +127,6 @@ class ScheduleController extends Controller
             'academicYears',
             'semesters',
             'programs',
-            'yearLevels',
             'faculty',
             'rooms'
         ));

@@ -524,9 +524,9 @@
                     <label for="year_level" class="form-label">Year Level</label>
                     <select class="form-select" id="year_level" name="year_level">
                         <option value="">All Levels</option>
-                        @foreach ($yearLevels as $level)
-                            <option value="{{ $level }}" {{ request('year_level') == $level ? 'selected' : '' }}>
-                                {{ $level }}{{ $level == 1 ? 'st' : ($level == 2 ? 'nd' : ($level == 3 ? 'rd' : 'th')) }} Year
+                        @foreach ($yearLevelOptions as $yearLevelOption)
+                            <option value="{{ $yearLevelOption['value'] }}" {{ request('year_level') == $yearLevelOption['value'] ? 'selected' : '' }}>
+                                {{ $yearLevelOption['label'] }}
                             </option>
                         @endforeach
                     </select>

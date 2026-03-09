@@ -31,19 +31,26 @@ class FacultyWorkloadConfigurationRequest extends FormRequest
     public function rules(): array
     {
         $programId = auth()->user()->program_id;
-        $userId = $this->input('user_id');
         $method = $this->method();
+        $currentConfiguration = $this->route('faculty_workload_configuration');
+        $currentConfigurationId = is_object($currentConfiguration)
+            ? $currentConfiguration->id
+            : $currentConfiguration;
 
         return [
             'user_id' => [
                 'required',
                 'exists:users,id',
-                $method === 'POST' 
-                    ? Rule::unique('faculty_workload_configurations')
-                        ->where('program_id', $programId) 
-                    : Rule::unique('faculty_workload_configurations')
-                        ->where('program_id', $programId)
-                        ->ignore($this->route('faculty_workload_configuration')),
+                $method === 'POST'
+                    ? Rule::unique('faculty_workload_configurations', 'user_id')
+                        ->where(fn ($query) => $query
+                            ->where('program_id', $programId)
+                            ->whereNull('deleted_at'))
+                    : Rule::unique('faculty_workload_configurations', 'user_id')
+                        ->where(fn ($query) => $query
+                            ->where('program_id', $programId)
+                            ->whereNull('deleted_at'))
+                        ->ignore($currentConfigurationId),
             ],
             'contract_type' => 'required|in:Full-Time,Part-Time,Contractual',
             'max_lecture_hours' => 'required|integer|min:1|max:99',
