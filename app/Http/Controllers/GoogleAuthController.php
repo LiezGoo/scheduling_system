@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * GoogleAuthController
@@ -35,12 +36,19 @@ class GoogleAuthController extends Controller
      */
     public function redirectToGoogle()
     {
+        if (!$this->hasGoogleCredentials()) {
+            Log::error('Google OAuth credentials are missing.');
+
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Google authentication is not configured. Please contact support.']);
+        }
+
         $state = bin2hex(random_bytes(16));
         session(['google_oauth_state' => $state]);
 
         $query = http_build_query([
             'client_id' => config('services.google.client_id'),
-            'redirect_uri' => route('google.callback'),
+            'redirect_uri' => $this->googleRedirectUri(),
             'response_type' => 'code',
             'scope' => 'openid email profile',
             'state' => $state,
@@ -105,7 +113,7 @@ class GoogleAuthController extends Controller
 
             if ($user) {
                 // Existing user - update google_id if needed and log in
-                if (!$user->google_id) {
+                if (!$user->google_id || $user->google_id !== $googleUser['id']) {
                     $user->update([
                         'google_id' => $googleUser['id'],
                         'auth_provider' => 'google',
@@ -146,9 +154,10 @@ class GoogleAuthController extends Controller
                         'last_name' => $googleUser['family_name'] ?? '',
                         'email' => $googleUser['email'],
                         'google_id' => $googleUser['id'],
-                        'password' => null, // No password for Google users
+                        'password' => Str::random(32), // Keep DB constraint satisfied for OAuth-only accounts.
                         'auth_provider' => 'google',
                         'role' => 'student', // Default role
+                        'status' => User::STATUS_ACTIVE,
                         'is_active' => true,
                         'is_approved' => false,
                         'approval_status' => User::APPROVAL_PENDING,
@@ -179,6 +188,7 @@ class GoogleAuthController extends Controller
                     DB::rollBack();
                     Log::error('Google OAuth user creation failed', [
                         'email' => $googleUser['email'],
+                        'google_id' => $googleUser['id'] ?? null,
                         'error' => $e->getMessage(),
                     ]);
 
@@ -190,6 +200,7 @@ class GoogleAuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Google OAuth callback error', [
                 'error' => $e->getMessage(),
+                'code' => $request->input('code') ? 'present' : 'missing',
             ]);
 
             return redirect()->route('login')
@@ -212,7 +223,7 @@ class GoogleAuthController extends Controller
                 'client_secret' => config('services.google.client_secret'),
                 'code' => $code,
                 'grant_type' => 'authorization_code',
-                'redirect_uri' => route('google.callback'),
+                'redirect_uri' => $this->googleRedirectUri(),
             ]);
 
             if (!$response->successful()) {
@@ -276,5 +287,23 @@ class GoogleAuthController extends Controller
             User::ROLE_INSTRUCTOR => '/instructor/dashboard',
             default => '/student/dashboard',
         });
+    }
+
+    /**
+     * Resolve configured callback URI with a safe fallback.
+     */
+    private function googleRedirectUri(): string
+    {
+        return (string) (config('services.google.redirect') ?: route('google.callback'));
+    }
+
+    /**
+     * Ensure Google OAuth credentials exist before redirecting.
+     */
+    private function hasGoogleCredentials(): bool
+    {
+        return filled(config('services.google.client_id'))
+            && filled(config('services.google.client_secret'))
+            && filled($this->googleRedirectUri());
     }
 }

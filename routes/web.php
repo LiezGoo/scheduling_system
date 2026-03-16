@@ -50,7 +50,7 @@ Route::get('/account-deactivated', [AccountDeactivatedController::class, 'show']
 */
 
 Route::middleware(['guest'])->group(function () {
-    Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::get('/', [AuthController::class, 'showLoginForm'])->name('home');
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
 
