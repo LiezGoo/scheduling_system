@@ -167,9 +167,18 @@ class ScheduleAdjustmentController extends Controller
             ->with(['subject', 'instructor', 'room'])
             ->get();
 
+        $rooms = \App\Models\Room::orderBy('room_code')->get();
+        $instructors = \App\Models\User::where('role', \App\Models\User::ROLE_INSTRUCTOR)
+            ->where('status', 'active')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
         return view('department-head.schedules.edit', [
             'schedule' => $schedule,
             'items' => $scheduleItems,
+            'rooms' => $rooms,
+            'instructors' => $instructors,
         ]);
     }
 
@@ -192,10 +201,18 @@ class ScheduleAdjustmentController extends Controller
             'instructor_id' => 'nullable|integer|exists:users,id',
         ]);
 
+        $updateData = [
+            'room_id' => $validated['room_id'],
+            'day_of_week' => $validated['day'],
+            'start_time' => $validated['start_time'],
+            'end_time' => $validated['end_time'],
+            'instructor_id' => $validated['instructor_id'],
+        ];
+
         // Validate constraints
         $validation_errors = $this->validateScheduleItemConstraints(
             $item,
-            $validated,
+            $updateData,
             $schedule
         );
 
@@ -209,7 +226,7 @@ class ScheduleAdjustmentController extends Controller
         DB::beginTransaction();
 
         try {
-            $item->update($validated);
+            $item->update($updateData);
 
             // Recalculate fitness score
             // Note: This would call the GeneticAlgorithmEngine to recalculate fitness
@@ -237,46 +254,25 @@ class ScheduleAdjustmentController extends Controller
     {
         $errors = [];
 
-        // Check for room conflicts
-        $roomConflicts = ScheduleItem::where('schedule_id', $schedule->id)
-            ->where('id', '!=', $item->id)
-            ->where('room_id', $changes['room_id'] ?? $item->room_id)
-            ->where('day', $changes['day'] ?? $item->day)
-            ->whereBetween('start_time', [
-                $changes['start_time'] ?? $item->start_time,
-                $changes['end_time'] ?? $item->end_time,
-            ])
-            ->exists();
+        $roomId = $changes['room_id'] ?? $item->room_id;
+        $dayOfWeek = $changes['day_of_week'] ?? $item->day_of_week;
+        $startTime = $changes['start_time'] ?? $item->start_time;
+        $endTime = $changes['end_time'] ?? $item->end_time;
 
-        if ($roomConflicts) {
+        // Check for room conflicts
+        if ($roomId && ScheduleItem::hasRoomConflict($roomId, $dayOfWeek, $startTime, $endTime, $schedule->id)) {
             $errors['room'] = 'This room is already scheduled at this time.';
         }
 
         // Check for instructor conflicts
-        if (isset($changes['instructor_id'])) {
-            $instructorConflicts = ScheduleItem::where('schedule_id', $schedule->id)
-                ->where('id', '!=', $item->id)
-                ->where('instructor_id', $changes['instructor_id'])
-                ->where('day', $changes['day'] ?? $item->day)
-                ->whereBetween('start_time', [
-                    $changes['start_time'] ?? $item->start_time,
-                    $changes['end_time'] ?? $item->end_time,
-                ])
-                ->exists();
-
-            if ($instructorConflicts) {
-                $errors['instructor'] = 'This instructor is already scheduled at this time.';
-            }
+        $instructorId = $changes['instructor_id'] ?? $item->instructor_id;
+        if ($instructorId && ScheduleItem::hasInstructorConflict($instructorId, $dayOfWeek, $startTime, $endTime, $schedule->id)) {
+            $errors['instructor'] = 'This instructor is already scheduled at this time.';
         }
 
-        $instructorId = $changes['instructor_id'] ?? $item->instructor_id;
-        $day = $changes['day'] ?? $item->day ?? $item->day_of_week;
-        $startTime = $changes['start_time'] ?? $item->start_time;
-        $endTime = $changes['end_time'] ?? $item->end_time;
-
-        if ($instructorId && $day && $startTime && $endTime) {
+        if ($instructorId && $dayOfWeek && $startTime && $endTime) {
             $instructor = User::find($instructorId);
-            if ($instructor && !$this->constraintValidator->isWithinInstructorScheme($instructor, $startTime, $endTime, $day, $schedule->program_id)) {
+            if ($instructor && !$this->constraintValidator->isWithinInstructorScheme($instructor, $startTime, $endTime, $dayOfWeek, $schedule->program_id)) {
                 $errors['teaching_scheme'] = 'Class time is outside faculty teaching availability.';
             }
         }

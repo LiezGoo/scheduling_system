@@ -338,14 +338,15 @@ class TestDataSeeder extends Seeder
             $selectedSubjects = $subjects->random(min(rand(10, 15), $subjects->count()));
 
             foreach ($selectedSubjects as $subject) {
-                for ($yearLevel = 1; $yearLevel <= 2; $yearLevel++) {
-                    for ($semester = 1; $semester <= 2; $semester++) {
-                        $program->subjects()->attach($subject->id, [
-                            'year_level' => $yearLevel,
-                            'semester' => $semester,
-                        ]);
-                    }
-                }
+                $yearLevel = rand(1, 2);
+                $semester = rand(1, 2);
+                
+                $program->subjects()->syncWithoutDetaching([
+                    $subject->id => [
+                        'year_level' => $yearLevel,
+                        'semester' => $semester,
+                    ]
+                ]);
             }
         }
 

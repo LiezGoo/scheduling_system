@@ -14,25 +14,15 @@ class RoomManagementSeeder extends Seeder
         // Create buildings
         $buildings = [
             [
-                'building_code' => 'BLD-001',
-                'building_name' => 'Academic Building A',
-                'description' => 'Main academic building with classrooms and labs'
+                'building_code' => 'CCB',
+                'building_name' => 'CCB Building',
+                'description' => 'Lecture rooms in the CCB building',
             ],
             [
-                'building_code' => 'BLD-002',
-                'building_name' => 'Academic Building B',
-                'description' => 'Secondary academic building'
+                'building_code' => 'ICT',
+                'building_name' => 'ICT Building',
+                'description' => 'Lecture and laboratory rooms for ICT classes',
             ],
-            [
-                'building_code' => 'BLD-003',
-                'building_name' => 'Science Complex',
-                'description' => 'Specialized laboratories and research facilities'
-            ],
-            [
-                'building_code' => 'BLD-004',
-                'building_name' => 'Engineering Building',
-                'description' => 'Engineering laboratories and workshops'
-            ]
         ];
 
         foreach ($buildings as $building) {
@@ -67,53 +57,45 @@ class RoomManagementSeeder extends Seeder
             RoomType::firstOrCreate(['type_name' => $type['type_name']], $type);
         }
 
-        // Create sample rooms
-        $classroom = RoomType::where('type_name', 'Classroom')->first();
-        $lab = RoomType::where('type_name', 'Laboratory')->first();
-        $auditorium = RoomType::where('type_name', 'Auditorium')->first();
+        $ccbBuilding = Building::where('building_code', 'CCB')->first();
+        $ictBuilding = Building::where('building_code', 'ICT')->first();
 
-        if ($classroom) {
-            Room::firstOrCreate(
-                ['room_code' => 'A-101'],
-                [
-                    'room_name' => 'Lecture Hall 101',
-                    'room_type' => $classroom->type_name
-                ]
-            );
+        $rooms = [];
 
-            Room::firstOrCreate(
-                ['room_code' => 'A-102'],
-                [
-                    'room_name' => 'Lecture Hall 102',
-                    'room_type' => $classroom->type_name
-                ]
-            );
+        foreach (range(1, 6) as $number) {
+            $rooms[] = [
+                'room_code' => "CCB-{$number}",
+                'room_name' => "CCB Room {$number}",
+                'room_type' => 'lecture',
+                'building_id' => $ccbBuilding?->id,
+            ];
         }
 
-        if ($lab) {
-            Room::firstOrCreate(
-                ['room_code' => 'SCI-201'],
-                [
-                    'room_name' => 'Physics Laboratory',
-                    'room_type' => $lab->type_name
-                ]
-            );
-
-            Room::firstOrCreate(
-                ['room_code' => 'SCI-202'],
-                [
-                    'room_name' => 'Chemistry Laboratory',
-                    'room_type' => $lab->type_name
-                ]
-            );
+        foreach (range(6, 10) as $number) {
+            $rooms[] = [
+                'room_code' => "ICT-{$number}",
+                'room_name' => "ICT Room {$number}",
+                'room_type' => 'lecture',
+                'building_id' => $ictBuilding?->id,
+            ];
         }
 
-        if ($auditorium) {
-            Room::firstOrCreate(
-                ['room_code' => 'B-AUDIT'],
+        foreach (range('A', 'D') as $suffix) {
+            $rooms[] = [
+                'room_code' => "LAB-{$suffix}",
+                'room_name' => "LAB {$suffix}",
+                'room_type' => 'laboratory',
+                'building_id' => $ictBuilding?->id,
+            ];
+        }
+
+        foreach ($rooms as $room) {
+            Room::updateOrCreate(
+                ['room_code' => $room['room_code']],
                 [
-                    'room_name' => 'Main Auditorium',
-                    'room_type' => $auditorium->type_name
+                    'room_name' => $room['room_name'],
+                    'room_type' => $room['room_type'],
+                    'building_id' => $room['building_id'],
                 ]
             );
         }

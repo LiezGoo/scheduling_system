@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Building;
 
 class Room extends Model
 {
@@ -10,7 +12,16 @@ class Room extends Model
         'room_code',
         'room_name',
         'room_type',
+        'building_id',
     ];
+
+    /**
+     * Get the building that owns this room.
+     */
+    public function building(): BelongsTo
+    {
+        return $this->belongsTo(Building::class);
+    }
 
     /**
      * Scope to filter rooms by room type (case-insensitive).

@@ -66,7 +66,7 @@ class AppServiceProvider extends ServiceProvider
             View::share('academicYears', AcademicYear::orderBy('start_year', 'desc')->get());
         }
 
-        if (Schema::hasTable('semesters')) {
+        if (Schema::hasTable('semesters') && Schema::hasColumn('semesters', 'status')) {
             $semesterOptions = Semester::query()
                 ->where('status', Semester::STATUS_ACTIVE)
                 ->orderBy('name')
@@ -97,14 +97,13 @@ class AppServiceProvider extends ServiceProvider
             View::share('yearLevelOptions', $yearLevelOptions);
         }
 
-        if (Schema::hasTable('users')) {
-            $contractTypeOptions = User::query()
-                ->whereNotNull('contract_type')
-                ->distinct()
-                ->pluck('contract_type')
-                ->filter(fn ($value) => trim((string) $value) !== '')
-                ->values();
-
+        if (Schema::hasTable('users') && Schema::hasColumn('users', 'contract_type')) {
+    $contractTypeOptions = User::query()
+        ->whereNotNull('contract_type')
+        ->distinct()
+        ->pluck('contract_type')
+        ->filter(fn ($value) => trim((string) $value) !== '')
+        ->values();
             // Define valid roles instead of pulling from database to avoid missing roles
             $userRoleOptions = collect([
                 'student',

@@ -247,6 +247,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/schedules/{schedule}/edit', [ScheduleAdjustmentController::class, 'edit'])->name('schedules.edit');
         Route::put('/schedules/{schedule}/items/{item}', [ScheduleAdjustmentController::class, 'updateItem'])->name('schedules.items.update');
         Route::post('/schedules/{schedule}/finalize', [DepartmentHeadScheduleController::class, 'finalize'])->name('schedules.finalize');
+        Route::post('/schedules/{schedule}/approve', [DepartmentHeadScheduleController::class, 'approve'])->name('schedules.approve');
+        Route::post('/schedules/{schedule}/reject', [DepartmentHeadScheduleController::class, 'reject'])->name('schedules.reject');
         Route::delete('/schedules/{schedule}', [DepartmentHeadScheduleController::class, 'destroy'])->name('schedules.destroy');
 
         // Adjustment Requests Management

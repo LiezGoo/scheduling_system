@@ -639,6 +639,16 @@
                                                 </button>
                                             </form>
                                         @endif
+                                        
+                                        @can('delete', $schedule)
+                                            <form method="POST" action="{{ route('department-head.schedules.destroy', $schedule) }}" class="d-inline" onsubmit="return confirm('{{ $schedule->isFinalized() ? 'WARNING: This schedule is FINALIZED. Deleting it will remove it from public view and cannot be undone. Are you sure you want to proceed?' : 'Are you sure you want to delete this schedule? This action cannot be undone.' }}');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete Schedule">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>

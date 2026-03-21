@@ -70,11 +70,11 @@ class ScheduleGenerationTest extends TestCase
         ]);
 
         $this->assertNotEmpty($result['schedule_id']);
-        $this->assertIsInteger($result['schedule_id']);
+        $this->assertIsInt($result['schedule_id']);
 
         $schedule = Schedule::find($result['schedule_id']);
         $this->assertNotNull($schedule);
-        $this->assertGreater($schedule->items()->count(), 0);
+        $this->assertGreaterThan(0, $schedule->items()->count());
     }
 
     /** @test */
@@ -110,7 +110,7 @@ class ScheduleGenerationTest extends TestCase
 
         // Use validation method
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
-        $this->assertEqual(0, $validation['room_conflicts'], 'Room conflicts detected');
+        $this->assertEquals(0, $validation['room_conflicts'], 'Room conflicts detected');
     }
 
     /** @test */
@@ -151,7 +151,7 @@ class ScheduleGenerationTest extends TestCase
 
         // Use validation method
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
-        $this->assertEqual(0, $validation['instructor_conflicts'], 'Instructor conflicts detected');
+        $this->assertEquals(0, $validation['instructor_conflicts'], 'Instructor conflicts detected');
     }
 
     /** @test */
@@ -182,7 +182,7 @@ class ScheduleGenerationTest extends TestCase
 
         // Use validation method
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
-        $this->assertEqual(0, $validation['scheme_violations'], 'Scheme violations detected');
+        $this->assertEquals(0, $validation['scheme_violations'], 'Scheme violations detected');
     }
 
     /** @test */
@@ -224,7 +224,7 @@ class ScheduleGenerationTest extends TestCase
 
         // Use validation method
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
-        $this->assertEqual(0, $validation['overload_violations'], 'Faculty overload violations detected');
+        $this->assertEquals(0, $validation['overload_violations'], 'Faculty overload violations detected');
     }
 
     /** @test */
@@ -280,7 +280,7 @@ class ScheduleGenerationTest extends TestCase
 
         // Use validation method
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
-        $this->assertEqual(0, $validation['break_violations'], 'Break violations detected');
+        $this->assertEquals(0, $validation['break_violations'], 'Break violations detected');
     }
 
     /** @test */
@@ -317,7 +317,7 @@ class ScheduleGenerationTest extends TestCase
 
         // Use validation method
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
-        $this->assertEqual(0, $validation['section_conflicts'], 'Section conflicts detected');
+        $this->assertEquals(0, $validation['section_conflicts'], 'Section conflicts detected');
     }
 
     /**
@@ -334,12 +334,12 @@ class ScheduleGenerationTest extends TestCase
         $validation = $this->generationService->validateGeneratedSchedule($schedule);
 
         // All conflict counts should be zero
-        $this->assertEqual(0, $validation['room_conflicts']);
-        $this->assertEqual(0, $validation['instructor_conflicts']);
-        $this->assertEqual(0, $validation['overload_violations']);
-        $this->assertEqual(0, $validation['break_violations']);
-        $this->assertEqual(0, $validation['scheme_violations']);
-        $this->assertEqual(0, $validation['section_conflicts']);
+        $this->assertEquals(0, $validation['room_conflicts']);
+        $this->assertEquals(0, $validation['instructor_conflicts']);
+        $this->assertEquals(0, $validation['overload_violations']);
+        $this->assertEquals(0, $validation['break_violations']);
+        $this->assertEquals(0, $validation['scheme_violations']);
+        $this->assertEquals(0, $validation['section_conflicts']);
         $this->assertTrue($validation['all_valid']);
     }
 
@@ -365,7 +365,7 @@ class ScheduleGenerationTest extends TestCase
             'year_level' => 1,
             'block_section' => 'Block 1',
             'created_by' => $user->id,
-            'generations' => 50, // Reasonable number for testing
+            'generations' => 150, // Increased for better convergence
         ]);
 
         $endTime = microtime(true);
@@ -433,7 +433,7 @@ class ScheduleGenerationTest extends TestCase
 
         $academicYear = AcademicYear::where('is_active', true)->first();
         $program = Program::first();
-        $user = User::where('role', User::ROLE_ADMIN)->first();
+        $user = User::where('role', User::ROLE_ADMIN)->first() ?? User::factory()->create(['role' => User::ROLE_ADMIN]);
 
         $startTime = microtime(true);
 
@@ -457,7 +457,7 @@ class ScheduleGenerationTest extends TestCase
 
             $schedule = Schedule::find($result['schedule_id']);
             $this->assertNotNull($schedule);
-            $this->assertGreater($schedule->items()->count(), 0);
+            $this->assertGreaterThan(0, $schedule->items()->count(), 0);
 
             // Verify no infinite loops or crashes
             $this->assertLessThan(60, $executionTime, "Stress test exceeded 60 seconds");
@@ -467,7 +467,7 @@ class ScheduleGenerationTest extends TestCase
             echo "\n  - Items Generated: {$schedule->items()->count()}";
             echo "\n  - Fitness Score: {$schedule->fitness_score}";
         } catch (\Exception $e) {
-            $this->fail("Stress test failed: {$e->getMessage()}");
+            throw $e;
         }
     }
 
@@ -479,7 +479,7 @@ class ScheduleGenerationTest extends TestCase
 
         $academicYear = AcademicYear::where('is_active', true)->first();
         $program = Program::first();
-        $user = User::where('role', User::ROLE_ADMIN)->first();
+        $user = User::where('role', User::ROLE_ADMIN)->first() ?? User::factory()->create(['role' => User::ROLE_ADMIN]);
 
         try {
             for ($i = 0; $i < 3; $i++) {
@@ -497,7 +497,7 @@ class ScheduleGenerationTest extends TestCase
 
             $this->assertTrue(true);
         } catch (\Exception $e) {
-            $this->fail("Algorithm crashed during stress test: {$e->getMessage()}");
+            throw $e;
         }
     }
 
@@ -599,6 +599,7 @@ class ScheduleGenerationTest extends TestCase
                 'department_id' => $department->id,
                 'lecture_hours' => rand(2, 3),
                 'lab_hours' => rand(1, 3),
+                'units' => 3,
                 'is_active' => true,
             ]);
         }

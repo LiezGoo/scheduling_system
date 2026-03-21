@@ -18,11 +18,11 @@ class ConstraintValidator
 {
     // Penalty weights for different constraint violations
     public const PENALTY_SCHEME_VIOLATION = 100;
-    public const PENALTY_ROOM_CONFLICT = 100;
+    public const PENALTY_ROOM_CONFLICT = 1000;
     public const PENALTY_FACULTY_OVERLOAD = 80;
     public const PENALTY_BREAK_VIOLATION = 50;
-    public const PENALTY_TIME_OVERLAP = 100;
-    public const PENALTY_SECTION_OVERLAP = 100;
+    public const PENALTY_TIME_OVERLAP = 1000;
+    public const PENALTY_SECTION_OVERLAP = 1000;
 
     // Break time configuration
     public const MIN_BREAK_DURATION = 60; // minutes
@@ -157,8 +157,16 @@ class ConstraintValidator
         return null;
     }
 
+    private array $workloadConfigCache = [];
+
     private function getInstructorWorkloadConfiguration(int $instructorId, ?int $programId = null): ?FacultyWorkloadConfiguration
     {
+        $cacheKey = $instructorId . '_' . ($programId ?? 'null');
+
+        if (array_key_exists($cacheKey, $this->workloadConfigCache)) {
+            return $this->workloadConfigCache[$cacheKey];
+        }
+
         $query = FacultyWorkloadConfiguration::query()
             ->where('user_id', $instructorId)
             ->where('is_active', true);
@@ -169,11 +177,14 @@ class ConstraintValidator
                 ->first();
 
             if ($programConfig) {
+                $this->workloadConfigCache[$cacheKey] = $programConfig;
                 return $programConfig;
             }
         }
 
-        return $query->latest('id')->first();
+        $result = $query->latest('id')->first();
+        $this->workloadConfigCache[$cacheKey] = $result;
+        return $result;
     }
 
     private function normalizeTime(string $time): ?string
@@ -465,12 +476,13 @@ class ConstraintValidator
     public function calculateGenePenalty(
         array $gene,
         Collection $existingSchedule,
-        array $facultyLoads
+        array $facultyLoads,
+        Collection $instructors
     ): int {
         $penalty = 0;
 
         // Load instructor
-        $instructor = User::find($gene['instructor_id']);
+        $instructor = $instructors->firstWhere('id', $gene['instructor_id']);
         if (!$instructor) {
             return 1000; // Invalid instructor
         }

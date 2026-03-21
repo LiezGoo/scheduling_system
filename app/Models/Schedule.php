@@ -24,6 +24,9 @@ class Schedule extends Model
         'status',
         'ga_parameters',
         'fitness_score',
+        'department_head_remarks',
+        'department_head_approved_at',
+        'approved_by_department_head',
     ];
 
     protected $casts = [
@@ -35,6 +38,9 @@ class Schedule extends Model
     // Status Constants - Now represents generation status, not approval
     const STATUS_DRAFT = 'DRAFT';
     const STATUS_GENERATED = 'GENERATED';
+    const STATUS_PENDING_APPROVAL = 'PENDING_APPROVAL';
+    const STATUS_APPROVED = 'APPROVED';
+    const STATUS_REJECTED = 'REJECTED';
     const STATUS_FINALIZED = 'FINALIZED';
 
     /**
@@ -138,6 +144,14 @@ class Schedule extends Model
     public function isGenerated(): bool
     {
         return $this->status === self::STATUS_GENERATED;
+    }
+
+    /**
+     * Check if schedule is pending approval
+     */
+    public function isPendingApproval(): bool
+    {
+        return $this->status === self::STATUS_PENDING_APPROVAL;
     }
 
     /**

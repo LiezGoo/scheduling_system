@@ -59,8 +59,17 @@ class SchedulePolicy
     public function delete(User $user, Schedule $schedule): bool
     {
         return $user->isDepartmentHead()
+            && (int) $schedule->program?->department_id === (int) $user->department_id;
+    }
+
+    /**
+     * Determine whether the user can review the schedule.
+     */
+    public function review(User $user, Schedule $schedule): bool
+    {
+        return $user->isDepartmentHead()
             && (int) $schedule->program?->department_id === (int) $user->department_id
-            && $schedule->isDraft();
+            && ($schedule->isDraft() || $schedule->isGenerated() || $schedule->isPendingApproval());
     }
 
     /**
@@ -91,7 +100,7 @@ class SchedulePolicy
     {
         return $user->isDepartmentHead()
             && (int) $schedule->program?->department_id === (int) $user->department_id
-            && ($schedule->isGenerated() || $schedule->isDraft());
+            && ($schedule->isGenerated() || $schedule->isDraft() || $schedule->isPendingApproval());
     }
 }
 

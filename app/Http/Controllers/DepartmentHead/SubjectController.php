@@ -282,7 +282,25 @@ class SubjectController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        $scheduleUsageCount = \App\Models\ScheduleItem::where('subject_id', $subject->id)->count();
+        $isInCurriculum = $subject->programs()->exists();
+
+        // If the subject is still used in actual schedule items, keep the record and deactivate it.
+        if ($scheduleUsageCount > 0) {
+            $subject->update(['is_active' => false]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Subject could not be deleted because it is used in {$scheduleUsageCount} schedule item(s). It has been deactivated instead.",
+                'deactivated' => true,
+            ]);
+        }
+
         try {
+            if ($isInCurriculum) {
+                $subject->programs()->detach();
+            }
+
             $subject->delete();
 
             return response()->json([
