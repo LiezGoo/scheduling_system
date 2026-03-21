@@ -165,7 +165,7 @@
                     </table>
                 </div>
 
-                @if ($blocks instanceof \Illuminate\Contracts\Pagination\Paginator && $blocks->hasPages())
+                @if ($blocks instanceof \Illuminate\Contracts\Pagination\Paginator && count($blocks->items()) > 0)
                     <x-pagination.footer :paginator="$blocks" />
                 @endif
             </div>

@@ -39,6 +39,10 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
+        'stateless' => env('GOOGLE_STATELESS', true),
+        'debug_exceptions' => env('GOOGLE_OAUTH_DEBUG_EXCEPTIONS', false),
+        'default_role' => env('GOOGLE_DEFAULT_ROLE', 'student'),
+        'domain_role_map' => json_decode((string) env('GOOGLE_DOMAIN_ROLE_MAP', '{"sorsu.edu.ph":"instructor"}'), true) ?: [],
     ],
 
 ];

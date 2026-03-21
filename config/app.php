@@ -43,6 +43,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registration Exception Debugging
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, registration exceptions are dumped directly to help
+    | isolate production-only failures. Keep this false in normal operation.
+    |
+    */
+
+    'debug_registration_exceptions' => (bool) env('APP_DEBUG_REGISTRATION_EXCEPTIONS', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Registration Email DNS Validation
+    |--------------------------------------------------------------------------
+    |
+    | Some shared hosts can block or mis-handle DNS lookups during validation.
+    | Disable DNS checks to keep registration flow consistent across environments.
+    |
+    */
+
+    'registration_email_dns_check' => (bool) env('REGISTRATION_EMAIL_DNS_CHECK', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

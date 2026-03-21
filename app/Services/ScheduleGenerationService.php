@@ -11,6 +11,7 @@ use App\Models\AcademicYear;
 use App\Models\Program;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use Exception;
 
@@ -345,18 +346,27 @@ class ScheduleGenerationService
                 );
 
                 if (!$loadValidation['valid']) {
+                    $overloadHours = collect($loadValidation['violations'] ?? [])->sum(function ($violation) {
+                        return (float) ($violation['excess'] ?? 0);
+                    });
+
                     $violations[] = [
                         'type' => 'faculty_overload',
                         'instructor_id' => $instructorId,
                         'instructor' => $instructor->first_name . ' ' . $instructor->last_name,
+                        'overload_hours' => $overloadHours,
                         'violations' => $loadValidation['violations'],
                     ];
                 }
             }
         }
 
+        $hardViolations = collect($violations)->reject(function ($violation) {
+            return ($violation['type'] ?? null) === 'faculty_overload';
+        });
+
         return [
-            'valid' => empty($violations),
+            'valid' => $hardViolations->isEmpty(),
             'violations' => $violations,
             'faculty_loads' => $facultyLoads,
         ];
@@ -577,7 +587,6 @@ class ScheduleGenerationService
         $report['all_valid'] = (
             $report['room_conflicts'] === 0 &&
             $report['instructor_conflicts'] === 0 &&
-            $report['overload_violations'] === 0 &&
             $report['break_violations'] === 0 &&
             $report['scheme_violations'] === 0 &&
             $report['section_conflicts'] === 0

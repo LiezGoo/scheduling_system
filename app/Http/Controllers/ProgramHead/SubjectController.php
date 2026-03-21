@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\ProgramHead;
 
 use App\Http\Controllers\Controller;
+use App\Models\Program;
+use App\Models\Semester;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +13,79 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class SubjectController extends Controller
 {
     use AuthorizesRequests;
+
+    /**
+     * Return filtered subjects for the Assign Faculty Load modal.
+     */
+    public function getFilteredSubjects(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (!$user || !$user->isProgramHead()) {
+            return response()->json(['message' => 'Unauthorized access.'], 403);
+        }
+
+        $department = $user->getInferredDepartment();
+        if (!$department) {
+            return response()->json(['message' => 'No department assigned.'], 403);
+        }
+
+        $validated = $request->validate([
+            'program_id' => 'required|integer|exists:programs,id',
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'semester_id' => 'required|integer|exists:semesters,id',
+            'year_level' => 'required|integer|min:1|max:6',
+        ]);
+
+        $program = Program::query()->findOrFail($validated['program_id']);
+        if ((int) $program->department_id !== (int) $department->id) {
+            return response()->json(['message' => 'Program does not belong to your department.'], 403);
+        }
+
+        $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
+        if ($semesterName === '') {
+            return response()->json(['message' => 'The selected semester is invalid.'], 422);
+        }
+
+        $subjects = Subject::query()
+            ->select('subjects.id', 'subjects.subject_code', 'subjects.subject_name', 'subjects.lecture_hours', 'subjects.lab_hours')
+            ->join('program_subjects', 'program_subjects.subject_id', '=', 'subjects.id')
+            ->where('subjects.department_id', $department->id)
+            ->where('subjects.is_active', true)
+            ->where('program_subjects.program_id', $validated['program_id'])
+            ->where('program_subjects.year_level', $validated['year_level'])
+            ->where('program_subjects.semester', $semesterName)
+            ->orderBy('subjects.subject_code')
+            ->get()
+            ->map(function ($subject) {
+                $lectureHours = (int) ($subject->lecture_hours ?? 0);
+                $labHours = (int) ($subject->lab_hours ?? 0);
+
+                return [
+                    'id' => (int) $subject->id,
+                    'code' => (string) $subject->subject_code,
+                    'name' => (string) $subject->subject_name,
+                    'lecture_hours' => $lectureHours,
+                    'lab_hours' => $labHours,
+                    'total_hours' => $lectureHours + $labHours,
+                    'block' => null,
+                    'status' => 'available',
+                    // Keep compatibility with existing assignment table renderer.
+                    'subject_id' => (int) $subject->id,
+                    'subject_code' => (string) $subject->subject_code,
+                    'subject_name' => (string) $subject->subject_name,
+                    'already_assigned' => false,
+                    'error' => null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'subjects' => $subjects,
+        ]);
+    }
 
     /**
      * Display a listing of subjects for the program head's department (READ-ONLY).
@@ -64,7 +139,7 @@ class SubjectController extends Controller
             return response()->json([
                 'success' => true,
                 'html' => view('program-head.subjects.partials.table-rows', compact('subjects'))->render(),
-                'pagination' => $subjects->withQueryString()->links()->render(),
+                'pagination' => (string) $subjects->withQueryString()->links(),
             ]);
         }
 

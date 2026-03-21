@@ -68,20 +68,11 @@
                 </table>
             </div>
 
-            <!-- Pagination Footer -->
-            @if (collect($academicYears)->count() > 0)
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-                    <div class="text-muted small">
-                        Showing {{ collect($academicYears)->count() }} of
-                        {{ collect($academicYears)->count() }} academic years
-                    </div>
-                </div>
+            @if ($academicYears->count() > 0)
+                <x-pagination.footer :paginator="$academicYears" />
 
                 <!-- Active Year Info -->
-                @php
-                    $activeAcademicYear = collect($academicYears)->where('is_active', true)->first();
-                @endphp
-                @if ($activeAcademicYear)
+                @if (!empty($activeAcademicYear))
                     <div class="mt-3 pt-3 border-top">
                         <div class="d-flex align-items-center gap-2">
                             <i class="fas fa-check-circle text-success"></i>

@@ -369,14 +369,6 @@ class FacultyLoadController extends Controller
                 ]);
             }
 
-            if (($result['code'] ?? '') === 'overload') {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'],
-                    'validation_details' => $result['validation_details'] ?? [],
-                ], 409);
-            }
-
             return response()->json([
                 'success' => false,
                 'message' => $result['message']
@@ -708,6 +700,7 @@ class FacultyLoadController extends Controller
             $instructor = User::find($load->user_id);
             $limits = $instructor?->getContractLoadLimits() ?? [];
             $summary = $instructor?->getInstructorLoadSummaryForTerm($load->academic_year_id, $load->semester) ?? [];
+            $workloadValidation = $instructor?->validateFacultyLoad(0, 0, (int) $load->academic_year_id, (string) $load->semester) ?? [];
 
             return response()->json([
                 'success' => true,
@@ -746,6 +739,12 @@ class FacultyLoadController extends Controller
                 'block_section' => $load->block_section,
                 'limits' => $limits,
                 'current_load' => $summary,
+                'workload' => [
+                    'status' => $workloadValidation['workload_status'] ?? 'Normal',
+                    'total_assigned_hours' => (int) ($workloadValidation['total_assigned_hours'] ?? ($summary['total_assigned_hours'] ?? 0)),
+                    'max_load' => $workloadValidation['max_load'] ?? null,
+                    'overload_hours' => (int) ($workloadValidation['overload_hours'] ?? 0),
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error("Error fetching faculty load details", ['error' => $e->getMessage()]);
@@ -813,14 +812,6 @@ class FacultyLoadController extends Controller
                     'success' => true,
                     'message' => $result['message']
                 ]);
-            }
-
-            if (($result['code'] ?? '') === 'overload') {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'],
-                    'validation_details' => $result['validation_details'] ?? [],
-                ], 409);
             }
 
             return response()->json([

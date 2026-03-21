@@ -7,10 +7,11 @@ use App\Notifications\SystemNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
 
 /**
  * GoogleAuthController
@@ -20,13 +21,6 @@ use Illuminate\Support\Str;
  */
 class GoogleAuthController extends Controller
 {
-    /**
-     * Constants for authentication
-     */
-    private const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-    private const GOOGLE_TOKEN_URL = 'https://www.googleapis.com/oauth2/v4/token';
-    private const GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v1/userinfo';
-
     /**
      * Redirect user to Google OAuth
      *
@@ -44,18 +38,7 @@ class GoogleAuthController extends Controller
                 ->withErrors(['email' => 'Google authentication is not configured. Please contact support.']);
         }
 
-        $state = bin2hex(random_bytes(16));
-        session(['google_oauth_state' => $state]);
-
-        $query = http_build_query([
-            'client_id' => config('services.google.client_id'),
-            'redirect_uri' => $this->googleRedirectUri(),
-            'response_type' => 'code',
-            'scope' => 'openid email profile',
-            'state' => $state,
-        ]);
-
-        return redirect(self::GOOGLE_AUTH_URL . '?' . $query);
+        return Socialite::driver('google')->redirect();
     }
 
     /**
@@ -63,9 +46,6 @@ class GoogleAuthController extends Controller
      *
      * Processes the callback from Google OAuth, verifies the state,
      * exchanges authorization code for access token, and retrieves user info.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function handleGoogleCallback(Request $request)
     {
@@ -81,59 +61,71 @@ class GoogleAuthController extends Controller
                 ->withErrors(['email' => 'Google login is not fully configured. Please contact support.']);
         }
 
-        // CSRF Protection: Verify state matches
-        if ($request->input('state') !== session('google_oauth_state')) {
-            Log::warning('Google OAuth state mismatch');
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Authentication failed. Please try again.']);
-        }
-
-        // Prevent replay and stale callback confusion in subsequent attempts.
-        session()->forget('google_oauth_state');
-
-        // Check for authorization error
-        if ($request->has('error')) {
-            Log::warning('Google OAuth error', ['error' => $request->input('error')]);
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Google OAuth authorization was denied.']);
-        }
-
-        // Get authorization code
-        $code = $request->input('code');
-        if (!$code) {
-            Log::warning('Google OAuth missing authorization code');
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Authorization code not received. Please try again.']);
-        }
-
         try {
-            // Exchange authorization code for access token
-            $googleUser = $this->getGoogleUser($code);
+            /** @var \Laravel\Socialite\Two\AbstractProvider $socialiteGoogle */
+            $socialiteGoogle = Socialite::driver('google');
+            if ((bool) config('services.google.stateless', true)) {
+                $socialiteGoogle = $socialiteGoogle->stateless();
+            }
 
-            // Verify we got valid user data
-            if (!$googleUser || !isset($googleUser['email']) || !isset($googleUser['id'])) {
+            $googleUser = $socialiteGoogle->user();
+            $rawGoogleUser = method_exists($googleUser, 'getRaw') ? $googleUser->getRaw() : [];
+
+            $email = $googleUser->getEmail();
+            $googleId = $googleUser->getId();
+            $avatar = $googleUser->getAvatar();
+
+            if (!filled($email) || !filled($googleId)) {
                 Log::warning('Invalid Google user data received');
                 return redirect()->route('login')
                     ->withErrors(['email' => 'Failed to retrieve your Google information. Please try again.']);
             }
 
-            // Verify email is Gmail (security requirement)
-            if (!$this->isValidGmailAddress($googleUser['email'])) {
-                Log::warning('Non-Gmail address attempted', ['email' => $googleUser['email']]);
+            if (!$this->isVerifiedGoogleEmail($rawGoogleUser)) {
+                Log::warning('Google OAuth email is not verified', ['email' => $email]);
                 return redirect()->route('login')
-                    ->withErrors(['email' => 'Please use a valid Gmail address to authenticate.']);
+                    ->withErrors(['email' => 'Google account email is not verified. Please verify your Google email and try again.']);
             }
 
-            // Find or create user
-            $user = User::where('email', $googleUser['email'])->first();
+            // Unified flow: find existing by provider ID or email, otherwise create.
+            $user = User::query()
+                ->where('google_id', $googleId)
+                ->orWhere('email', $email)
+                ->first();
 
             if ($user) {
-                // Existing user - update google_id if needed and log in
-                if (!$user->google_id || $user->google_id !== $googleUser['id']) {
-                    $user->update([
-                        'google_id' => $googleUser['id'],
-                        'auth_provider' => 'google',
+                if (filled($user->google_id) && $user->google_id !== $googleId) {
+                    Log::warning('Google OAuth account mismatch for existing user', [
+                        'user_id' => $user->id,
+                        'email' => $email,
                     ]);
+
+                    return redirect()->route('login')
+                        ->withErrors(['email' => 'Google authentication failed due to account mismatch. Please contact support.']);
+                }
+
+                // Link provider metadata and refresh avatar/email verification on Google login.
+                $updates = [];
+
+                if (!$user->google_id) {
+                    $updates['google_id'] = $googleId;
+                }
+
+                if ($user->auth_provider !== 'google') {
+                    $updates['auth_provider'] = 'google';
+                }
+
+                if ($this->hasGoogleAvatarColumn() && filled($avatar) && $user->google_avatar !== $avatar) {
+                    $updates['google_avatar'] = $avatar;
+                }
+
+                // Skip verification workflow for Google-verified users.
+                if (is_null($user->email_verified_at)) {
+                    $updates['email_verified_at'] = now();
+                }
+
+                if (!empty($updates)) {
+                    $user->update($updates);
                 }
 
                 // Check account status before login
@@ -159,20 +151,22 @@ class GoogleAuthController extends Controller
                 session()->regenerate();
 
                 // Redirect to dashboard
-                return $this->redirectToDashboard($user);
+                return $this->redirectToDashboard($user)
+                    ->with('success', 'Logged in successfully using Google.');
             } else {
                 // New user - create account with pending approval
                 try {
                     DB::beginTransaction();
 
                     $user = User::create([
-                        'first_name' => $googleUser['given_name'] ?? 'User',
-                        'last_name' => $googleUser['family_name'] ?? '',
-                        'email' => $googleUser['email'],
-                        'google_id' => $googleUser['id'],
+                        'first_name' => $rawGoogleUser['given_name'] ?? $googleUser->getName() ?? 'User',
+                        'last_name' => $rawGoogleUser['family_name'] ?? '',
+                        'email' => $email,
+                        'google_id' => $googleId,
+                        'google_avatar' => $this->hasGoogleAvatarColumn() ? $avatar : null,
                         'password' => Str::random(32), // Keep DB constraint satisfied for OAuth-only accounts.
                         'auth_provider' => 'google',
-                        'role' => 'student', // Default role
+                        'role' => $this->resolveGoogleRole($email),
                         'status' => User::STATUS_ACTIVE,
                         'is_active' => true,
                         'is_approved' => false,
@@ -203,8 +197,8 @@ class GoogleAuthController extends Controller
                 } catch (\Throwable $e) {
                     DB::rollBack();
                     Log::error('Google OAuth user creation failed', [
-                        'email' => $googleUser['email'],
-                        'google_id' => $googleUser['id'] ?? null,
+                        'email' => $email,
+                        'google_id' => $googleId,
                         'error' => $e->getMessage(),
                         'exception' => get_class($e),
                     ]);
@@ -213,76 +207,35 @@ class GoogleAuthController extends Controller
                         ->withErrors(['email' => 'An error occurred during registration. Please try again or contact support.']);
                 }
             }
+        } catch (InvalidStateException $e) {
+            if ((bool) config('services.google.debug_exceptions', false)) {
+                dd($e->getMessage());
+            }
 
+            Log::warning('Google OAuth state validation failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Authentication session expired. Please try again.']);
         } catch (\Throwable $e) {
+            if ((bool) config('services.google.debug_exceptions', false)) {
+                dd($e->getMessage());
+            }
+
             Log::error('Google OAuth callback error', [
                 'error' => $e->getMessage(),
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'code' => $request->input('code') ? 'present' : 'missing',
             ]);
 
             $errorMessage = config('app.debug')
-                ? 'OAuth callback error: ' . $e->getMessage()
-                : 'An error occurred during authentication. Please try again.';
+                ? $e->getMessage()
+                : 'Authentication failed. Please try again.';
 
             return redirect()->route('login')
                 ->withErrors(['email' => $errorMessage]);
-        }
-    }
-
-    /**
-     * Exchange authorization code for access token and get user info
-     *
-     * @param string $code
-     * @return array|null
-     */
-    private function getGoogleUser(string $code): ?array
-    {
-        try {
-            // Exchange code for access token
-            $response = Http::post(self::GOOGLE_TOKEN_URL, [
-                'client_id' => config('services.google.client_id'),
-                'client_secret' => config('services.google.client_secret'),
-                'code' => $code,
-                'grant_type' => 'authorization_code',
-                'redirect_uri' => $this->googleRedirectUri(),
-            ]);
-
-            if (!$response->successful()) {
-                Log::error('Google token exchange failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-                return null;
-            }
-
-            $token = $response->json('access_token');
-            if (!$token) {
-                Log::error('No access token in Google response');
-                return null;
-            }
-
-            // Get user info using access token
-            $userResponse = Http::withToken($token)
-                ->get(self::GOOGLE_USER_INFO_URL);
-
-            if (!$userResponse->successful()) {
-                Log::error('Google user info retrieval failed', [
-                    'status' => $userResponse->status(),
-                ]);
-                return null;
-            }
-
-            return $userResponse->json();
-
-        } catch (\Throwable $e) {
-            Log::error('Google OAuth token exchange error', [
-                'error' => $e->getMessage(),
-                'exception' => get_class($e),
-            ]);
-            return null;
         }
     }
 
@@ -296,14 +249,56 @@ class GoogleAuthController extends Controller
     }
 
     /**
-     * Verify email is a valid Gmail address
-     *
-     * @param string $email
-     * @return bool
+     * Check whether the optional Google avatar column exists.
      */
-    private function isValidGmailAddress(string $email): bool
+    private function hasGoogleAvatarColumn(): bool
     {
-        return preg_match('/^[a-zA-Z0-9._%+-]+@gmail\.com$/', $email) === 1;
+        return Schema::hasColumn('users', 'google_avatar');
+    }
+
+    /**
+     * Validate that the Google account email is verified.
+     */
+    private function isVerifiedGoogleEmail(array $rawUser): bool
+    {
+        return filter_var($rawUser['verified_email'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
+    /**
+     * Resolve role for first-time Google registrations using domain-based rules.
+     *
+     * Privileged roles are intentionally blocked from automatic assignment.
+     */
+    private function resolveGoogleRole(string $email): string
+    {
+        $defaultRole = (string) config('services.google.default_role', User::ROLE_STUDENT);
+        $domainRoleMap = config('services.google.domain_role_map', []);
+
+        $safeDefault = $this->sanitizeAutoAssignedRole($defaultRole);
+        $domain = strtolower((string) Str::after($email, '@'));
+
+        if (!is_array($domainRoleMap) || !isset($domainRoleMap[$domain])) {
+            return $safeDefault;
+        }
+
+        return $this->sanitizeAutoAssignedRole((string) $domainRoleMap[$domain]);
+    }
+
+    /**
+     * Restrict automatic assignment to non-privileged roles.
+     */
+    private function sanitizeAutoAssignedRole(string $role): string
+    {
+        $normalizedRole = strtolower(trim($role));
+
+        $allowedAutoRoles = [
+            User::ROLE_STUDENT,
+            User::ROLE_INSTRUCTOR,
+        ];
+
+        return in_array($normalizedRole, $allowedAutoRoles, true)
+            ? $normalizedRole
+            : User::ROLE_STUDENT;
     }
 
     /**

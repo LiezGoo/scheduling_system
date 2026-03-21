@@ -118,49 +118,14 @@ class FacultyLoadService
             'max_hours_per_day' => $maxHoursPerDay,
         ];
 
-        if ($maxLectureHours !== null && $newLectureHours > $maxLectureHours) {
-            return [
-                'valid' => false,
-                'message' => "Lecture hour limit exceeded. {$user->full_name} would have {$newLectureHours} lecture hours (max: {$maxLectureHours} hours).",
-                'current' => [
-                    'lecture_hours' => $currentLectureHours,
-                    'lab_hours' => $currentLabHours,
-                    'total_hours' => $currentLectureHours + $currentLabHours,
-                ],
-                'new' => [
-                    'lecture_hours' => $newLectureHours,
-                    'lab_hours' => $newLabHours,
-                    'total_hours' => $newLectureHours + $newLabHours,
-                ],
-                'limits' => $limits,
-                'availability' => $this->formatAvailabilityRows($config),
-                'availability_conflicts' => [],
-                'daily_hours_conflicts' => [],
-                'schedule_slots_checked' => false,
-            ];
-        }
-
-        if ($maxLabHours !== null && $newLabHours > $maxLabHours) {
-            return [
-                'valid' => false,
-                'message' => "Laboratory hour limit exceeded. {$user->full_name} would have {$newLabHours} lab hours (max: {$maxLabHours} hours).",
-                'current' => [
-                    'lecture_hours' => $currentLectureHours,
-                    'lab_hours' => $currentLabHours,
-                    'total_hours' => $currentLectureHours + $currentLabHours,
-                ],
-                'new' => [
-                    'lecture_hours' => $newLectureHours,
-                    'lab_hours' => $newLabHours,
-                    'total_hours' => $newLectureHours + $newLabHours,
-                ],
-                'limits' => $limits,
-                'availability' => $this->formatAvailabilityRows($config),
-                'availability_conflicts' => [],
-                'daily_hours_conflicts' => [],
-                'schedule_slots_checked' => false,
-            ];
-        }
+        $maxTotalLoad = ($maxLectureHours !== null || $maxLabHours !== null)
+            ? (int) (($maxLectureHours ?? 0) + ($maxLabHours ?? 0))
+            : null;
+        $lectureOverload = $maxLectureHours === null ? 0 : max(0, $newLectureHours - $maxLectureHours);
+        $labOverload = $maxLabHours === null ? 0 : max(0, $newLabHours - $maxLabHours);
+        $overloadHours = $lectureOverload + $labOverload;
+        $isOverloaded = $overloadHours > 0;
+        $workloadStatus = $isOverloaded ? 'Overloaded' : 'Normal';
 
         $subjectScheduleSlots = $this->getSubjectScheduleSlotsForTerm(
             $subject->id,
@@ -227,6 +192,11 @@ class FacultyLoadService
                     'total_hours' => $newLectureHours + $newLabHours,
                 ],
                 'limits' => $limits,
+                'max_load' => $maxTotalLoad,
+                'total_assigned_hours' => $newLectureHours + $newLabHours,
+                'overload_hours' => $overloadHours,
+                'is_overloaded' => $isOverloaded,
+                'workload_status' => $workloadStatus,
                 'availability' => $this->formatAvailabilityRows($config),
                 'availability_conflicts' => $availabilityConflicts,
                 'daily_hours_conflicts' => [],
@@ -249,6 +219,11 @@ class FacultyLoadService
                     'total_hours' => $newLectureHours + $newLabHours,
                 ],
                 'limits' => $limits,
+                'max_load' => $maxTotalLoad,
+                'total_assigned_hours' => $newLectureHours + $newLabHours,
+                'overload_hours' => $overloadHours,
+                'is_overloaded' => $isOverloaded,
+                'workload_status' => $workloadStatus,
                 'availability' => $this->formatAvailabilityRows($config),
                 'availability_conflicts' => [],
                 'daily_hours_conflicts' => $dailyHourConflicts,
@@ -258,7 +233,9 @@ class FacultyLoadService
 
         return [
             'valid' => true,
-            'message' => 'Faculty load is within configured workload limits.',
+            'message' => $isOverloaded
+                ? "Faculty load exceeds configured limits by {$overloadHours} hour(s). Overload is allowed."
+                : 'Faculty load is within configured workload limits.',
             'current' => [
                 'lecture_hours' => $currentLectureHours,
                 'lab_hours' => $currentLabHours,
@@ -270,6 +247,11 @@ class FacultyLoadService
                 'total_hours' => $newLectureHours + $newLabHours,
             ],
             'limits' => $limits,
+            'max_load' => $maxTotalLoad,
+            'total_assigned_hours' => $newLectureHours + $newLabHours,
+            'overload_hours' => $overloadHours,
+            'is_overloaded' => $isOverloaded,
+            'workload_status' => $workloadStatus,
             'availability' => $this->formatAvailabilityRows($config),
             'availability_conflicts' => [],
             'daily_hours_conflicts' => [],
@@ -329,6 +311,10 @@ class FacultyLoadService
                 'current_lab_hours' => (int) ($current['lab_hours'] ?? 0),
                 'projected_lecture_hours' => (int) ($new['lecture_hours'] ?? 0),
                 'projected_lab_hours' => (int) ($new['lab_hours'] ?? 0),
+                'total_assigned_hours' => (int) ($validation['total_assigned_hours'] ?? (($new['lecture_hours'] ?? 0) + ($new['lab_hours'] ?? 0))),
+                'max_load' => $validation['max_load'] ?? null,
+                'overload_hours' => (int) ($validation['overload_hours'] ?? 0),
+                'workload_status' => $validation['workload_status'] ?? 'Normal',
                 'max_lecture_hours' => $maxLectureHours,
                 'max_lab_hours' => $maxLabHours,
                 'remaining_lecture_hours' => $maxLectureHours === null ? null : ($maxLectureHours - (int) ($new['lecture_hours'] ?? 0)),
@@ -339,9 +325,13 @@ class FacultyLoadService
             'warnings' => [
                 'availability' => $validation['availability_conflicts'] ?? [],
                 'daily_hours' => $validation['daily_hours_conflicts'] ?? [],
-                'general' => $validation['valid'] ? [] : [
-                    ['message' => $validation['message'] ?? 'Assignment validation failed.'],
-                ],
+                'general' => $validation['valid']
+                    ? (($validation['is_overloaded'] ?? false)
+                        ? [['message' => $validation['message'] ?? 'Assignment is overloaded but allowed.']]
+                        : [])
+                    : [
+                        ['message' => $validation['message'] ?? 'Assignment validation failed.'],
+                    ],
             ],
             'can_assign' => (bool) ($validation['valid'] ?? false),
             'validation' => $validation,
@@ -568,7 +558,7 @@ class FacultyLoadService
                 return [
                     'success' => false,
                     'message' => $loadValidation['message'],
-                    'code' => 'overload',
+                    'code' => 'validation_failed',
                     'validation_details' => $loadValidation,
                 ];
             }
@@ -591,7 +581,7 @@ class FacultyLoadService
             return [
                 'success' => true,
                 'message' => "{$user->full_name} has been assigned to {$subject->subject_name} ({$totalHours} total hours).",
-                'warning' => $loadValidation['valid'] ? null : $loadValidation,
+                'warning' => ($loadValidation['is_overloaded'] ?? false) ? $loadValidation : null,
             ];
         } catch (\Exception $e) {
             return [
@@ -815,7 +805,7 @@ class FacultyLoadService
                 return [
                     'success' => false,
                     'message' => $loadValidation['message'],
-                    'code' => 'overload',
+                    'code' => 'validation_failed',
                     'validation_details' => $loadValidation,
                 ];
             }
@@ -841,7 +831,7 @@ class FacultyLoadService
             return [
                 'success' => true,
                 'message' => "Teaching hours updated for {$user->full_name} - {$subject->subject_name} ({$totalHours} total hours).",
-                'warning' => $loadValidation['valid'] ? null : $loadValidation,
+                'warning' => ($loadValidation['is_overloaded'] ?? false) ? $loadValidation : null,
             ];
         } catch (\Exception $e) {
             return [
@@ -948,7 +938,44 @@ class FacultyLoadService
             'instructors_with_assignments' => $assignedInstructors,
             'instructors_without_assignments' => $eligibleInstructors - $assignedInstructors,
             'total_faculty_assignments' => $totalAssignments,
+            'overloaded_faculty_count' => $this->countOverloadedFaculty(),
         ];
+    }
+
+    private function countOverloadedFaculty(): int
+    {
+        $termLoads = InstructorLoad::query()
+            ->select(
+                'instructor_id',
+                'academic_year_id',
+                'semester',
+                DB::raw('SUM(COALESCE(lec_hours, 0)) as total_lecture_hours'),
+                DB::raw('SUM(COALESCE(lab_hours, 0)) as total_lab_hours')
+            )
+            ->groupBy('instructor_id', 'academic_year_id', 'semester')
+            ->get();
+
+        $overloadedInstructors = [];
+
+        foreach ($termLoads as $termLoad) {
+            $instructor = User::find((int) $termLoad->instructor_id);
+            if (!$instructor) {
+                continue;
+            }
+
+            $validation = $instructor->validateFacultyLoad(
+                0,
+                0,
+                (int) $termLoad->academic_year_id,
+                (string) $termLoad->semester
+            );
+
+            if (($validation['is_overloaded'] ?? false) === true) {
+                $overloadedInstructors[$instructor->id] = true;
+            }
+        }
+
+        return count($overloadedInstructors);
     }
 
     /**

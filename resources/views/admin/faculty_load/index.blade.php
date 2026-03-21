@@ -163,6 +163,25 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Overloaded Faculty Card -->
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-danger bg-opacity-10 rounded p-3">
+                                        <i class="fa-solid fa-triangle-exclamation fa-2x text-danger"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="text-muted mb-1">Overloaded Faculty</h6>
+                                    <h3 class="mb-0">{{ $summary['overloaded_faculty_count'] ?? 0 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         @endif
 

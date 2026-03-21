@@ -327,7 +327,7 @@
                                                     <tr>
                                                         <td colspan="8" class="text-center text-muted py-4">
                                                             <i class="fa-solid fa-info-circle me-2"></i>
-                                                            Select faculty, program, academic year, semester, year level, and block to load subjects.
+                                                            Select program, academic year, semester, and year level to load subjects.
                                                         </td>
                                                     </tr>
                                                 </tbody>

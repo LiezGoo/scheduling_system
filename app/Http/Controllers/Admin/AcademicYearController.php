@@ -16,9 +16,13 @@ class AcademicYearController extends Controller
      */
     public function index(Request $request)
     {
+        $perPage = (int) $request->input('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 15;
+
         $academicYears = AcademicYear::with('semesters')
             ->orderByDesc('start_year')
-            ->get();
+            ->paginate($perPage)
+            ->withQueryString();
 
         $selectedAcademicYear = null;
         if ($request->filled('academic_year_id')) {
@@ -29,7 +33,9 @@ class AcademicYearController extends Controller
             $selectedAcademicYear = AcademicYear::active()->with('semesters')->first();
         }
 
-        return view('admin.academic-years.index', compact('academicYears', 'selectedAcademicYear'));
+        $activeAcademicYear = AcademicYear::active()->first();
+
+        return view('admin.academic-years.index', compact('academicYears', 'selectedAcademicYear', 'activeAcademicYear'));
     }
 
     /**

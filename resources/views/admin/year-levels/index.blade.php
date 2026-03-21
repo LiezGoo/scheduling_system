@@ -105,7 +105,7 @@
                     </table>
                 </div>
 
-                @if ($yearLevels instanceof \Illuminate\Contracts\Pagination\Paginator && $yearLevels->hasPages())
+                @if ($yearLevels instanceof \Illuminate\Contracts\Pagination\Paginator && $yearLevels->count() > 0)
                     <x-pagination.footer :paginator="$yearLevels" />
                 @endif
             </div>

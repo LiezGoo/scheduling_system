@@ -21,10 +21,12 @@ use App\Http\Controllers\Admin\SemesterController as AdminSemesterController;
 use App\Http\Controllers\Api\SemesterController as ApiSemesterController;
 use App\Http\Controllers\ProgramHead\CurriculumController as ProgramHeadCurriculumController;
 use App\Http\Controllers\ProgramHead\FacultyLoadController as ProgramHeadFacultyLoadController;
+use App\Http\Controllers\ProgramHead\SubjectController as ProgramHeadSubjectController;
 use App\Http\Controllers\ProgramHead\FacultyWorkloadConfigurationController as ProgramHeadFacultyWorkloadConfigurationController;
 use App\Http\Controllers\ProgramHead\ScheduleController as ProgramHeadScheduleController;
 use App\Http\Controllers\DepartmentHead\SubjectController as DepartmentHeadSubjectController;
 use App\Http\Controllers\DepartmentHead\ScheduleController as DepartmentHeadScheduleController;
+use App\Http\Controllers\DepartmentHead\GenerateScheduleController as DepartmentHeadGenerateScheduleController;
 use App\Http\Controllers\DepartmentHead\ScheduleReviewController as DepartmentHeadScheduleReviewController;
 use App\Http\Controllers\DepartmentHead\ScheduleAdjustmentController;
 use App\Http\Controllers\DepartmentHead\ScheduleConfigurationController;
@@ -59,7 +61,8 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/register', [RegistrationController::class, 'register'])->name('register.store');
 
     // Google OAuth Routes
-    Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle'])->name('google.redirect');
+    Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle'])->name('google.login');
+    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirectToGoogle'])->name('google.redirect');
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('google.callback');
 
     /**
@@ -244,7 +247,9 @@ Route::middleware(['auth'])->group(function () {
         // Schedule Generation & Management
         Route::get('/schedules', [DepartmentHeadScheduleController::class, 'index'])->name('schedules.index');
         Route::get('/schedules/generate', [DepartmentHeadScheduleController::class, 'generate'])->name('schedules.generate');
-        Route::post('/schedules/generate', [DepartmentHeadScheduleController::class, 'executeGeneration'])->name('schedules.executeGeneration');
+        Route::post('/schedules/generate', [DepartmentHeadGenerateScheduleController::class, 'generate'])->name('schedules.executeGeneration');
+        Route::get('/schedules/generation-progress/{configuration}', [DepartmentHeadGenerateScheduleController::class, 'progress'])->name('schedules.generation-progress');
+        Route::get('/schedules/{schedule}/audit', [DepartmentHeadGenerateScheduleController::class, 'audit'])->name('schedules.audit');
         Route::get('/schedules/{schedule}', [DepartmentHeadScheduleController::class, 'show'])->name('schedules.show');
         Route::get('/schedules/{schedule}/edit', [ScheduleAdjustmentController::class, 'edit'])->name('schedules.edit');
         Route::put('/schedules/{schedule}/items/{item}', [ScheduleAdjustmentController::class, 'updateItem'])->name('schedules.items.update');
@@ -263,8 +268,15 @@ Route::middleware(['auth'])->group(function () {
         return view('dashboards.program_head');
     })->middleware(['role:program_head'])->name('program-head.dashboard');
 
+    Route::get('/subjects/filter', [ProgramHeadSubjectController::class, 'getFilteredSubjects'])
+        ->middleware(['role:program_head'])
+        ->name('subjects.filter');
+
     // Program Head Routes - Scoped to their assigned program
     Route::middleware(['role:program_head'])->prefix('program-head')->name('program-head.')->group(function () {
+
+        // Subject filtering for dynamic faculty-load assignment table
+        Route::get('/subjects/filter', [ProgramHeadSubjectController::class, 'getFilteredSubjects'])->name('subjects.filter');
 
         // Curriculum Management
         Route::get('/curriculum', [ProgramHeadCurriculumController::class, 'index'])->name('curriculum.index');

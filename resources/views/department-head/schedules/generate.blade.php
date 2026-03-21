@@ -138,6 +138,34 @@
                 </div>
 
                 <div class="card-body">
+                    <div id="generationProgressPanel" class="mb-4 d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-semibold">Generation Progress</h6>
+                            <span id="generationProgressText" class="small text-muted">Starting...</span>
+                        </div>
+                        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                            <div id="generationProgressBar" class="progress-bar bg-maroon" style="width: 0%">0%</div>
+                        </div>
+                    </div>
+
+                    <div id="generatedSchedulesPanel" class="mb-4 d-none">
+                        <h6 class="fw-semibold mb-2">Generated Blocks</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Block</th>
+                                        <th>Schedule ID</th>
+                                        <th>Fitness</th>
+                                        <th>Overloaded Faculty</th>
+                                        <th>Audit</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="generatedSchedulesBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Grid View: Weekly Timetable -->
                     <div id="gridViewContainer">
                         <div class="table-responsive">
@@ -355,6 +383,7 @@
 @push('scripts')
 <script>
     let isRunning = false;
+    let generationProgressTimer = null;
 
     async function loadSemestersByAcademicYear(academicYearId, selectedSemester = '') {
         const semesterSelect = document.getElementById('semester');
@@ -458,6 +487,9 @@
 
         // Show preview section
         document.getElementById('previewSection').style.display = 'block';
+        document.getElementById('generationProgressPanel').classList.remove('d-none');
+        updateProgress(5, 'Preparing data...');
+        startLiveProgressAnimation();
 
         // Disable form inputs
         disableFormInputs(true);
@@ -476,19 +508,140 @@
         .then(data => {
             if (data.success) {
                 showToast('Schedule generated successfully!');
-                // TODO: Populate schedule preview with actual data
+                renderGeneratedSchedules(data.data?.generated_schedules || []);
+                const configurationId = data.data?.configuration_id;
+                if (configurationId) {
+                    fetchGenerationProgress(configurationId);
+                } else {
+                    updateProgress(100, 'Completed');
+                }
                 scrollToPreview();
             } else {
                 showToast('Generation failed: ' + (data.message || 'Unknown error'), 'error');
+                updateProgress(100, 'Failed');
             }
         })
         .catch(error => {
             showToast('Error: ' + error.message, 'error');
+            updateProgress(100, 'Failed');
         })
         .finally(() => {
             isRunning = false;
             disableFormInputs(false);
+            if (generationProgressTimer) {
+                clearInterval(generationProgressTimer);
+                generationProgressTimer = null;
+            }
         });
+    }
+
+    function updateProgress(percent, label) {
+        const bar = document.getElementById('generationProgressBar');
+        const text = document.getElementById('generationProgressText');
+
+        bar.style.width = `${percent}%`;
+        bar.textContent = `${percent}%`;
+        text.textContent = label;
+    }
+
+    function fetchGenerationProgress(configurationId) {
+        const progressUrl = '{{ route('department-head.schedules.generation-progress', ['configuration' => '__CONFIG__']) }}'
+            .replace('__CONFIG__', configurationId);
+
+        fetch(progressUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(payload => {
+                if (!payload.success) {
+                    return;
+                }
+
+                const data = payload.data || {};
+                const percent = data.progress_percent ?? 100;
+                updateProgress(percent, `${data.generated_blocks ?? 0} / ${data.total_blocks ?? 0} block(s) generated`);
+            })
+            .catch(() => {
+                updateProgress(100, 'Completed');
+            });
+    }
+
+    function startLiveProgressAnimation() {
+        let progress = 5;
+
+        if (generationProgressTimer) {
+            clearInterval(generationProgressTimer);
+        }
+
+        generationProgressTimer = setInterval(() => {
+            if (!isRunning) {
+                clearInterval(generationProgressTimer);
+                generationProgressTimer = null;
+                return;
+            }
+
+            if (progress < 85) {
+                progress += 3;
+                updateProgress(progress, 'Optimizing schedule with Genetic Algorithm...');
+            }
+        }, 500);
+    }
+
+    function renderGeneratedSchedules(schedules) {
+        const panel = document.getElementById('generatedSchedulesPanel');
+        const body = document.getElementById('generatedSchedulesBody');
+
+        if (!Array.isArray(schedules) || schedules.length === 0) {
+            panel.classList.add('d-none');
+            body.innerHTML = '';
+            return;
+        }
+
+        body.innerHTML = schedules.map((entry) => {
+            const overloadedCount = Array.isArray(entry.overloaded_faculty) ? entry.overloaded_faculty.length : 0;
+            return `
+                <tr>
+                    <td>${entry.block ?? '-'}</td>
+                    <td>${entry.schedule_id ?? '-'}</td>
+                    <td>${Number(entry.fitness_score ?? 0).toFixed(2)}</td>
+                    <td>${overloadedCount}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openScheduleAudit(${entry.schedule_id})">
+                            View Audit
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        panel.classList.remove('d-none');
+    }
+
+    function openScheduleAudit(scheduleId) {
+        const auditUrl = '{{ route('department-head.schedules.audit', ['schedule' => '__SCHEDULE__']) }}'
+            .replace('__SCHEDULE__', scheduleId);
+
+        fetch(auditUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(payload => {
+                if (!payload.success) {
+                    showToast(payload.message || 'Failed to load audit report.', 'error');
+                    return;
+                }
+
+                const hard = payload.data?.hard_conflicts?.total ?? 0;
+                const overloaded = (payload.data?.faculty_workloads || []).filter((row) => row.status === 'Overloaded').length;
+                showToast(`Audit loaded: hard conflicts = ${hard}, overloaded faculty = ${overloaded}`);
+            })
+            .catch(() => {
+                showToast('Failed to load audit report.', 'error');
+            });
     }
 
     // Disable/Enable Form Inputs

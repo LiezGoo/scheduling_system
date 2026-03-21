@@ -140,26 +140,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const statusBadge = document.getElementById('viewStatus');
         if (statusBadge) {
-            const maxLecture = data.limits?.max_lecture_hours ?? null;
-            const maxLab = data.limits?.max_lab_hours ?? null;
-            const currentLecture = data.current_load?.total_lecture_hours ?? 0;
-            const currentLab = data.current_load?.total_lab_hours ?? 0;
-            const nearRatio = 0.85;
+            const workload = data.workload || {};
+            const overloadHours = Number(workload.overload_hours || 0);
+            const isOverloaded = workload.status === 'Overloaded' || overloadHours > 0;
 
             let statusLabel = 'Normal';
             let statusClass = 'bg-success';
 
-            const isOverLecture = maxLecture !== null && currentLecture > maxLecture;
-            const isOverLab = maxLab !== null && currentLab > maxLab;
-            const isNearLecture = maxLecture !== null && maxLecture > 0 && currentLecture / maxLecture >= nearRatio;
-            const isNearLab = maxLab !== null && maxLab > 0 && currentLab / maxLab >= nearRatio;
-
-            if (isOverLecture || isOverLab) {
-                statusLabel = 'Overload';
+            if (isOverloaded) {
+                statusLabel = `Overloaded (+${overloadHours} hrs)`;
                 statusClass = 'bg-danger';
-            } else if (isNearLecture || isNearLab) {
-                statusLabel = 'Near Limit';
-                statusClass = 'bg-warning text-dark';
             }
 
             statusBadge.className = `badge ${statusClass}`;
@@ -362,6 +352,11 @@ document.addEventListener('DOMContentLoaded', function () {
             .every((field) => field && String(field.value || '').trim() !== '');
     };
 
+    const hasCompleteSubjectFilterContext = () => {
+        return [assignProgram, assignAcademicYear, assignSemester, assignYearLevel]
+            .every((field) => field && String(field.value || '').trim() !== '');
+    };
+
     const getAssignmentContext = () => ({
         faculty_id: assignFaculty?.value || '',
         program_id: assignProgram?.value || '',
@@ -450,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         assignSubjectsTableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-3">Select faculty, program, academic year, semester, year level, and block to load subjects.</td>
+                <td colspan="8" class="text-center text-muted py-3">Select program, academic year, semester, and year level to load subjects.</td>
             </tr>
         `;
 
@@ -528,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
             if (checkbox && !checkbox.disabled && checkbox.checked && statusCell) {
                 if (status.lecture === 'exceeded' || status.lab === 'exceeded') {
-                    statusCell.innerHTML = '<span class="status-badge-error">⚠ Exceeds Limit</span>';
+                    statusCell.innerHTML = '<span class="status-badge-warning">⚠ Overload (Allowed)</span>';
                     row.classList.add('table-warning');
                 } else if (status.lecture === 'approaching' || status.lab === 'approaching') {
                     statusCell.innerHTML = '<span class="status-badge-warning">⚡ Near Limit</span>';
@@ -604,8 +599,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 warningEl.classList.remove('d-none');
                 if (warningTextEl) {
                     const messages = [];
-                    if (lectureStatus === 'exceeded') messages.push('Lecture hours exceed limit');
-                    if (labStatus === 'exceeded') messages.push('Lab hours exceed limit');
+                    if (lectureStatus === 'exceeded') messages.push('Lecture hours are overloaded (allowed)');
+                    if (labStatus === 'exceeded') messages.push('Lab hours are overloaded (allowed)');
                     warningTextEl.textContent = messages.join(' | ');
                 }
             } else {
@@ -621,7 +616,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         if (assignSubmitBtn) {
-            assignSubmitBtn.disabled = selectedRows.length === 0 || overLimit;
+            assignSubmitBtn.disabled = selectedRows.length === 0;
         }
     }
 
@@ -749,9 +744,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (generalInfoEl) {
-            generalInfoEl.textContent = payload.can_assign
-                ? 'Assignment is valid based on current faculty workload configuration.'
-                : 'Assignment cannot proceed due to workload configuration limits.';
+            if (summary.workload_status === 'Overloaded') {
+                const overloadHours = Number(summary.overload_hours || 0);
+                generalInfoEl.textContent = `Assignment is allowed but will mark the faculty as overloaded (+${overloadHours} hrs).`;
+            } else {
+                generalInfoEl.textContent = payload.can_assign
+                    ? 'Assignment is valid based on current faculty workload configuration.'
+                    : 'Assignment cannot proceed due to faculty availability or daily hour constraints.';
+            }
         }
 
         if (submitButton) {
@@ -865,7 +865,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadAssignableSubjects() {
         resetSubjectRowErrors();
 
-        if (!hasCompleteAssignmentContext()) {
+        if (!hasCompleteSubjectFilterContext()) {
             assignableSubjects = [];
             loadSummary = {
                 current_lecture_hours: 0,
@@ -879,12 +879,14 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const context = getAssignmentContext();
-        const params = new URLSearchParams(context).toString();
+        const params = new URLSearchParams({
+            program_id: assignProgram?.value || '',
+            academic_year_id: assignAcademicYear?.value || '',
+            semester_id: assignSemester?.value || '',
+            year_level: assignYearLevel?.value || '',
+        }).toString();
 
-        const subjectsEndpoint = window.location.pathname.includes('/program-head')
-            ? `/program-head/fetch-subjects?${params}`
-            : `${baseUrl}/api/assignable-subjects?${params}`;
+        const subjectsEndpoint = '/subjects/filter?' + params;
 
         fetch(subjectsEndpoint, {
             method: 'GET',
@@ -902,15 +904,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 return response.json();
             })
             .then((payload) => {
-                assignableSubjects = payload.subjects || [];
-                loadSummary = payload.load_summary || loadSummary;
+                assignableSubjects = Array.isArray(payload) ? payload : (payload.subjects || []);
                 renderAssignableSubjectsTable(assignableSubjects);
                 updateBulkLoadSummary();
             })
             .catch((error) => {
                 assignableSubjects = [];
                 renderAssignableSubjectsTable([]);
-                showAssignMessage('error', error.message || 'Failed to load assignable subjects.');
+                showAssignMessage('error', error.message || 'Failed to load subjects for selected filters.');
             });
     }
 
@@ -965,23 +966,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (isBulkAssignMode) {
-        [assignFaculty, assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
+        [assignProgram, assignAcademicYear, assignSemester, assignYearLevel].forEach((field) => {
             if (!field) return;
             field.addEventListener('change', () => {
                 loadBlocks();
-                loadFacultyWorkloadLimits();
                 loadAssignableSubjects();
+                loadFacultyWorkloadLimits();
             });
         });
+
+        if (assignFaculty) {
+            assignFaculty.addEventListener('change', () => {
+                loadFacultyWorkloadLimits();
+            });
+        }
 
         if (assignBlockSection) {
             assignBlockSection.addEventListener('change', () => {
                 updateBulkLoadSummary();
-                if (hasCompleteAssignmentContext()) {
-                    loadAssignableSubjects();
-                } else {
-                    renderContextSelectionMessage();
-                }
             });
         }
 
@@ -1074,11 +1076,6 @@ document.addEventListener('DOMContentLoaded', function () {
             body: formData,
         })
             .then((response) => {
-                if (response.status === 409) {
-                    return response.json().then((data) => {
-                        throw { overload: true, data };
-                    });
-                }
                 if (!response.ok) {
                     return response.json().then((data) => {
                         const error = new Error(data.message || 'Failed to assign faculty load');
@@ -1106,13 +1103,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 1500);
             })
             .catch((error) => {
-                if (error.overload) {
-                    pendingForceAction = () => submitAssign(true);
-                    showOverloadModal(error.data);
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalContent;
-                    return;
-                }
                 if (error?.payload?.errors) {
                     applyBulkInlineErrors(error.payload.errors);
                 }
@@ -1186,11 +1176,6 @@ document.addEventListener('DOMContentLoaded', function () {
             body: formData,
         })
             .then((response) => {
-                if (response.status === 409) {
-                    return response.json().then((data) => {
-                        throw { overload: true, data };
-                    });
-                }
                 if (!response.ok) {
                     return response.json().then((data) => {
                         throw new Error(data.message || 'Failed to update faculty load');
@@ -1206,13 +1191,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 setTimeout(() => location.reload(), 1500);
             })
             .catch((error) => {
-                if (error.overload) {
-                    pendingForceAction = () => submitEdit(true);
-                    showOverloadModal(error.data);
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalContent;
-                    return;
-                }
                 console.error('Error updating faculty load:', error);
                 showAlert('error', error.message || 'Failed to update faculty load.');
                 submitBtn.disabled = false;

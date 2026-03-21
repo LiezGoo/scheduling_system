@@ -18,6 +18,9 @@ class BlockController extends Controller
      */
     public function index(Request $request)
     {
+        $perPage = (int) $request->input('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 15;
+
         $query = Block::with(['program', 'academicYear', 'semester', 'yearLevel']);
 
         // Apply filters
@@ -48,7 +51,7 @@ class BlockController extends Controller
             ->orderBy('semester_id')
             ->orderBy('year_level_id')
             ->orderBy('block_name')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         // Get filter options

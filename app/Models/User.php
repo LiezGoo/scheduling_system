@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'google_id',
+        'google_avatar',
         'auth_provider',
         'role',
         'status',
@@ -564,46 +565,23 @@ class User extends Authenticatable
         $newLabHours = $currentLabHours + $additionalLabHours;
         $newTotalHours = $newLectureHours + $newLabHours;
 
-        // Validate based on employment type
-        if ($limits['max_lecture_hours'] !== null && $newLectureHours > $limits['max_lecture_hours']) {
-            return [
-                'valid' => false,
-                'message' => "Lecture hour limit exceeded. {$this->full_name} would have {$newLectureHours} lecture hours (max: {$limits['max_lecture_hours']} hours).",
-                'current' => [
-                    'lecture_hours' => $currentLectureHours,
-                    'lab_hours' => $currentLabHours,
-                    'total_hours' => $currentTotalHours,
-                ],
-                'new' => [
-                    'lecture_hours' => $newLectureHours,
-                    'lab_hours' => $newLabHours,
-                    'total_hours' => $newTotalHours,
-                ],
-                'limits' => $limits,
-            ];
-        }
+        $maxLectureHours = $limits['max_lecture_hours'];
+        $maxLabHours = $limits['max_lab_hours'];
+        $maxTotalHours = ($maxLectureHours !== null || $maxLabHours !== null)
+            ? (int) (($maxLectureHours ?? 0) + ($maxLabHours ?? 0))
+            : null;
 
-        if ($limits['max_lab_hours'] !== null && $newLabHours > $limits['max_lab_hours']) {
-            return [
-                'valid' => false,
-                'message' => "Lab hour limit exceeded. {$this->full_name} would have {$newLabHours} lab hours (max: {$limits['max_lab_hours']} hours).",
-                'current' => [
-                    'lecture_hours' => $currentLectureHours,
-                    'lab_hours' => $currentLabHours,
-                    'total_hours' => $currentTotalHours,
-                ],
-                'new' => [
-                    'lecture_hours' => $newLectureHours,
-                    'lab_hours' => $newLabHours,
-                    'total_hours' => $newTotalHours,
-                ],
-                'limits' => $limits,
-            ];
-        }
+        $lectureOverload = $maxLectureHours === null ? 0 : max(0, $newLectureHours - (int) $maxLectureHours);
+        $labOverload = $maxLabHours === null ? 0 : max(0, $newLabHours - (int) $maxLabHours);
+        $overloadHours = $lectureOverload + $labOverload;
+        $isOverloaded = $overloadHours > 0;
+        $workloadStatus = $isOverloaded ? 'Overloaded' : 'Normal';
 
         return [
             'valid' => true,
-            'message' => 'Faculty load is within limits.',
+            'message' => $isOverloaded
+                ? "Faculty load exceeds configured limits by {$overloadHours} hour(s). Overload is allowed."
+                : 'Faculty load is within limits.',
             'current' => [
                 'lecture_hours' => $currentLectureHours,
                 'lab_hours' => $currentLabHours,
@@ -615,6 +593,11 @@ class User extends Authenticatable
                 'total_hours' => $newTotalHours,
             ],
             'limits' => $limits,
+            'max_load' => $maxTotalHours,
+            'total_assigned_hours' => $newTotalHours,
+            'overload_hours' => $overloadHours,
+            'is_overloaded' => $isOverloaded,
+            'workload_status' => $workloadStatus,
         ];
     }
 
@@ -637,6 +620,7 @@ class User extends Authenticatable
         return [
             'total_lecture_hours' => $totalLectureHours,
             'total_lab_hours' => $totalLabHours,
+            'total_assigned_hours' => $totalLectureHours + $totalLabHours,
             'total_teaching_units' => $totalLectureHours + $totalLabHours,
             'assignment_count' => $query->count(),
         ];

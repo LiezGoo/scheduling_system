@@ -10,6 +10,9 @@ class AcademicYear extends Model
 {
     use HasFactory;
 
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -20,6 +23,7 @@ class AcademicYear extends Model
         'start_year',
         'end_year',
         'is_active',
+        'status',
     ];
 
     /**
@@ -45,11 +49,23 @@ class AcademicYear extends Model
             if (empty($academicYear->name)) {
                 $academicYear->name = $academicYear->start_year . '-' . $academicYear->end_year;
             }
+
+            if (empty($academicYear->status)) {
+                $academicYear->status = $academicYear->is_active
+                    ? self::STATUS_ACTIVE
+                    : self::STATUS_INACTIVE;
+            }
         });
 
         static::updating(function ($academicYear) {
             if ($academicYear->isDirty(['start_year', 'end_year'])) {
                 $academicYear->name = $academicYear->start_year . '-' . $academicYear->end_year;
+            }
+
+            if ($academicYear->isDirty('is_active')) {
+                $academicYear->status = $academicYear->is_active
+                    ? self::STATUS_ACTIVE
+                    : self::STATUS_INACTIVE;
             }
         });
     }
@@ -70,13 +86,19 @@ class AcademicYear extends Model
     {
         return DB::transaction(function () {
             // Deactivate all other academic years
-            static::where('id', '!=', $this->id)->update(['is_active' => false]);
+            static::where('id', '!=', $this->id)->update([
+                'is_active' => false,
+                'status' => self::STATUS_INACTIVE,
+            ]);
 
             // Deactivate all semesters that don't belong to this academic year
             Semester::whereNotIn('academic_year_id', [$this->id])->update(['status' => Semester::STATUS_INACTIVE]);
 
             // Activate this academic year
-            $this->update(['is_active' => true]);
+            $this->update([
+                'is_active' => true,
+                'status' => self::STATUS_ACTIVE,
+            ]);
 
             return true;
         });

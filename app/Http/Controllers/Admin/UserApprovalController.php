@@ -10,6 +10,7 @@ use Illuminate\Routing\Controller;
 use App\Notifications\UserApprovedNotification;
 use App\Notifications\UserRejectedNotification;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 /**
  * UserApprovalController
@@ -83,11 +84,18 @@ class UserApprovalController extends Controller
         // Approve user
         $user->approve(auth()->user());
 
-        // Send in-app notification to user
-        $user->notify(new UserApprovedNotification(auth()->user()));
-
-        // Send welcome email
-        Mail::to($user->email)->send(new AccountApprovedMail($user));
+        // Notification/mail are best-effort and should not roll back approval.
+        try {
+            $user->notify(new UserApprovedNotification(auth()->user()));
+            Mail::to($user->email)->send(new AccountApprovedMail($user));
+        } catch (\Throwable $e) {
+            Log::warning('User approved but notification delivery failed.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+        }
 
         return back()->with('success', "{$user->first_name} {$user->last_name} has been approved and can now access the system.");
     }
@@ -113,11 +121,18 @@ class UserApprovalController extends Controller
         // Reject user with reason
         $user->reject($request->rejection_reason);
 
-        // Send in-app notification to user
-        $user->notify(new UserRejectedNotification($request->rejection_reason));
-
-        // Send rejection email
-        Mail::to($user->email)->send(new AccountRejectedMail($user, $request->rejection_reason));
+        // Notification/mail are best-effort and should not roll back rejection.
+        try {
+            $user->notify(new UserRejectedNotification($request->rejection_reason));
+            Mail::to($user->email)->send(new AccountRejectedMail($user, $request->rejection_reason));
+        } catch (\Throwable $e) {
+            Log::warning('User rejected but notification delivery failed.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+        }
 
         return back()->with('success', "{$user->first_name} {$user->last_name} has been rejected.");
     }

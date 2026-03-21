@@ -11,6 +11,9 @@ class YearLevelController extends Controller
 {
     public function index(Request $request)
     {
+        $perPage = (int) $request->input('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 15;
+
         $query = YearLevel::query();
 
         if ($request->filled('q')) {
@@ -18,7 +21,7 @@ class YearLevelController extends Controller
             $query->where('name', 'LIKE', $search);
         }
 
-        $yearLevels = $query->orderBy('name')->paginate(15)->withQueryString();
+        $yearLevels = $query->orderBy('name')->paginate($perPage)->withQueryString();
 
         return view('admin.year-levels.index', [
             'yearLevels' => $yearLevels,

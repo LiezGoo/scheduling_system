@@ -12,6 +12,7 @@ use App\Models\YearLevel;
 use App\Policies\DepartmentPolicy;
 use App\Policies\ProgramPolicy;
 use App\Policies\UserPolicy;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
@@ -42,6 +43,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Paginator::useBootstrapFive();
+
         // Register all policies
         foreach ($this->policies as $model => $policy) {
             Gate::policy($model, $policy);

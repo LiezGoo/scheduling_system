@@ -17,6 +17,11 @@ use Illuminate\Support\Collection;
  */
 class GeneticAlgorithmEngine
 {
+    protected const FITNESS_BASE_SCORE = 10000;
+    protected const HARD_CONFLICT_PENALTY_WEIGHT = 1000;
+    protected const OVERLOAD_HOUR_PENALTY_WEIGHT = 200;
+    protected const SOFT_PENALTY_WEIGHT = 50;
+
     protected ConstraintValidator $validator;
     protected int $populationSize;
     protected int $generations;
@@ -231,19 +236,6 @@ class GeneticAlgorithmEngine
 
             $facultyLoads[$instructor->id][$type] += $duration;
 
-            // Check if this would exceed faculty load
-            $loadValidation = $this->validator->validateFacultyLoad(
-                $instructor,
-                $facultyLoads[$instructor->id]['lecture'],
-                $facultyLoads[$instructor->id]['lab']
-            );
-
-            if (!$loadValidation['valid']) {
-                // Rollback faculty load and try different instructor
-                $facultyLoads[$instructor->id][$type] -= $duration;
-                continue;
-            }
-
             // Gene is valid, add it
             $genes[] = $gene;
             $existingGenes[] = $gene;
@@ -285,46 +277,122 @@ class GeneticAlgorithmEngine
      */
     protected function calculateFitness(array $chromosome): float
     {
-        $baseScore = 1000;
-        $penalty = 0;
-
         $genes = $chromosome['genes'];
         $facultyLoads = $chromosome['faculty_loads'];
         $geneCollection = collect($genes);
 
-        foreach ($genes as $index => $gene) {
-            // Get genes before this one to check conflicts
-            $existingGenes = collect(array_slice($genes, 0, $index));
+        $hardConflicts = $this->countHardConflicts($genes);
+        $overloadHours = $this->calculateOverloadHours($facultyLoads);
+        $softPenalties = $this->countSoftPenaltyUnits($geneCollection);
 
-            $penalty += $this->validator->calculateGenePenalty($gene, $existingGenes, $facultyLoads);
-        }
+        $fitness = self::FITNESS_BASE_SCORE
+            - ($hardConflicts * self::HARD_CONFLICT_PENALTY_WEIGHT)
+            - ($overloadHours * self::OVERLOAD_HOUR_PENALTY_WEIGHT)
+            - ($softPenalties * self::SOFT_PENALTY_WEIGHT);
 
-        // Check faculty load for all instructors
-        foreach ($facultyLoads as $instructorId => $loads) {
-            $instructor = User::find($instructorId);
-            if ($instructor) {
-                $loadValidation = $this->validator->validateFacultyLoad(
-                    $instructor,
-                    $loads['lecture'],
-                    $loads['lab']
+        return max(0, $fitness);
+    }
+
+    protected function countHardConflicts(array $genes): int
+    {
+        $hardConflicts = 0;
+        $geneCount = count($genes);
+
+        for ($i = 0; $i < $geneCount; $i++) {
+            for ($j = $i + 1; $j < $geneCount; $j++) {
+                $left = $genes[$i];
+                $right = $genes[$j];
+
+                if (($left['day'] ?? null) !== ($right['day'] ?? null)) {
+                    continue;
+                }
+
+                $overlap = $this->validator->timeSlotsOverlap(
+                    (string) $left['start_time'],
+                    (string) $left['end_time'],
+                    (string) $right['start_time'],
+                    (string) $right['end_time']
                 );
-                $penalty += $loadValidation['penalty'];
-            }
-        }
 
-        // Check break violations for each instructor per day
-        $instructorIds = array_unique(array_column($genes, 'instructor_id'));
-        foreach ($instructorIds as $instructorId) {
-            $instructor = User::find($instructorId);
-            if ($instructor) {
-                foreach ($this->workingDays as $day) {
-                    $breakCheck = $this->validator->hasBreakConflict($instructor, $geneCollection, $day);
-                    $penalty += $breakCheck['penalty'];
+                if (!$overlap) {
+                    continue;
+                }
+
+                if (($left['room_id'] ?? null) === ($right['room_id'] ?? null)) {
+                    $hardConflicts++;
+                }
+
+                if (($left['instructor_id'] ?? null) === ($right['instructor_id'] ?? null)) {
+                    $hardConflicts++;
+                }
+
+                if (($left['section'] ?? null) === ($right['section'] ?? null)) {
+                    $hardConflicts++;
                 }
             }
         }
 
-        return max(0, $baseScore - $penalty);
+        return $hardConflicts;
+    }
+
+    protected function calculateOverloadHours(array $facultyLoads): float
+    {
+        $overloadHours = 0.0;
+
+        foreach ($facultyLoads as $instructorId => $loads) {
+            $instructor = User::find((int) $instructorId);
+            if (!$instructor) {
+                continue;
+            }
+
+            $validation = $this->validator->validateFacultyLoad(
+                $instructor,
+                (float) ($loads['lecture'] ?? 0),
+                (float) ($loads['lab'] ?? 0)
+            );
+
+            foreach (($validation['violations'] ?? []) as $violation) {
+                $overloadHours += (float) ($violation['excess'] ?? 0);
+            }
+        }
+
+        return $overloadHours;
+    }
+
+    protected function countSoftPenaltyUnits(Collection $genes): int
+    {
+        $units = 0;
+
+        foreach ($genes as $gene) {
+            $instructor = User::find((int) ($gene['instructor_id'] ?? 0));
+            if (!$instructor) {
+                continue;
+            }
+
+            if (!$this->validator->isWithinInstructorScheme(
+                $instructor,
+                (string) ($gene['start_time'] ?? ''),
+                (string) ($gene['end_time'] ?? ''),
+                (string) ($gene['day'] ?? '')
+            )) {
+                $units++;
+            }
+        }
+
+        $instructorIds = array_unique(array_column($genes->all(), 'instructor_id'));
+        foreach ($instructorIds as $instructorId) {
+            $instructor = User::find((int) $instructorId);
+            if (!$instructor) {
+                continue;
+            }
+
+            foreach ($this->workingDays as $day) {
+                $breakCheck = $this->validator->hasBreakConflict($instructor, $genes, $day);
+                $units += count($breakCheck['violations'] ?? []);
+            }
+        }
+
+        return $units;
     }
 
     /**

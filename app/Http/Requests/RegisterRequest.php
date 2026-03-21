@@ -21,12 +21,16 @@ class RegisterRequest extends FormRequest
      */
     public function rules(): array
     {
+        $emailValidationRule = (bool) config('app.registration_email_dns_check', false)
+            ? 'email:rfc,dns'
+            : 'email:rfc';
+
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
-                'email:rfc,dns',
+                $emailValidationRule,
                 Rule::unique('users', 'email'),
                 'regex:/^[a-zA-Z0-9._%+-]+@gmail\.com$/',
             ],

@@ -13,6 +13,9 @@ class SemesterController extends Controller
 {
     public function index(Request $request)
     {
+        $perPage = (int) $request->input('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100], true) ? $perPage : 15;
+
         $academicYears = AcademicYear::orderByDesc('start_year')->get();
 
         $semesters = Semester::with('academicYear')
@@ -23,7 +26,7 @@ class SemesterController extends Controller
                 $query->where('status', $request->string('status'));
             })
             ->orderByDesc('created_at')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('admin.semesters.index', [

@@ -3,9 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Database\Seeders\DepartmentSeeder;
-use Database\Seeders\UserSeeder;
-use Database\Seeders\TestDataSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,7 +14,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // No seeding for production environment
-        // All data must be manually entered through the application
+        // Keep production safe by default, but seed baseline academic years
+        // for local/testing workflows.
+        if (app()->environment(['local', 'testing', 'staging'])) {
+            $this->call([
+                AcademicYearSeeder::class,
+            ]);
+        }
     }
 }
