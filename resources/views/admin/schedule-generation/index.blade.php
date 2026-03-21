@@ -652,7 +652,9 @@
             // Save Schedule button click
             saveScheduleBtn.addEventListener('click', function() {
                 // Placeholder for save functionality
-                alert('Schedule saved successfully! (Placeholder UI)');
+                if (window.showToast) {
+                    window.showToast('success', 'Schedule saved successfully! (Placeholder UI)');
+                }
             });
 
             // Initialize button state

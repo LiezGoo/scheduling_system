@@ -473,8 +473,6 @@
 
 <!-- Modal Components -->
 @include('components.modals.confirm-modal')
-@include('components.modals.success-modal')
-@include('components.modals.error-modal')
 
 @push('styles')
 <style>
@@ -669,8 +667,6 @@
 <script>
     // Modal instances
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
-    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
 
     // Store pending action data
     let pendingAction = {
@@ -772,17 +768,9 @@
         form.appendChild(methodInput);
         document.body.appendChild(form);
         
-        // Show success modal and reload after a short delay
-        setTimeout(() => {
-            document.getElementById('successTitle').textContent = 'Deleted Successfully';
-            document.getElementById('successMessage').textContent = 'Semester has been deleted.';
-            successModal.show();
-            
-            // Reload page after modal is shown
-            document.getElementById('successBtn').addEventListener('click', function() {
-                location.reload();
-            }, { once: true });
-        }, 300);
+        if (window.showToast) {
+            window.showToast('success', 'Semester has been deleted.');
+        }
         
         form.submit();
     }
@@ -810,17 +798,9 @@
         form.appendChild(methodInput);
         document.body.appendChild(form);
         
-        // Show success modal and reload after a short delay
-        setTimeout(() => {
-            document.getElementById('successTitle').textContent = 'Status Updated';
-            document.getElementById('successMessage').textContent = 'Semester status has been updated.';
-            successModal.show();
-            
-            // Reload page after modal is shown
-            document.getElementById('successBtn').addEventListener('click', function() {
-                location.reload();
-            }, { once: true });
-        }, 300);
+        if (window.showToast) {
+            window.showToast('success', 'Semester status has been updated.');
+        }
         
         form.submit();
     }
@@ -857,11 +837,6 @@
     // Auto-focus confirm button when modal is shown
     document.getElementById('confirmModal').addEventListener('shown.bs.modal', function() {
         document.getElementById('confirmBtn').focus();
-    });
-
-    // Auto-focus success button when modal is shown
-    document.getElementById('successModal').addEventListener('shown.bs.modal', function() {
-        document.getElementById('successBtn').focus();
     });
 
     // Format add modal status checkbox handling

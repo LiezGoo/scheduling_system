@@ -9,11 +9,6 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="edit-alert" class="alert alert-dismissible fade hide" role="alert" style="display: none;">
-                    <span id="edit-alert-message"></span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-
                 <form id="editDepartmentForm" novalidate>
                     @csrf
                     @method('PUT')
@@ -76,13 +71,21 @@
 </style>
 
 <script>
+    function showFeedback(type, title, message) {
+        if (window.showToast && typeof window.showToast === 'function') {
+            window.showToast(type, message);
+            return;
+        }
+
+        console[type === 'error' ? 'error' : 'log'](message);
+    }
+
     function submitEditDepartmentForm() {
         const form = document.getElementById('editDepartmentForm');
         const departmentId = document.getElementById('edit_department_id').value;
         const btn = document.getElementById('editDepartmentBtn');
         const spinner = document.getElementById('editDepartmentSpinner');
         const btnText = document.getElementById('editDepartmentBtnText');
-        const alertDiv = document.getElementById('edit-alert');
 
         // Basic validation
         if (!form.checkValidity()) {
@@ -112,13 +115,7 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editDepartmentModal'));
                     modal.hide();
 
-                    // Show success message on main page
-                    const mainAlert = document.createElement('div');
-                    mainAlert.className = 'alert alert-success alert-dismissible fade show';
-                    mainAlert.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-                    document.querySelector('.container-fluid').insertBefore(mainAlert, document.querySelector(
-                        '.card'));
+                    showFeedback('success', 'Department Updated', data.message || 'Department updated successfully.');
 
                     // Reload departments
                     if (typeof fetchDepartments === 'function') {
@@ -127,17 +124,12 @@
                         location.reload();
                     }
                 } else {
-                    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                    document.getElementById('edit-alert-message').textContent = data.message ||
-                        'Failed to update department.';
-                    alertDiv.style.display = 'block';
+                    showFeedback('error', 'Update Department Failed', data.message || 'Failed to update department.');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                document.getElementById('edit-alert-message').textContent = 'An error occurred. Please try again.';
-                alertDiv.style.display = 'block';
+                showFeedback('error', 'Update Department Failed', 'An error occurred. Please try again.');
             })
             .finally(() => {
                 btn.disabled = false;
@@ -156,6 +148,5 @@
     document.getElementById('editDepartmentModal').addEventListener('hidden.bs.modal', function() {
         const form = document.getElementById('editDepartmentForm');
         form.classList.remove('was-validated');
-        document.getElementById('edit-alert').style.display = 'none';
     });
 </script>

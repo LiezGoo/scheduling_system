@@ -102,8 +102,6 @@
     @include('program-head.faculty-workload-configurations.modals.configure-workload')
     @include('program-head.faculty-workload-configurations.modals.view-workload')
     @include('components.modals.confirm-modal')
-    @include('components.modals.success-modal')
-    @include('components.modals.error-modal')
 @endsection
 
 @push('styles')
@@ -154,47 +152,6 @@
 
 @push('scripts')
     <script>
-        // Global toast notification function
-        window.showToast = function(type, message) {
-            const toastContainer = document.getElementById('globalToastContainer');
-            if (!toastContainer) return;
-
-            const iconMap = {
-                'success': 'fa-circle-check',
-                'error': 'fa-circle-xmark',
-                'warning': 'fa-triangle-exclamation'
-            };
-
-            const bgMap = {
-                'success': 'text-bg-success',
-                'error': 'text-bg-danger',
-                'warning': 'text-bg-warning'
-            };
-
-            const toastHtml = `
-                <div class="toast align-items-center ${bgMap[type] || 'text-bg-info'} border-0 shadow-sm" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            <i class="fa-solid ${iconMap[type] || 'fa-info-circle'} me-2"></i>${message}
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                </div>
-            `;
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = toastHtml;
-            const toastElement = tempDiv.firstElementChild;
-            toastContainer.appendChild(toastElement);
-
-            const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
-            toast.show();
-
-            toastElement.addEventListener('hidden.bs.toast', () => {
-                toastElement.remove();
-            });
-        };
-
         document.addEventListener('DOMContentLoaded', function() {
             const filterForm = document.getElementById('filterForm');
             const filterInputs = filterForm.querySelectorAll('input, select');

@@ -143,7 +143,9 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Failed to load departments');
+                    if (window.showToast) {
+                        window.showToast('error', 'Failed to load departments. Please try again.');
+                    }
                 })
                 .finally(() => {
                     spinner.style.display = 'none';

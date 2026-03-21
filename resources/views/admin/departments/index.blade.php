@@ -99,6 +99,17 @@
         const tableBody = document.getElementById('departments-table-body');
         const paginationContainer = document.getElementById('pagination-container');
         const spinner = document.getElementById('filter-spinner');
+        const perPageSelect = document.getElementById('departmentPerPageSelect');
+        let rowActionListenersAttached = false;
+
+        function showFeedback(type, title, message) {
+            if (window.showToast && typeof window.showToast === 'function') {
+                window.showToast(type, message);
+                return;
+            }
+
+            console[type === 'error' ? 'error' : 'log'](message);
+        }
 
         // Debounce function for search
         function debounce(func, delay) {
@@ -110,7 +121,7 @@
         }
 
         // Fetch filtered departments
-        function fetchDepartments(resetToFirstPage = false) {
+        function fetchDepartments(resetToFirstPage = false, silentErrors = false) {
             const search = searchInput.value;
             const urlParams = new URLSearchParams(window.location.search);
             const perPage = urlParams.get('per_page') || '15';
@@ -123,23 +134,43 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        tableBody.innerHTML = data.html;
-                        paginationContainer.innerHTML = data.pagination;
-                        window.history.pushState({}, '',
-                            `/admin/departments?search=${encodeURIComponent(search)}&per_page=${perPage}&page=${page}`
-                        );
+                .then(async response => {
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw {
+                            status: response.status,
+                            payload,
+                        };
                     }
+                    return payload;
+                })
+                .then(data => {
+                    if (!data.success) {
+                        if (!silentErrors) {
+                            showFeedback('error', 'Department Load Failed', data.message || 'Failed to load departments. Please try again.');
+                        }
+                        return;
+                    }
+
+                    if (tableBody) {
+                        tableBody.innerHTML = data.html || '';
+                    }
+                    if (paginationContainer) {
+                        paginationContainer.innerHTML = data.pagination || '';
+                    }
+                    window.history.pushState({}, '',
+                        `/admin/departments?search=${encodeURIComponent(search)}&per_page=${perPage}&page=${page}`
+                    );
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Failed to load departments');
+                    if (!silentErrors) {
+                        const message = error?.payload?.message || 'Failed to load departments. Please try again.';
+                        showFeedback('error', 'Department Load Failed', message);
+                    }
                 })
                 .finally(() => {
                     spinner.style.display = 'none';
-                    attachTableRowListeners();
                 });
         }
 
@@ -154,6 +185,10 @@
 
         // Attach listeners to table rows
         function attachTableRowListeners() {
+            if (rowActionListenersAttached) {
+                return;
+            }
+
             // Edit button listeners
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.edit-department-btn')) {
@@ -185,6 +220,8 @@
                     deleteModal.show();
                 }
             });
+
+            rowActionListenersAttached = true;
         }
 
         // Pagination link handling
@@ -194,7 +231,7 @@
                 const url = e.target.closest('a').getAttribute('href');
                 const page = new URLSearchParams(new URL(url, window.location.origin).search).get('page');
                 const search = searchInput.value;
-                const perPage = perPageSelect.value;
+                const perPage = perPageSelect ? perPageSelect.value : (new URLSearchParams(window.location.search).get('per_page') || '15');
 
                 spinner.style.display = 'block';
 
@@ -203,20 +240,39 @@
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            tableBody.innerHTML = data.html;
-                            paginationContainer.innerHTML = data.pagination;
-                            window.history.pushState({}, '',
-                                `/admin/departments?search=${encodeURIComponent(search)}&per_page=${perPage}&page=${page}`
-                            );
+                    .then(async response => {
+                        const payload = await response.json();
+                        if (!response.ok) {
+                            throw {
+                                status: response.status,
+                                payload,
+                            };
                         }
+                        return payload;
                     })
-                    .catch(error => console.error('Error:', error))
+                    .then(data => {
+                        if (!data.success) {
+                            showFeedback('error', 'Department Load Failed', data.message || 'Failed to load departments. Please try again.');
+                            return;
+                        }
+
+                        if (tableBody) {
+                            tableBody.innerHTML = data.html || '';
+                        }
+                        if (paginationContainer) {
+                            paginationContainer.innerHTML = data.pagination || '';
+                        }
+                        window.history.pushState({}, '',
+                            `/admin/departments?search=${encodeURIComponent(search)}&per_page=${perPage}&page=${page}`
+                        );
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        const message = error?.payload?.message || 'Failed to load departments. Please try again.';
+                        showFeedback('error', 'Department Load Failed', message);
+                    })
                     .finally(() => {
                         spinner.style.display = 'none';
-                        attachTableRowListeners();
                     });
             }
         });

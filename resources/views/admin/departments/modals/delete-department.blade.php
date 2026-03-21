@@ -9,11 +9,6 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="delete-alert" class="alert alert-dismissible fade hide" role="alert" style="display: none;">
-                    <span id="delete-alert-message"></span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-
                 <p class="mb-3">
                     Are you sure you want to delete this department?
                 </p>
@@ -40,12 +35,20 @@
 </div>
 
 <script>
+    function showFeedback(type, title, message) {
+        if (window.showToast && typeof window.showToast === 'function') {
+            window.showToast(type, message);
+            return;
+        }
+
+        console[type === 'error' ? 'error' : 'log'](message);
+    }
+
     function submitDeleteDepartmentForm() {
         const departmentId = document.getElementById('delete_department_id').value;
         const btn = document.getElementById('deleteDepartmentBtn');
         const spinner = document.getElementById('deleteDepartmentSpinner');
         const btnText = document.getElementById('deleteDepartmentBtnText');
-        const alertDiv = document.getElementById('delete-alert');
 
         btn.disabled = true;
         spinner.style.display = 'inline-block';
@@ -65,13 +68,7 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDepartmentModal'));
                     modal.hide();
 
-                    // Show success message on main page
-                    const mainAlert = document.createElement('div');
-                    mainAlert.className = 'alert alert-success alert-dismissible fade show';
-                    mainAlert.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-                    document.querySelector('.container-fluid').insertBefore(mainAlert, document.querySelector(
-                        '.card'));
+                    showFeedback('success', 'Department Deleted', data.message || 'Department deleted successfully.');
 
                     // Reload departments
                     if (typeof fetchDepartments === 'function') {
@@ -80,18 +77,12 @@
                         location.reload();
                     }
                 } else {
-                    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                    document.getElementById('delete-alert-message').textContent = data.message ||
-                        'Failed to delete department.';
-                    alertDiv.style.display = 'block';
+                    showFeedback('error', 'Delete Department Failed', data.message || 'Failed to delete department.');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-                document.getElementById('delete-alert-message').textContent =
-                    'An error occurred. Please try again.';
-                alertDiv.style.display = 'block';
+                showFeedback('error', 'Delete Department Failed', 'An error occurred. Please try again.');
             })
             .finally(() => {
                 btn.disabled = false;
@@ -100,8 +91,4 @@
             });
     }
 
-    // Clear on modal hide
-    document.getElementById('deleteDepartmentModal').addEventListener('hidden.bs.modal', function() {
-        document.getElementById('delete-alert').style.display = 'none';
-    });
 </script>

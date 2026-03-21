@@ -2,13 +2,22 @@
 <script>
     /**
      * Show a toast notification programmatically (non-flash messages)
-     * @param {string} message - The message to display
-     * @param {string} type - 'success', 'error', 'warning', or 'info'
-     * @param {number} delay - Auto-hide delay in milliseconds (default: 4000)
+     * Supports both signatures:
+     * showToast(message, type, delay)
+     * showToast(type, message, delay)
      */
-    window.showToast = function(message, type = 'success', delay = 4000) {
+    window.showToast = function(arg1, arg2 = 'success', delay = 4000) {
         const container = document.getElementById('globalToastContainer');
         if (!container) return;
+
+        const knownTypes = ['success', 'error', 'danger', 'warning', 'info'];
+        let message = arg1;
+        let type = arg2;
+
+        if (typeof arg1 === 'string' && knownTypes.includes(arg1.toLowerCase()) && typeof arg2 === 'string') {
+            type = arg1;
+            message = arg2;
+        }
 
         // Map types to Bootstrap classes
         const bgClassMap = {

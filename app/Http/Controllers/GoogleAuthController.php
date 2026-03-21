@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -68,12 +69,27 @@ class GoogleAuthController extends Controller
      */
     public function handleGoogleCallback(Request $request)
     {
+        if (!$this->hasGoogleAuthColumns()) {
+            Log::error('Google OAuth required columns are missing from users table.', [
+                'missing_columns' => [
+                    'google_id' => !Schema::hasColumn('users', 'google_id'),
+                    'auth_provider' => !Schema::hasColumn('users', 'auth_provider'),
+                ],
+            ]);
+
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Google login is not fully configured. Please contact support.']);
+        }
+
         // CSRF Protection: Verify state matches
         if ($request->input('state') !== session('google_oauth_state')) {
             Log::warning('Google OAuth state mismatch');
             return redirect()->route('login')
                 ->withErrors(['email' => 'Authentication failed. Please try again.']);
         }
+
+        // Prevent replay and stale callback confusion in subsequent attempts.
+        session()->forget('google_oauth_state');
 
         // Check for authorization error
         if ($request->has('error')) {
@@ -184,12 +200,13 @@ class GoogleAuthController extends Controller
                     return redirect()->route('login')
                         ->with('registration_pending', 'Your registration has been submitted and is pending administrator approval. You will receive an email notification when your account has been reviewed.');
 
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     DB::rollBack();
                     Log::error('Google OAuth user creation failed', [
                         'email' => $googleUser['email'],
                         'google_id' => $googleUser['id'] ?? null,
                         'error' => $e->getMessage(),
+                        'exception' => get_class($e),
                     ]);
 
                     return redirect()->route('login')
@@ -197,14 +214,21 @@ class GoogleAuthController extends Controller
                 }
             }
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Google OAuth callback error', [
                 'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'code' => $request->input('code') ? 'present' : 'missing',
             ]);
 
+            $errorMessage = config('app.debug')
+                ? 'OAuth callback error: ' . $e->getMessage()
+                : 'An error occurred during authentication. Please try again.';
+
             return redirect()->route('login')
-                ->withErrors(['email' => 'An error occurred during authentication. Please try again.']);
+                ->withErrors(['email' => $errorMessage]);
         }
     }
 
@@ -253,12 +277,22 @@ class GoogleAuthController extends Controller
 
             return $userResponse->json();
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Google OAuth token exchange error', [
                 'error' => $e->getMessage(),
+                'exception' => get_class($e),
             ]);
             return null;
         }
+    }
+
+    /**
+     * Verify required OAuth columns exist in users table.
+     */
+    private function hasGoogleAuthColumns(): bool
+    {
+        return Schema::hasColumn('users', 'google_id')
+            && Schema::hasColumn('users', 'auth_provider');
     }
 
     /**

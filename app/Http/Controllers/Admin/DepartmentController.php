@@ -88,14 +88,14 @@ class DepartmentController extends Controller
             }
 
             return redirect()->route('admin.departments.index')
-                ->with('success', 'Department created successfully!');
+                ->with('success', 'Department added successfully.');
         } catch (\Exception $e) {
             Log::error('Department creation failed: ' . $e->getMessage());
 
             if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to create department: ' . $e->getMessage(),
+                    'message' => 'Failed to create department. Please try again.',
                 ], 500);
             }
 
@@ -123,7 +123,7 @@ class DepartmentController extends Controller
         try {
             $department->update($validated);
 
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Department updated successfully!',
@@ -136,10 +136,10 @@ class DepartmentController extends Controller
         } catch (\Exception $e) {
             Log::error('Department update failed: ' . $e->getMessage());
 
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to update department: ' . $e->getMessage(),
+                    'message' => 'Failed to update department. Please try again.',
                 ], 500);
             }
 
@@ -157,7 +157,7 @@ class DepartmentController extends Controller
         try {
             // Check if department has associated programs
             if ($department->programs()->exists()) {
-                if (request()->ajax()) {
+                if (request()->ajax() || request()->expectsJson()) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Cannot delete department with associated programs. Please delete or reassign all programs first.',
@@ -170,7 +170,7 @@ class DepartmentController extends Controller
 
             $department->delete();
 
-            if (request()->ajax()) {
+            if (request()->ajax() || request()->expectsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Department deleted successfully!',
@@ -182,10 +182,10 @@ class DepartmentController extends Controller
         } catch (\Exception $e) {
             Log::error('Department deletion failed: ' . $e->getMessage());
 
-            if (request()->ajax()) {
+            if (request()->ajax() || request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to delete department: ' . $e->getMessage(),
+                    'message' => 'Failed to delete department. Please try again.',
                 ], 500);
             }
 
