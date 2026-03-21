@@ -235,6 +235,8 @@ Route::middleware(['auth'])->group(function () {
         // Subject Management
         Route::get('/subjects', [DepartmentHeadSubjectController::class, 'index'])->name('subjects.index');
         Route::post('/subjects', [DepartmentHeadSubjectController::class, 'store'])->name('subjects.store');
+        Route::get('/subjects/csv-template', [DepartmentHeadSubjectController::class, 'downloadCsvTemplate'])->name('subjects.csv-template');
+        Route::post('/subjects/upload-csv', [DepartmentHeadSubjectController::class, 'uploadCsv'])->name('subjects.upload-csv');
         Route::get('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'show'])->name('subjects.show');
         Route::put('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'update'])->name('subjects.update');
         Route::delete('/subjects/{subject}', [DepartmentHeadSubjectController::class, 'destroy'])->name('subjects.destroy');

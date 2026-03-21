@@ -14,9 +14,14 @@
                     <i class="fa-solid fa-building-columns me-2"></i>{{ $departmentName }}
                 </p>
             </div>
-            <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
-                <i class="fa-solid fa-plus me-2"></i>Add New Subject
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#uploadSubjectsCsvModal">
+                    <i class="fa-solid fa-file-arrow-up me-2"></i>Upload CSV
+                </button>
+                <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+                    <i class="fa-solid fa-plus me-2"></i>Add New Subject
+                </button>
+            </div>
         </div>
 
         <!-- Filter Section -->
@@ -74,7 +79,9 @@
     </div>
 
     @include('department-head.subjects.modals.add-subject')
+    @include('department-head.subjects.modals.upload-subjects-csv')
     @include('department-head.subjects.modals.edit-subject')
+    @include('components.modals.confirm-modal')
     @include('department-head.subjects.modals.delete-subject')
     @include('department-head.subjects.modals.show-subject')
 @endsection

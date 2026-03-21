@@ -4,11 +4,12 @@ namespace App\Http\Controllers\DepartmentHead;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subject;
-use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class SubjectController extends Controller
 {
@@ -70,7 +71,7 @@ class SubjectController extends Controller
             return response()->json([
                 'success' => true,
                 'html' => view('department-head.subjects.partials.table-rows', compact('subjects'))->render(),
-                'pagination' => $subjects->withQueryString()->links()->render(),
+                'pagination' => (string) $subjects->withQueryString()->links(),
             ]);
         }
 
@@ -264,7 +265,7 @@ class SubjectController extends Controller
     /**
      * Remove/deactivate the specified subject in the department head's department.
      */
-    public function destroy(Subject $subject)
+    public function destroy(Request $request, Subject $subject)
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
@@ -285,15 +286,335 @@ class SubjectController extends Controller
         try {
             $subject->delete();
 
+            if (!$request->expectsJson() && !$request->ajax()) {
+                return redirect()
+                    ->route('department-head.subjects.index')
+                    ->with('success', 'Subject deleted successfully!');
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Subject deleted successfully!',
             ]);
         } catch (\Exception $e) {
+            if (!$request->expectsJson() && !$request->ajax()) {
+                return redirect()
+                    ->route('department-head.subjects.index')
+                    ->with('error', 'Failed to delete subject: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete subject: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Download CSV template for bulk subject imports.
+     */
+    public function downloadCsvTemplate()
+    {
+        $headers = [
+            'subject_code',
+            'subject_name',
+            'units',
+            'lecture_hours',
+            'lab_hours',
+        ];
+
+        $sampleRows = [
+            ['CS101', 'Introduction to Programming', '3', '2', '1'],
+            ['IT202', 'Database Systems', '3', '2', '1'],
+            ['ENG101', 'Communication Skills', '3', '3', '0'],
+        ];
+
+        $callback = function () use ($headers, $sampleRows) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, $headers);
+
+            foreach ($sampleRows as $row) {
+                fputcsv($output, $row);
+            }
+
+            fclose($output);
+        };
+
+        return response()->streamDownload($callback, 'subjects-import-template.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    /**
+     * Upload and process subject CSV for bulk import.
+     */
+    public function uploadCsv(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $this->authorize('create', Subject::class);
+
+        $department = $user->getInferredDepartment();
+        if (!$department) {
+            abort(403, 'No department assigned.');
+        }
+
+        $validatedRequest = $request->validate([
+            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
+            'fail_on_error' => ['nullable', 'boolean'],
+        ]);
+
+        $failOnError = (bool) ($validatedRequest['fail_on_error'] ?? false);
+        $file = $validatedRequest['csv_file'];
+
+        $handle = fopen($file->getRealPath(), 'r');
+        if ($handle === false) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to read CSV file.',
+            ], 422);
+        }
+
+        $rawHeaders = fgetcsv($handle) ?: [];
+        $headers = array_map(fn ($header) => strtolower(trim((string) $header)), $rawHeaders);
+
+        $expectedHeaders = ['subject_code', 'subject_name', 'units', 'lecture_hours', 'lab_hours'];
+        if ($headers !== $expectedHeaders) {
+            fclose($handle);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid CSV format. Expected columns: subject_code, subject_name, units, lecture_hours, lab_hours',
+            ], 422);
+        }
+
+        $insertedCount = 0;
+        $skippedCount = 0;
+        $errors = [];
+        $seenSubjectCodes = [];
+
+        DB::beginTransaction();
+
+        try {
+            $rowNumber = 1; // Header row
+
+            while (($row = fgetcsv($handle)) !== false) {
+                $rowNumber++;
+
+                if ($this->isEmptyCsvRow($row)) {
+                    continue;
+                }
+
+                $rowData = $this->mapCsvRow($headers, $row);
+                $rowData = $this->normalizeCsvRow($rowData);
+
+                if (count($row) < count($expectedHeaders)) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'Row has missing column values.',
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                $rowValidator = Validator::make($rowData, [
+                    'subject_code' => ['required', 'string', 'max:50'],
+                    'subject_name' => ['required', 'string', 'max:255'],
+                    'units' => ['required', 'integer', 'min:0', 'max:10'],
+                    'lecture_hours' => ['required', 'integer', 'min:0', 'max:20'],
+                    'lab_hours' => ['required', 'integer', 'min:0', 'max:20'],
+                ]);
+
+                if ($rowValidator->fails()) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => $rowValidator->errors()->first(),
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if ((int) $rowData['lecture_hours'] <= 0 && (int) $rowData['lab_hours'] <= 0) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'lecture_hours and lab_hours cannot both be 0',
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (((int) $rowData['lecture_hours'] + (int) $rowData['lab_hours']) < (int) $rowData['units']) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'Total lecture_hours and lab_hours must be greater than or equal to units',
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                $normalizedCode = strtolower((string) $rowData['subject_code']);
+                if (isset($seenSubjectCodes[$normalizedCode])) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'subject_code is duplicated in the CSV file',
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                $seenSubjectCodes[$normalizedCode] = true;
+
+                $duplicateCode = Subject::query()
+                    ->where('department_id', $department->id)
+                    ->where('subject_code', $rowData['subject_code'])
+                    ->exists();
+
+                if ($duplicateCode) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'subject_code already exists',
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                $duplicateName = Subject::query()
+                    ->where('department_id', $department->id)
+                    ->where('subject_name', $rowData['subject_name'])
+                    ->exists();
+
+                if ($duplicateName) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'reason' => 'subject_name already exists',
+                    ];
+                    $skippedCount++;
+
+                    if ($failOnError) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                $subject = Subject::create([
+                    'subject_code' => $rowData['subject_code'],
+                    'subject_name' => $rowData['subject_name'],
+                    'units' => (int) $rowData['units'],
+                    'lecture_hours' => (int) $rowData['lecture_hours'],
+                    'lab_hours' => (int) $rowData['lab_hours'],
+                    'description' => null,
+                    'is_active' => true,
+                    'department_id' => $department->id,
+                    'created_by' => $user->id,
+                ]);
+
+                $insertedCount++;
+            }
+
+            fclose($handle);
+
+            if ($failOnError && !empty($errors)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'CSV import failed. No records were inserted because fail_on_error is enabled.',
+                    'inserted' => 0,
+                    'skipped' => $skippedCount,
+                    'errors' => $errors,
+                ], 422);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'CSV import completed.',
+                'inserted' => $insertedCount,
+                'skipped' => $skippedCount,
+                'errors' => $errors,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            fclose($handle);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process CSV: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function mapCsvRow(array $headers, array $row): array
+    {
+        $rowData = [];
+
+        foreach ($headers as $index => $header) {
+            if ($header === '') {
+                continue;
+            }
+
+            $rowData[$header] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+        }
+
+        return $rowData;
+    }
+
+    private function normalizeCsvRow(array $rowData): array
+    {
+        foreach (['subject_code', 'subject_name'] as $key) {
+            if (isset($rowData[$key])) {
+                $rowData[$key] = trim((string) $rowData[$key]);
+            }
+        }
+
+        return $rowData;
+    }
+
+    private function isEmptyCsvRow(array $row): bool
+    {
+        foreach ($row as $cell) {
+            if (trim((string) $cell) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
