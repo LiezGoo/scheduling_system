@@ -301,6 +301,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Schedule Management (View-Only with Adjustment Requests)
         Route::get('/schedules', [ProgramHeadScheduleController::class, 'index'])->name('schedules.index');
+        Route::get('/schedules/preview', [ProgramHeadScheduleController::class, 'preview'])->name('schedules.preview');
         Route::get('/schedules/{schedule}', [ProgramHeadScheduleController::class, 'show'])->name('schedules.show');
         Route::post('/schedules/{schedule}/adjustments', [ScheduleAdjustmentController::class, 'store'])->name('schedules.adjustments.store');
     });

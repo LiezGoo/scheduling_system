@@ -929,7 +929,7 @@ class GeneticScheduler
             return null;
         }
 
-        $limits = $instructor->getContractLoadLimits();
+        $limits = $instructor->getWorkloadLimits();
         $maxLecture = $limits['max_lecture_hours'] ?? null;
         $maxLab = $limits['max_lab_hours'] ?? null;
 

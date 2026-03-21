@@ -487,36 +487,63 @@ class User extends Authenticatable
     }
 
     /**
-     * Get maximum allowed hours based on employment type.
-     * Returns array with max_lecture_hours, max_lab_hours, and max_total_hours.
+     * Get maximum allowed hours from faculty workload configuration only.
      *
-     * @return array
+     * @return array{max_lecture_hours:int|null,max_lab_hours:int|null,max_total_hours:int|null,type:string}
      */
-    public function getMaxAllowedHours(): array
+    public function getMaxAllowedHours(?int $programId = null): array
     {
-        $limits = $this->getContractLoadLimits();
+        $limits = $this->getWorkloadLimits($programId);
 
         return [
             'max_lecture_hours' => $limits['max_lecture_hours'],
             'max_lab_hours' => $limits['max_lab_hours'],
-            'max_total_hours' => null,
-            'type' => $limits['type'],
+            'max_total_hours' => ($limits['max_lecture_hours'] !== null || $limits['max_lab_hours'] !== null)
+                ? (int) (($limits['max_lecture_hours'] ?? 0) + ($limits['max_lab_hours'] ?? 0))
+                : null,
+            'type' => 'workload_configuration',
         ];
     }
 
     /**
-     * Get contract load limits from configuration.
+     * Backward-compatible alias used by older callers.
+     * Contract type is intentionally ignored.
      */
     public function getContractLoadLimits(): array
     {
-        $contractType = $this->contract_type;
-        $configured = config('instructor_load_limits.contract_types', []);
-        $limits = $configured[$contractType] ?? null;
+        return $this->getWorkloadLimits();
+    }
+
+    /**
+     * Resolve lecture/lab limits from active faculty workload configuration.
+     */
+    public function getWorkloadLimits(?int $programId = null): array
+    {
+        $query = FacultyWorkloadConfiguration::query()
+            ->where('user_id', $this->id)
+            ->where('is_active', true);
+
+        if ($programId !== null) {
+            $programConfig = (clone $query)
+                ->where('program_id', $programId)
+                ->latest('id')
+                ->first();
+
+            if ($programConfig) {
+                return [
+                    'type' => 'workload_configuration',
+                    'max_lecture_hours' => $programConfig->max_lecture_hours !== null ? (int) $programConfig->max_lecture_hours : null,
+                    'max_lab_hours' => $programConfig->max_lab_hours !== null ? (int) $programConfig->max_lab_hours : null,
+                ];
+            }
+        }
+
+        $config = $query->latest('id')->first();
 
         return [
-            'type' => $contractType ?? 'unspecified',
-            'max_lecture_hours' => $limits['max_lecture_hours'] ?? null,
-            'max_lab_hours' => $limits['max_lab_hours'] ?? null,
+            'type' => 'workload_configuration',
+            'max_lecture_hours' => $config?->max_lecture_hours !== null ? (int) $config->max_lecture_hours : null,
+            'max_lab_hours' => $config?->max_lab_hours !== null ? (int) $config->max_lab_hours : null,
         ];
     }
 
@@ -606,9 +633,17 @@ class User extends Authenticatable
      */
     public function getInstructorLoadSummaryForTerm(int $academicYearId, string $semester, ?int $excludeLoadId = null): array
     {
+        $semesterTokens = $this->buildSemesterMatchTokens($semester);
+
         $query = $this->instructorLoads()
             ->where('academic_year_id', $academicYearId)
-            ->where('semester', $semester);
+            ->where(function ($loadQuery) use ($semester, $semesterTokens) {
+                $loadQuery->where('semester', $semester);
+
+                if (!empty($semesterTokens)) {
+                    $loadQuery->orWhereIn(\Illuminate\Support\Facades\DB::raw('LOWER(TRIM(semester))'), $semesterTokens);
+                }
+            });
 
         if ($excludeLoadId) {
             $query->where('id', '!=', $excludeLoadId);
@@ -624,6 +659,55 @@ class User extends Authenticatable
             'total_teaching_units' => $totalLectureHours + $totalLabHours,
             'assignment_count' => $query->count(),
         ];
+    }
+
+    /**
+     * Build semester aliases to support mixed stored formats (e.g. 1, 1st, 1st Semester).
+     */
+    private function buildSemesterMatchTokens(string $semester): array
+    {
+        $normalized = strtolower(trim($semester));
+        if ($normalized === '') {
+            return [];
+        }
+
+        $tokens = [$normalized];
+        $withoutWord = trim(str_replace('semester', '', $normalized));
+        if ($withoutWord !== '') {
+            $tokens[] = $withoutWord;
+        }
+
+        $digit = null;
+        if (preg_match('/\d+/', $normalized, $matches)) {
+            $digit = (int) $matches[0];
+        } else {
+            $digit = match (true) {
+                str_contains($normalized, 'first') => 1,
+                str_contains($normalized, 'second') => 2,
+                str_contains($normalized, 'third') => 3,
+                default => null,
+            };
+        }
+
+        if ($digit !== null && $digit > 0) {
+            $ordinal = match ($digit) {
+                1 => '1st',
+                2 => '2nd',
+                3 => '3rd',
+                default => $digit . 'th',
+            };
+
+            $tokens[] = (string) $digit;
+            $tokens[] = $ordinal;
+            $tokens[] = $ordinal . ' semester';
+        }
+
+        return collect($tokens)
+            ->map(fn ($value) => strtolower(trim((string) $value)))
+            ->filter(fn ($value) => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
@@ -981,45 +1065,31 @@ class User extends Authenticatable
     }
 
     /**
-     * Get maximum allowed lecture hours based on contract type
+     * Get maximum allowed lecture hours from workload configuration.
      */
     public function getMaxLectureHours(): ?int
     {
-        if ($this->contract_type === self::CONTRACT_PERMANENT) {
-            return self::MAX_LECTURE_HOURS_PERMANENT;
-        }
-
-        // Contract employees have total hour limits, not separate lecture/lab
-        return null;
+        return $this->getWorkloadLimits()['max_lecture_hours'];
     }
 
     /**
-     * Get maximum allowed lab hours based on contract type
+     * Get maximum allowed lab hours from workload configuration.
      */
     public function getMaxLabHours(): ?int
     {
-        if ($this->contract_type === self::CONTRACT_PERMANENT) {
-            return self::MAX_LAB_HOURS_PERMANENT;
-        }
-
-        // Contract employees have total hour limits, not separate lecture/lab
-        return null;
+        return $this->getWorkloadLimits()['max_lab_hours'];
     }
 
     /**
-     * Get maximum total hours based on employment type
+     * Get maximum total hours from workload configuration.
      */
     public function getMaxTotalHours(): ?int
     {
-        if ($this->employment_type === self::EMPLOYMENT_CONTRACT_27) {
-            return self::MAX_HOURS_CONTRACT_27;
+        $limits = $this->getWorkloadLimits();
+        if ($limits['max_lecture_hours'] === null && $limits['max_lab_hours'] === null) {
+            return null;
         }
 
-        if ($this->employment_type === self::EMPLOYMENT_CONTRACT_24) {
-            return self::MAX_HOURS_CONTRACT_24;
-        }
-
-        // Permanent employees have separate lecture/lab limits
-        return null;
+        return (int) (($limits['max_lecture_hours'] ?? 0) + ($limits['max_lab_hours'] ?? 0));
     }
 }

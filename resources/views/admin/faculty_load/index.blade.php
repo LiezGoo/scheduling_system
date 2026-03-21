@@ -525,16 +525,6 @@
                             </div>
                         </div>
 
-                        <!-- Contract Type -->
-                        <div class="col-12">
-                            <div class="d-flex align-items-start">
-                                <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-file-contract me-2"></i>Contract
-                                </div>
-                                <div class="fw-semibold" id="viewContractType"></div>
-                            </div>
-                        </div>
-
                         <!-- Subject -->
                         <div class="col-12">
                             <div class="d-flex align-items-start">

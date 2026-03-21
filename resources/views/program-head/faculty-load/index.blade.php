@@ -233,7 +233,7 @@
                                         <select class="form-select" id="assignFaculty" name="faculty_id" required>
                                             <option value="">Select Faculty Member</option>
                                             @foreach ($eligibleFaculty as $faculty)
-                                                <option value="{{ $faculty->id }}" data-contract-type="{{ $faculty->contract_type }}">
+                                                <option value="{{ $faculty->id }}">
                                                     {{ $faculty->full_name }} ({{ $faculty->getRoleLabel() }})
                                                 </option>
                                             @endforeach
@@ -557,16 +557,6 @@
                                 <div>
                                     <span class="badge bg-info" id="viewFacultyRole"></span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Contract Type -->
-                        <div class="col-12">
-                            <div class="d-flex align-items-start">
-                                <div class="text-muted" style="min-width: 120px;">
-                                    <i class="fa-solid fa-file-contract me-2"></i>Contract
-                                </div>
-                                <div class="fw-semibold" id="viewContractType"></div>
                             </div>
                         </div>
 

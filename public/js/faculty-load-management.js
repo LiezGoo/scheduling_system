@@ -91,11 +91,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function populateViewModal(data) {
         document.getElementById('viewFacultyName').textContent = data.faculty.full_name;
         document.getElementById('viewFacultyRole').textContent = data.faculty.role_label;
-        const contractType = data.faculty.contract_type || 'Unspecified';
-        const contractEl = document.getElementById('viewContractType');
-        if (contractEl) {
-            contractEl.textContent = contractType.charAt(0).toUpperCase() + contractType.slice(1);
-        }
         document.getElementById('viewSubjectName').textContent = data.subject.subject_name;
         document.getElementById('viewSubjectCode').textContent = data.subject.subject_code;
         const department = data.department || {};

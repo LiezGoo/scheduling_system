@@ -8,6 +8,8 @@ use App\Models\Semester;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class SubjectController extends Controller
@@ -38,6 +40,8 @@ class SubjectController extends Controller
             'year_level' => 'required|integer|min:1|max:6',
         ]);
 
+        Log::debug('ProgramHead subject filter request', $validated);
+
         $program = Program::query()->findOrFail($validated['program_id']);
         if ((int) $program->department_id !== (int) $department->id) {
             return response()->json(['message' => 'Program does not belong to your department.'], 403);
@@ -48,6 +52,8 @@ class SubjectController extends Controller
             return response()->json(['message' => 'The selected semester is invalid.'], 422);
         }
 
+        $semesterTokens = $this->buildSemesterFilterTokens($semesterName);
+
         $subjects = Subject::query()
             ->select('subjects.id', 'subjects.subject_code', 'subjects.subject_name', 'subjects.lecture_hours', 'subjects.lab_hours')
             ->join('program_subjects', 'program_subjects.subject_id', '=', 'subjects.id')
@@ -55,7 +61,13 @@ class SubjectController extends Controller
             ->where('subjects.is_active', true)
             ->where('program_subjects.program_id', $validated['program_id'])
             ->where('program_subjects.year_level', $validated['year_level'])
-            ->where('program_subjects.semester', $semesterName)
+            ->where(function ($query) use ($semesterName, $semesterTokens) {
+                $query->where('program_subjects.semester', $semesterName);
+
+                if (!empty($semesterTokens)) {
+                    $query->orWhereIn(DB::raw('LOWER(TRIM(program_subjects.semester))'), $semesterTokens);
+                }
+            })
             ->orderBy('subjects.subject_code')
             ->get()
             ->map(function ($subject) {
@@ -81,10 +93,69 @@ class SubjectController extends Controller
             })
             ->values();
 
+        Log::debug('ProgramHead subject filter result', [
+            'program_id' => (int) $validated['program_id'],
+            'academic_year_id' => (int) $validated['academic_year_id'],
+            'semester_id' => (int) $validated['semester_id'],
+            'semester_name' => $semesterName,
+            'semester_tokens' => $semesterTokens,
+            'year_level' => (int) $validated['year_level'],
+            'subject_count' => $subjects->count(),
+        ]);
+
         return response()->json([
             'success' => true,
             'subjects' => $subjects,
         ]);
+    }
+
+    /**
+     * Build semester aliases to handle mixed stored values (e.g. 1, 1st, 1st Semester).
+     */
+    private function buildSemesterFilterTokens(string $semesterName): array
+    {
+        $normalized = strtolower(trim($semesterName));
+        if ($normalized === '') {
+            return [];
+        }
+
+        $tokens = [$normalized];
+        $withoutWord = trim(str_replace('semester', '', $normalized));
+        if ($withoutWord !== '') {
+            $tokens[] = $withoutWord;
+        }
+
+        $digit = null;
+        if (preg_match('/\d+/', $normalized, $matches)) {
+            $digit = (int) $matches[0];
+        } else {
+            $digit = match (true) {
+                str_contains($normalized, 'first') => 1,
+                str_contains($normalized, 'second') => 2,
+                str_contains($normalized, 'third') => 3,
+                default => null,
+            };
+        }
+
+        if ($digit !== null && $digit > 0) {
+            $ordinal = match ($digit) {
+                1 => '1st',
+                2 => '2nd',
+                3 => '3rd',
+                default => $digit . 'th',
+            };
+
+            $tokens[] = (string) $digit;
+            $tokens[] = $ordinal;
+            $tokens[] = $ordinal . ' semester';
+        }
+
+        return collect($tokens)
+            ->map(fn ($value) => strtolower(trim((string) $value)))
+            ->filter(fn ($value) => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

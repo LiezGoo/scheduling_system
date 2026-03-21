@@ -196,53 +196,32 @@ class ConstraintValidator
     }
 
     /**
-     * Validate faculty load limits based on contract type
+     * Validate faculty load limits using lecture/lab maxima only.
      */
     public function validateFacultyLoad(User $instructor, float $lectureHours, float $labHours): array
     {
-        $totalHours = $lectureHours + $labHours;
         $violations = [];
 
-        // Determine limits based on contract type
-        if ($instructor->contract_type === User::CONTRACT_PERMANENT) {
-            // Permanent: Lecture ≤ 18, Lab ≤ 21
-            if ($lectureHours > User::MAX_LECTURE_HOURS_PERMANENT) {
-                $violations[] = [
-                    'type' => 'lecture_overload',
-                    'limit' => User::MAX_LECTURE_HOURS_PERMANENT,
-                    'actual' => $lectureHours,
-                    'excess' => $lectureHours - User::MAX_LECTURE_HOURS_PERMANENT,
-                ];
-            }
+        $limits = $instructor->getWorkloadLimits();
+        $maxLecture = $limits['max_lecture_hours'];
+        $maxLab = $limits['max_lab_hours'];
 
-            if ($labHours > User::MAX_LAB_HOURS_PERMANENT) {
-                $violations[] = [
-                    'type' => 'lab_overload',
-                    'limit' => User::MAX_LAB_HOURS_PERMANENT,
-                    'actual' => $labHours,
-                    'excess' => $labHours - User::MAX_LAB_HOURS_PERMANENT,
-                ];
-            }
-        } elseif ($instructor->employment_type === User::EMPLOYMENT_CONTRACT_27) {
-            // Contract 27: Total ≤ 27
-            if ($totalHours > User::MAX_HOURS_CONTRACT_27) {
-                $violations[] = [
-                    'type' => 'total_overload',
-                    'limit' => User::MAX_HOURS_CONTRACT_27,
-                    'actual' => $totalHours,
-                    'excess' => $totalHours - User::MAX_HOURS_CONTRACT_27,
-                ];
-            }
-        } elseif ($instructor->employment_type === User::EMPLOYMENT_CONTRACT_24) {
-            // Contract 24: Total ≤ 24
-            if ($totalHours > User::MAX_HOURS_CONTRACT_24) {
-                $violations[] = [
-                    'type' => 'total_overload',
-                    'limit' => User::MAX_HOURS_CONTRACT_24,
-                    'actual' => $totalHours,
-                    'excess' => $totalHours - User::MAX_HOURS_CONTRACT_24,
-                ];
-            }
+        if ($maxLecture !== null && $lectureHours > $maxLecture) {
+            $violations[] = [
+                'type' => 'lecture_overload',
+                'limit' => $maxLecture,
+                'actual' => $lectureHours,
+                'excess' => $lectureHours - $maxLecture,
+            ];
+        }
+
+        if ($maxLab !== null && $labHours > $maxLab) {
+            $violations[] = [
+                'type' => 'lab_overload',
+                'limit' => $maxLab,
+                'actual' => $labHours,
+                'excess' => $labHours - $maxLab,
+            ];
         }
 
         return [

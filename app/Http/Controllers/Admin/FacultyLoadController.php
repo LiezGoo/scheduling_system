@@ -53,7 +53,6 @@ class FacultyLoadController extends Controller
                     DB::raw("trim(users.first_name || ' ' || users.last_name) as full_name"),
                     'users.school_id',
                     'users.role',
-                    'users.contract_type',
                     'subjects.subject_code',
                     'subjects.subject_name',
                     'subjects.units',
@@ -169,7 +168,6 @@ class FacultyLoadController extends Controller
                            DB::raw("trim(users.first_name || ' ' || users.last_name) as full_name"),
                            'users.school_id',
                            'users.role',
-                           'users.contract_type',
                            'subjects.id as subject_id',
                            'subjects.subject_code',
                            'subjects.subject_name',
@@ -189,9 +187,32 @@ class FacultyLoadController extends Controller
             }
 
             $instructor = User::find($load->user_id);
-            $limits = $instructor?->getContractLoadLimits() ?? [];
+            $workloadConfig = FacultyWorkloadConfiguration::query()
+                ->where('user_id', $load->user_id)
+                ->where('program_id', $load->program_id)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$workloadConfig) {
+                $workloadConfig = FacultyWorkloadConfiguration::query()
+                    ->where('user_id', $load->user_id)
+                    ->where('is_active', true)
+                    ->first();
+            }
+
+            $limits = [
+                'max_lecture_hours' => $workloadConfig?->max_lecture_hours,
+                'max_lab_hours' => $workloadConfig?->max_lab_hours,
+            ];
             $summary = $instructor?->getInstructorLoadSummaryForTerm($load->academic_year_id, $load->semester) ?? [];
-            $workloadValidation = $instructor?->validateFacultyLoad(0, 0, (int) $load->academic_year_id, (string) $load->semester) ?? [];
+            $currentLecture = (int) ($summary['total_lecture_hours'] ?? 0);
+            $currentLab = (int) ($summary['total_lab_hours'] ?? 0);
+            $maxLecture = $limits['max_lecture_hours'] !== null ? (int) $limits['max_lecture_hours'] : null;
+            $maxLab = $limits['max_lab_hours'] !== null ? (int) $limits['max_lab_hours'] : null;
+            $lectureOverload = $maxLecture === null ? 0 : max(0, $currentLecture - $maxLecture);
+            $labOverload = $maxLab === null ? 0 : max(0, $currentLab - $maxLab);
+            $overloadHours = $lectureOverload + $labOverload;
+            $status = $overloadHours > 0 ? 'Overloaded' : 'Normal';
 
             return response()->json([
                 'success' => true,
@@ -202,7 +223,6 @@ class FacultyLoadController extends Controller
                     'school_id' => $load->school_id,
                     'role' => $load->role,
                     'role_label' => $this->getRoleLabel($load->role),
-                    'contract_type' => $load->contract_type,
                 ],
                 'subject' => [
                     'id' => $load->subject_id,
@@ -231,10 +251,10 @@ class FacultyLoadController extends Controller
                 'limits' => $limits,
                 'current_load' => $summary,
                 'workload' => [
-                    'status' => $workloadValidation['workload_status'] ?? 'Normal',
-                    'total_assigned_hours' => (int) ($workloadValidation['total_assigned_hours'] ?? ($summary['total_assigned_hours'] ?? 0)),
-                    'max_load' => $workloadValidation['max_load'] ?? null,
-                    'overload_hours' => (int) ($workloadValidation['overload_hours'] ?? 0),
+                    'status' => $status,
+                    'total_assigned_hours' => (int) ($summary['total_assigned_hours'] ?? ($currentLecture + $currentLab)),
+                    'max_load' => ($maxLecture !== null || $maxLab !== null) ? (int) (($maxLecture ?? 0) + ($maxLab ?? 0)) : null,
+                    'overload_hours' => $overloadHours,
                 ],
                 'created_at' => $load->created_at,
             ]);
@@ -594,7 +614,6 @@ class FacultyLoadController extends Controller
                     'faculty_name' => $user->full_name,
                     'program_id' => $program->id,
                     'program_name' => $program->program_name,
-                    'contract_type' => $workloadConfig->contract_type,
                     'max_lecture_hours' => $workloadConfig->max_lecture_hours,
                     'max_lab_hours' => $workloadConfig->max_lab_hours,
                     'max_hours_per_day' => $workloadConfig->max_hours_per_day,

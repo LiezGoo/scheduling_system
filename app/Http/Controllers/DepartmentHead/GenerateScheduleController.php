@@ -231,7 +231,7 @@ class GenerateScheduleController extends Controller
                 continue;
             }
 
-            $limits = $instructor->getContractLoadLimits();
+            $limits = $instructor->getWorkloadLimits();
             $maxLoad = (($limits['max_lecture_hours'] ?? 0) + ($limits['max_lab_hours'] ?? 0));
             $hours = round($minutes / 60, 2);
             $overload = max(0, $hours - $maxLoad);

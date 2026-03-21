@@ -68,7 +68,6 @@ class FacultyLoadController extends Controller
                 'instructor_loads.instructor_id',
                 'users.school_id',
                 'users.role',
-                'users.contract_type',
                 'users.first_name',
                 'users.last_name',
                 DB::raw("trim(users.first_name || ' ' || users.last_name) as full_name"),
@@ -93,7 +92,6 @@ class FacultyLoadController extends Controller
             'instructor_loads.instructor_id',
             'users.school_id',
             'users.role',
-            'users.contract_type',
             'users.first_name',
             'users.last_name',
             'programs.program_name',
@@ -407,6 +405,8 @@ class FacultyLoadController extends Controller
             'block_section' => 'nullable|string|max:20',
         ]);
 
+        Log::debug('ProgramHead assignable subjects request', $validated);
+
         $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
 
         if ($semesterName === '') {
@@ -415,6 +415,8 @@ class FacultyLoadController extends Controller
                 'message' => 'The selected semester is invalid.',
             ], 422);
         }
+
+        $semesterTokens = $this->buildSemesterFilterTokens($semesterName);
 
         $block = Block::query()->find($validated['block_id']);
         $blockSection = trim((string) ($block?->block_name ?? ''));
@@ -448,7 +450,13 @@ class FacultyLoadController extends Controller
             ->where('subjects.is_active', true)
             ->where('program_subjects.program_id', $validated['program_id'])
             ->where('program_subjects.year_level', $validated['year_level'])
-            ->where('program_subjects.semester', $semesterName)
+            ->where(function ($query) use ($semesterName, $semesterTokens) {
+                $query->where('program_subjects.semester', $semesterName);
+
+                if (!empty($semesterTokens)) {
+                    $query->orWhereIn(DB::raw('LOWER(TRIM(program_subjects.semester))'), $semesterTokens);
+                }
+            })
             ->orderBy('subjects.subject_code')
             ->get();
 
@@ -470,9 +478,8 @@ class FacultyLoadController extends Controller
                 ->first();
         }
 
-        $contractLimits = $faculty->getContractLoadLimits();
-        $lectureLimit = $workloadConfig->max_lecture_hours_per_week ?? ($contractLimits['max_lecture_hours'] ?? null);
-        $labLimit = $workloadConfig->max_lab_hours_per_week ?? ($contractLimits['max_lab_hours'] ?? null);
+        $lectureLimit = $workloadConfig?->max_lecture_hours !== null ? (int) $workloadConfig->max_lecture_hours : null;
+        $labLimit = $workloadConfig?->max_lab_hours !== null ? (int) $workloadConfig->max_lab_hours : null;
 
         $subjectIds = $subjects->pluck('id')->all();
 
@@ -480,7 +487,13 @@ class FacultyLoadController extends Controller
             ->where('instructor_id', $validated['faculty_id'])
             ->where('program_id', $validated['program_id'])
             ->where('academic_year_id', $validated['academic_year_id'])
-            ->where('semester', $semesterName)
+            ->where(function ($query) use ($semesterName, $semesterTokens) {
+                $query->where('semester', $semesterName);
+
+                if (!empty($semesterTokens)) {
+                    $query->orWhereIn(DB::raw('LOWER(TRIM(semester))'), $semesterTokens);
+                }
+            })
             ->where('year_level', $validated['year_level'])
             ->whereIn('subject_id', $subjectIds)
             ->where('block_section', $blockSection)
@@ -506,13 +519,24 @@ class FacultyLoadController extends Controller
             ];
         })->values();
 
+        Log::debug('ProgramHead assignable subjects result', [
+            'program_id' => (int) $validated['program_id'],
+            'academic_year_id' => (int) $validated['academic_year_id'],
+            'semester_id' => (int) $validated['semester_id'],
+            'semester_name' => $semesterName,
+            'semester_tokens' => $semesterTokens,
+            'year_level' => (int) $validated['year_level'],
+            'faculty_id' => (int) $validated['faculty_id'],
+            'block_id' => (int) $validated['block_id'],
+            'subject_count' => $rows->count(),
+        ]);
+
         return response()->json([
             'success' => true,
             'subjects' => $rows,
             'load_summary' => [
                 'current_lecture_hours' => (int) ($currentLoad['total_lecture_hours'] ?? 0),
                 'current_lab_hours' => (int) ($currentLoad['total_lab_hours'] ?? 0),
-                'contract_type' => $contractLimits['type'] ?? 'unspecified',
                 'max_lecture_hours' => $lectureLimit,
                 'max_lab_hours' => $labLimit,
             ],
@@ -602,6 +626,13 @@ class FacultyLoadController extends Controller
             'semester_id' => 'nullable|integer|exists:semesters,id',
         ]);
 
+        Log::debug('ProgramHead faculty workload request', [
+            'faculty_id' => $facultyId,
+            'program_id' => $validated['program_id'] ?? null,
+            'academic_year_id' => $validated['academic_year_id'] ?? null,
+            'semester_id' => $validated['semester_id'] ?? null,
+        ]);
+
         $semesterName = null;
         if (!empty($validated['semester_id'])) {
             $semesterName = trim((string) Semester::query()->where('id', $validated['semester_id'])->value('name'));
@@ -622,9 +653,8 @@ class FacultyLoadController extends Controller
                 ->first();
         }
 
-        $contractLimits = $faculty->getContractLoadLimits();
-        $lectureLimit = $workloadConfig->max_lecture_hours_per_week ?? ($contractLimits['max_lecture_hours'] ?? 0);
-        $labLimit = $workloadConfig->max_lab_hours_per_week ?? ($contractLimits['max_lab_hours'] ?? 0);
+        $lectureLimit = $workloadConfig?->max_lecture_hours !== null ? (int) $workloadConfig->max_lecture_hours : null;
+        $labLimit = $workloadConfig?->max_lab_hours !== null ? (int) $workloadConfig->max_lab_hours : null;
 
         $currentLecture = 0;
         $currentLab = 0;
@@ -637,6 +667,16 @@ class FacultyLoadController extends Controller
             $currentLecture = (int) ($summary['total_lecture_hours'] ?? 0);
             $currentLab = (int) ($summary['total_lab_hours'] ?? 0);
         }
+
+        Log::debug('ProgramHead faculty workload result', [
+            'faculty_id' => $facultyId,
+            'semester_name' => $semesterName,
+            'current_lecture' => $currentLecture,
+            'current_lab' => $currentLab,
+            'lecture_limit' => $lectureLimit,
+            'lab_limit' => $labLimit,
+            'has_workload_config' => $workloadConfig !== null,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -674,7 +714,6 @@ class FacultyLoadController extends Controller
                     DB::raw("trim(users.first_name || ' ' || users.last_name) as full_name"),
                     'users.school_id',
                     'users.role',
-                    'users.contract_type',
                     'subjects.id as subject_id',
                     'subjects.subject_code',
                     'subjects.subject_name',
@@ -698,9 +737,33 @@ class FacultyLoadController extends Controller
             }
 
             $instructor = User::find($load->user_id);
-            $limits = $instructor?->getContractLoadLimits() ?? [];
+            $workloadConfig = FacultyWorkloadConfiguration::query()
+                ->where('user_id', $load->user_id)
+                ->where('program_id', $load->program_id)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$workloadConfig) {
+                $workloadConfig = FacultyWorkloadConfiguration::query()
+                    ->where('user_id', $load->user_id)
+                    ->where('is_active', true)
+                    ->first();
+            }
+
+            $limits = [
+                'max_lecture_hours' => $workloadConfig?->max_lecture_hours,
+                'max_lab_hours' => $workloadConfig?->max_lab_hours,
+            ];
             $summary = $instructor?->getInstructorLoadSummaryForTerm($load->academic_year_id, $load->semester) ?? [];
-            $workloadValidation = $instructor?->validateFacultyLoad(0, 0, (int) $load->academic_year_id, (string) $load->semester) ?? [];
+
+            $currentLecture = (int) ($summary['total_lecture_hours'] ?? 0);
+            $currentLab = (int) ($summary['total_lab_hours'] ?? 0);
+            $maxLecture = $limits['max_lecture_hours'] !== null ? (int) $limits['max_lecture_hours'] : null;
+            $maxLab = $limits['max_lab_hours'] !== null ? (int) $limits['max_lab_hours'] : null;
+            $lectureOverload = $maxLecture === null ? 0 : max(0, $currentLecture - $maxLecture);
+            $labOverload = $maxLab === null ? 0 : max(0, $currentLab - $maxLab);
+            $overloadHours = $lectureOverload + $labOverload;
+            $status = $overloadHours > 0 ? 'Overloaded' : 'Normal';
 
             return response()->json([
                 'success' => true,
@@ -711,7 +774,6 @@ class FacultyLoadController extends Controller
                     'school_id' => $load->school_id,
                     'role' => $load->role,
                     'role_label' => $this->getRoleLabel($load->role),
-                    'contract_type' => $load->contract_type,
                 ],
                 'subject' => [
                     'id' => $load->subject_id,
@@ -740,10 +802,10 @@ class FacultyLoadController extends Controller
                 'limits' => $limits,
                 'current_load' => $summary,
                 'workload' => [
-                    'status' => $workloadValidation['workload_status'] ?? 'Normal',
-                    'total_assigned_hours' => (int) ($workloadValidation['total_assigned_hours'] ?? ($summary['total_assigned_hours'] ?? 0)),
-                    'max_load' => $workloadValidation['max_load'] ?? null,
-                    'overload_hours' => (int) ($workloadValidation['overload_hours'] ?? 0),
+                    'status' => $status,
+                    'total_assigned_hours' => (int) ($summary['total_assigned_hours'] ?? ($currentLecture + $currentLab)),
+                    'max_load' => ($maxLecture !== null || $maxLab !== null) ? (int) (($maxLecture ?? 0) + ($maxLab ?? 0)) : null,
+                    'overload_hours' => $overloadHours,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -888,16 +950,9 @@ class FacultyLoadController extends Controller
             $currentLab = (int) ($loadSummary['total_lab_hours'] ?? 0);
         }
 
-        // Get limits from workload config or contract defaults
-        $lectureLimit = $workloadConfig->max_lecture_hours_per_week ?? null;
-        $labLimit = $workloadConfig->max_lab_hours_per_week ?? null;
-
-        // If no workload config, fall back to contract limits
-        if ($lectureLimit === null || $labLimit === null) {
-            $contractLimits = $faculty->getContractLoadLimits();
-            $lectureLimit = $lectureLimit ?? $contractLimits['max_lecture_hours'] ?? null;
-            $labLimit = $labLimit ?? $contractLimits['max_lab_hours'] ?? null;
-        }
+        // Get limits from workload configuration only.
+        $lectureLimit = $workloadConfig->max_lecture_hours ?? null;
+        $labLimit = $workloadConfig->max_lab_hours ?? null;
 
         // Calculate projected values
         $projectedLecture = $currentLecture + $selectedLecture;
@@ -983,6 +1038,55 @@ class FacultyLoadController extends Controller
         }
 
         return $semesterOptions;
+    }
+
+    /**
+     * Build semester aliases to handle mixed stored values (e.g. 1, 1st, 1st Semester).
+     */
+    private function buildSemesterFilterTokens(string $semesterName): array
+    {
+        $normalized = strtolower(trim($semesterName));
+        if ($normalized === '') {
+            return [];
+        }
+
+        $tokens = [$normalized];
+        $withoutWord = trim(str_replace('semester', '', $normalized));
+        if ($withoutWord !== '') {
+            $tokens[] = $withoutWord;
+        }
+
+        $digit = null;
+        if (preg_match('/\d+/', $normalized, $matches)) {
+            $digit = (int) $matches[0];
+        } else {
+            $digit = match (true) {
+                str_contains($normalized, 'first') => 1,
+                str_contains($normalized, 'second') => 2,
+                str_contains($normalized, 'third') => 3,
+                default => null,
+            };
+        }
+
+        if ($digit !== null && $digit > 0) {
+            $ordinal = match ($digit) {
+                1 => '1st',
+                2 => '2nd',
+                3 => '3rd',
+                default => $digit . 'th',
+            };
+
+            $tokens[] = (string) $digit;
+            $tokens[] = $ordinal;
+            $tokens[] = $ordinal . ' semester';
+        }
+
+        return collect($tokens)
+            ->map(fn ($value) => strtolower(trim((string) $value)))
+            ->filter(fn ($value) => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

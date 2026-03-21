@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use App\Models\AcademicYear;
@@ -82,6 +83,30 @@ class Schedule extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ScheduleItem::class);
+    }
+
+    /**
+     * Get subjects linked to this schedule via schedule items.
+     */
+    public function subject(): BelongsToMany
+    {
+        return $this->belongsToMany(Subject::class, 'schedule_items', 'schedule_id', 'subject_id')->distinct();
+    }
+
+    /**
+     * Get faculty linked to this schedule via schedule items.
+     */
+    public function faculty(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'schedule_items', 'schedule_id', 'instructor_id')->distinct();
+    }
+
+    /**
+     * Get rooms linked to this schedule via schedule items.
+     */
+    public function room(): BelongsToMany
+    {
+        return $this->belongsToMany(Room::class, 'schedule_items', 'schedule_id', 'room_id')->distinct();
     }
 
     /**

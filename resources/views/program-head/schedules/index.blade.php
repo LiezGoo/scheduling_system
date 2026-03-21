@@ -47,10 +47,10 @@
                                 <span>Semester</span>
                                 <span class="text-danger ms-auto">*</span>
                             </label>
-                            <select class="form-select border-1 focus-maroon" id="semester" name="semester" required>
+                            <select class="form-select border-1 focus-maroon" id="semester" name="semester_id" required>
                                 <option value="">-- Select Semester --</option>
                                 @foreach ($semesters as $semester)
-                                    <option value="{{ $semester }}">{{ $semester }}</option>
+                                    <option value="{{ $semester->id }}">{{ $semester->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -62,10 +62,13 @@
                                 <span>Year Level</span>
                                 <span class="text-danger ms-auto">*</span>
                             </label>
-                            <select class="form-select border-1 focus-maroon" id="yearLevel" name="year_level" required>
+                            <select class="form-select border-1 focus-maroon" id="yearLevel" name="year_level_id" required>
                                 <option value="">-- Select Year Level --</option>
                                 @foreach ($yearLevels as $level)
-                                    <option value="{{ $level }}">{{ $level }}{{ $level == 1 ? 'st' : ($level == 2 ? 'nd' : ($level == 3 ? 'rd' : 'th')) }} Year</option>
+                                    @php
+                                        $levelValue = (int) ($level->code ?: $level->id);
+                                    @endphp
+                                    <option value="{{ $level->id }}">{{ $levelValue }}{{ $levelValue == 1 ? 'st' : ($levelValue == 2 ? 'nd' : ($levelValue == 3 ? 'rd' : 'th')) }} Year</option>
                                 @endforeach
                             </select>
                         </div>
@@ -583,17 +586,64 @@
     let totalGenerations = 0;
     let progressInterval = null;
 
-    // Generate Schedule
+    // Fetch and preview existing schedule
     function generateSchedule() {
-        // Validate form
         const form = document.getElementById('scheduleConfigForm');
         if (!form.checkValidity()) {
             form.reportValidity();
             return;
         }
 
-        // Show confirmation modal
-        showConfirmationModal();
+        const payload = {
+            academic_year_id: document.getElementById('academicYear').value,
+            semester_id: document.getElementById('semester').value,
+            year_level_id: document.getElementById('yearLevel').value,
+            block: document.getElementById('blockSection').value.trim(),
+        };
+
+        const button = document.getElementById('generateScheduleBtn');
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i><span>Loading...</span>';
+
+        const params = new URLSearchParams();
+        params.set('academic_year_id', payload.academic_year_id);
+        params.set('semester_id', payload.semester_id);
+        params.set('year_level_id', payload.year_level_id);
+        if (payload.block !== '') {
+            params.set('block', payload.block);
+        }
+
+        fetch(`{{ route('program-head.schedules.preview') }}?${params.toString()}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then(async (response) => {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to load schedule preview.');
+                }
+                return data;
+            })
+            .then((data) => {
+                if (data.status === 'empty') {
+                    showEmptyState(data.message || 'No Schedule Generated Yet');
+                    return;
+                }
+
+                renderSchedule(data.data || {});
+            })
+            .catch((error) => {
+                showEmptyState('No Schedule Generated Yet');
+                showToast(error.message || 'Failed to load schedule preview.');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalHtml;
+            });
     }
 
     // Show Confirmation Modal
@@ -623,24 +673,13 @@
         modal.show();
     }
 
-    // Execute Generation
+    // Keep function name for existing button bindings in modal, but route to preview.
     function executeGeneration() {
-        isRunning = true;
-        
-        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
-        modal.hide();
-
-        // Show preview section
-        document.getElementById('previewSection').style.display = 'block';
-
-        // Disable form inputs
-        disableFormInputs(true);
-
-        // Simulate generation completion
-        setTimeout(() => {
-            completeGeneration();
-        }, 2000);
+        if (modal) {
+            modal.hide();
+        }
+        generateSchedule();
     }
 
     // Simulate Generation Progress
@@ -725,18 +764,84 @@
         badge.innerHTML = `<i class="fas ${iconMap[status]} me-1"></i> ${status}`;
     }
 
-    // Complete Generation
     function completeGeneration() {
         isRunning = false;
         disableFormInputs(false);
+    }
 
-        // Show success toast
-        showToast('Schedule generated successfully!');
+    function clearGrid() {
+        document.querySelectorAll('.schedule-slot').forEach((slot) => {
+            slot.innerHTML = '';
+        });
+    }
 
-        // Show preview section
+    function showEmptyState(message = 'No Schedule Generated Yet') {
+        clearGrid();
+        const tableBody = document.getElementById('tableViewBody');
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-inbox me-2"></i> ${message}
+                </td>
+            </tr>
+        `;
+
+        document.getElementById('previewSection').style.display = 'none';
+        const emptyHeading = document.querySelector('.col-lg-8 .card-body h5');
+        if (emptyHeading) {
+            emptyHeading.textContent = message;
+        }
+    }
+
+    function renderSchedule(groupedSchedule) {
+        clearGrid();
+
+        const tableRows = [];
+
+        Object.entries(groupedSchedule || {}).forEach(([day, items]) => {
+            (items || []).forEach((item) => {
+                const dayIndex = getDay(day);
+                const slotHour = (item.start_time || '').toString().slice(0, 2) + ':00';
+                const slot = document.querySelector(`.schedule-slot[data-day="${dayIndex}"][data-time="${slotHour}"]`);
+
+                const typeClass = item.code && item.code.toLowerCase().includes('lab') ? 'lab' : 'lecture';
+                const content = `
+                    <div class="schedule-item ${typeClass}" title="${item.subject} (${item.start_time} - ${item.end_time})">
+                        <div class="fw-semibold">${item.code || 'N/A'}</div>
+                        <div>${item.subject || 'Unknown Subject'}</div>
+                        <div class="small">${item.room || 'TBA'}</div>
+                        <div class="small">${item.start_time} - ${item.end_time}</div>
+                    </div>
+                `;
+
+                if (slot) {
+                    slot.insertAdjacentHTML('beforeend', content);
+                }
+
+                tableRows.push(`
+                    <tr>
+                        <td>${item.code || 'N/A'} - ${item.subject || 'Unknown Subject'}</td>
+                        <td>${item.faculty || 'TBA'}</td>
+                        <td>${item.room || 'TBA'}</td>
+                        <td>${day}</td>
+                        <td>${item.start_time} - ${item.end_time}</td>
+                        <td>Class</td>
+                        <td><span class="badge bg-success">Scheduled</span></td>
+                    </tr>
+                `);
+            });
+        });
+
+        const tableBody = document.getElementById('tableViewBody');
+        tableBody.innerHTML = tableRows.length > 0 ? tableRows.join('') : `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-inbox me-2"></i> No schedule generated yet
+                </td>
+            </tr>
+        `;
+
         document.getElementById('previewSection').style.display = 'block';
-
-        // Scroll to preview
         scrollToPreview();
     }
 
