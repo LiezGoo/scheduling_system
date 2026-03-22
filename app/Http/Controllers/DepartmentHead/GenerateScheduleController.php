@@ -11,6 +11,7 @@ use App\Services\GeneticScheduler;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class GenerateScheduleController extends Controller
@@ -31,92 +32,174 @@ class GenerateScheduleController extends Controller
             ], 403);
         }
 
-        $validated = $request->validate([
-            'program_id' => 'required|integer|exists:programs,id',
-            'academic_year_id' => 'required|integer|exists:academic_years,id',
-            'semester' => ['required', 'string', Rule::exists('semesters', 'name')],
-            'year_level' => 'required|integer|min:1|max:6',
-            'number_of_blocks' => 'required|integer|min:1|max:20',
-            'population_size' => 'nullable|integer|min:20|max:500',
-            'generations' => 'nullable|integer|min:50|max:500',
-            'mutation_rate' => 'nullable|integer|min:1|max:50',
-            'crossover_rate' => 'nullable|integer|min:1|max:100',
-            'elite_size' => 'nullable|integer|min:1|max:30',
-            'stagnation_limit' => 'nullable|integer|min:20|max:200',
-        ]);
+        try {
+            Log::debug('Schedule generation request received', [
+                'user_id' => $user->id,
+                'department_id' => $user->department_id,
+            ]);
 
-        $program = Program::query()->find((int) $validated['program_id']);
-        if (!$program || (int) $program->department_id !== (int) $user->department_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid program selection for your department.',
-            ], 403);
-        }
+            $validated = $request->validate([
+                'program_id' => 'required|integer|exists:programs,id',
+                'academic_year_id' => 'required|integer|exists:academic_years,id',
+                'semester' => ['required', 'string', Rule::exists('semesters', 'name')],
+                'year_level' => 'required|integer|min:1|max:6',
+                'number_of_blocks' => 'required|integer|min:1|max:20',
+                'population_size' => 'nullable|integer|min:20|max:500',
+                'generations' => 'nullable|integer|min:50|max:500',
+                'mutation_rate' => 'nullable|integer|min:1|max:50',
+                'crossover_rate' => 'nullable|integer|min:1|max:100',
+                'elite_size' => 'nullable|integer|min:1|max:30',
+                'stagnation_limit' => 'nullable|integer|min:20|max:200',
+            ]);
 
-        $semesterName = trim((string) $validated['semester']);
-        $semesterExists = Semester::query()->where('name', $semesterName)->exists();
-        if (!$semesterExists) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid semester selection.',
-            ], 422);
-        }
+            Log::debug('Schedule generation validation passed', [
+                'program_id' => $validated['program_id'],
+                'academic_year_id' => $validated['academic_year_id'],
+                'semester' => $validated['semester'],
+                'year_level' => $validated['year_level'],
+                'number_of_blocks' => $validated['number_of_blocks'],
+            ]);
 
-        $configuration = ScheduleConfiguration::query()->create([
-            'program_id' => (int) $validated['program_id'],
-            'academic_year_id' => (int) $validated['academic_year_id'],
-            'semester' => $semesterName,
-            'year_level' => (int) $validated['year_level'],
-            'number_of_blocks' => (int) $validated['number_of_blocks'],
-            'department_head_id' => (int) $user->id,
-        ]);
+            $program = Program::query()->find((int) $validated['program_id']);
+            if (!$program || (int) $program->department_id !== (int) $user->department_id) {
+                Log::warning('Invalid program for department', [
+                    'program_id' => $validated['program_id'],
+                    'user_department_id' => $user->department_id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid program selection for your department.',
+                ], 403);
+            }
 
-        $generatedSchedules = [];
+            $semesterName = trim((string) $validated['semester']);
+            $semesterExists = Semester::query()->where('name', $semesterName)->exists();
+            if (!$semesterExists) {
+                Log::warning('Invalid semester for generation', [
+                    'semester_name' => $semesterName,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid semester selection.',
+                ], 422);
+            }
 
-        for ($block = 1; $block <= (int) $validated['number_of_blocks']; $block++) {
-            $result = $this->geneticScheduler->generate([
+            $configuration = ScheduleConfiguration::query()->create([
                 'program_id' => (int) $validated['program_id'],
                 'academic_year_id' => (int) $validated['academic_year_id'],
                 'semester' => $semesterName,
                 'year_level' => (int) $validated['year_level'],
-                'block_section' => 'Block ' . $block,
-                'created_by' => (int) $user->id,
-                'population_size' => (int) ($validated['population_size'] ?? 80),
-                'generations' => (int) ($validated['generations'] ?? 200),
-                'mutation_rate' => (int) ($validated['mutation_rate'] ?? 15),
-                'crossover_rate' => (int) ($validated['crossover_rate'] ?? 80),
-                'elite_size' => (int) ($validated['elite_size'] ?? 5),
-                'stagnation_limit' => (int) ($validated['stagnation_limit'] ?? 60),
+                'number_of_blocks' => (int) $validated['number_of_blocks'],
+                'department_head_id' => (int) $user->id,
             ]);
 
-            if (!($result['success'] ?? false)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Generation failed for Block ' . $block . ': ' . ($result['message'] ?? 'Unknown error'),
-                ], 422);
+            Log::info('Schedule configuration created', [
+                'configuration_id' => $configuration->id,
+                'program_id' => $validated['program_id'],
+                'number_of_blocks' => $validated['number_of_blocks'],
+            ]);
+
+            $generatedSchedules = [];
+
+            for ($block = 1; $block <= (int) $validated['number_of_blocks']; $block++) {
+                try {
+                    Log::debug('Generating block', [
+                        'configuration_id' => $configuration->id,
+                        'block' => $block,
+                        'total_blocks' => $validated['number_of_blocks'],
+                    ]);
+
+                    $result = $this->geneticScheduler->generate([
+                        'program_id' => (int) $validated['program_id'],
+                        'academic_year_id' => (int) $validated['academic_year_id'],
+                        'semester' => $semesterName,
+                        'year_level' => (int) $validated['year_level'],
+                        'block_section' => 'Block ' . $block,
+                        'created_by' => (int) $user->id,
+                        'population_size' => (int) ($validated['population_size'] ?? 80),
+                        'generations' => (int) ($validated['generations'] ?? 200),
+                        'mutation_rate' => (int) ($validated['mutation_rate'] ?? 15),
+                        'crossover_rate' => (int) ($validated['crossover_rate'] ?? 80),
+                        'elite_size' => (int) ($validated['elite_size'] ?? 5),
+                        'stagnation_limit' => (int) ($validated['stagnation_limit'] ?? 60),
+                    ]);
+
+                    if (!($result['success'] ?? false)) {
+                        Log::error('GA generation failed for block', [
+                            'configuration_id' => $configuration->id,
+                            'block' => $block,
+                            'error_message' => $result['message'] ?? 'Unknown error',
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Generation failed for Block ' . $block . ': ' . ($result['message'] ?? 'Unknown error'),
+                        ], 422);
+                    }
+
+                    Log::info('Block generation successful', [
+                        'configuration_id' => $configuration->id,
+                        'block' => $block,
+                        'schedule_id' => $result['schedule_id'],
+                        'fitness_score' => $result['fitness_score'],
+                    ]);
+
+                    $generatedSchedules[] = [
+                        'block' => 'Block ' . $block,
+                        'schedule_id' => (int) $result['schedule_id'],
+                        'fitness_score' => (float) $result['fitness_score'],
+                        'metrics' => $result['metrics'] ?? [],
+                        'overloaded_faculty' => array_values(array_filter(
+                            $result['faculty_workloads'] ?? [],
+                            fn (array $row): bool => (($row['status'] ?? 'Normal') === 'Overloaded')
+                        )),
+                    ];
+                } catch (\Throwable $blockException) {
+                    Log::error('Exception during block generation', [
+                        'configuration_id' => $configuration->id,
+                        'block' => $block,
+                        'error' => $blockException->getMessage(),
+                        'trace' => $blockException->getTraceAsString(),
+                    ]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error generating Block ' . $block . ': ' . $blockException->getMessage(),
+                    ], 500);
+                }
             }
 
-            $generatedSchedules[] = [
-                'block' => 'Block ' . $block,
-                'schedule_id' => (int) $result['schedule_id'],
-                'fitness_score' => (float) $result['fitness_score'],
-                'metrics' => $result['metrics'] ?? [],
-                'overloaded_faculty' => array_values(array_filter(
-                    $result['faculty_workloads'] ?? [],
-                    fn (array $row): bool => (($row['status'] ?? 'Normal') === 'Overloaded')
-                )),
-            ];
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Schedules generated successfully using Genetic Algorithm.',
-            'data' => [
+            Log::info('Schedule generation completed successfully', [
                 'configuration_id' => $configuration->id,
-                'total_blocks' => (int) $validated['number_of_blocks'],
-                'generated_schedules' => $generatedSchedules,
-            ],
-        ]);
+                'total_blocks' => count($generatedSchedules),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Schedules generated successfully using Genetic Algorithm.',
+                'data' => [
+                    'configuration_id' => $configuration->id,
+                    'total_blocks' => (int) $validated['number_of_blocks'],
+                    'generated_schedules' => $generatedSchedules,
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $validationException) {
+            Log::warning('Validation failed for schedule generation', [
+                'errors' => $validationException->errors(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validationException->errors(),
+            ], 422);
+        } catch (\Throwable $exception) {
+            Log::error('Unexpected error during schedule generation', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Generation error: ' . $exception->getMessage(),
+            ], 500);
+        }
     }
 
     public function progress(int $configuration)

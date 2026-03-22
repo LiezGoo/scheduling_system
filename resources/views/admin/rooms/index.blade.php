@@ -10,6 +10,13 @@
                 <p class="text-muted mb-0"><i class="fas fa-door-open me-2"></i>Manage campus rooms</p>
             </div>
             <div class="col-md-6 text-end">
+                <a href="{{ route('admin.rooms.template') }}" class="btn btn-outline-secondary me-2">
+                    <i class="fas fa-download me-2"></i> Download Template
+                </a>
+                <button type="button" class="btn btn-outline-maroon me-2" data-bs-toggle="modal"
+                    data-bs-target="#uploadRoomCsvModal">
+                    <i class="fas fa-file-upload me-2"></i> Upload CSV
+                </button>
                 <button type="button" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#addRoomModal">
                     <i class="fas fa-plus me-2"></i> Add Room
                 </button>
@@ -77,6 +84,7 @@
     </div>
 
     @include('admin.rooms.modals.add-room')
+    @include('admin.rooms.modals.upload-csv')
     @include('admin.rooms.modals.edit-room')
     @include('admin.rooms.modals.delete-room')
 
@@ -97,6 +105,17 @@
             background-color: #550000;
             border-color: #550000;
             box-shadow: 0 0 0 0.2rem rgba(102, 0, 0, 0.25);
+        }
+
+        .btn-outline-maroon {
+            border-color: #660000;
+            color: #660000;
+        }
+
+        .btn-outline-maroon:hover {
+            background-color: #660000;
+            border-color: #660000;
+            color: #ffffff;
         }
 
         .table tbody tr:hover {

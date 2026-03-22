@@ -170,6 +170,8 @@ Route::middleware(['auth'])->group(function () {
         // Room Management
         Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
         Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
+        Route::get('/rooms/template', [RoomController::class, 'downloadTemplate'])->name('rooms.template');
+        Route::post('/rooms/upload', [RoomController::class, 'uploadCsv'])->name('rooms.upload');
         Route::get('/rooms/{room}', [RoomController::class, 'show'])->name('rooms.show');
         Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
         Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');

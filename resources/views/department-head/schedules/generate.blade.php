@@ -501,10 +501,39 @@
             method: 'POST',
             body: formData,
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(async response => {
+            // Check if response is OK (2xx status)
+            if (!response.ok) {
+                // Try to parse error as JSON
+                const contentType = response.headers.get('content-type');
+                let errorMessage = `Server error (${response.status})`;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.error || errorMessage;
+                    } catch (e) {
+                        // Failed to parse JSON error response
+                    }
+                } else {
+                    // Response is likely HTML (error page)
+                    errorMessage = `Server error (${response.status}): Backend returned non-JSON response. Check logs for details.`;
+                }
+                throw new Error(errorMessage);
+            }
+            
+            // Parse successful response
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Backend returned non-JSON response. Invalid response format.');
+            }
+            
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 showToast('Schedule generated successfully!');
@@ -522,6 +551,7 @@
             }
         })
         .catch(error => {
+            console.error('Generation error:', error);
             showToast('Error: ' + error.message, 'error');
             updateProgress(100, 'Failed');
         })

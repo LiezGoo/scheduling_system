@@ -572,9 +572,6 @@
                 <h2 class="empty-state-title">No Schedules Found</h2>
                 <p class="empty-state-text">No schedules match the selected filters.</p>
                 <div class="empty-state-actions">
-                    <a href="{{ route('department-head.schedules.generate') }}" class="btn btn-generate-schedule">
-                        <i class="fas fa-dna"></i>Generate New Schedule
-                    </a>
                     @if (request()->anyFilled(['program_id', 'academic_year_id', 'semester', 'year_level', 'status']))
                         <a href="{{ route('department-head.schedules.index') }}" class="btn-reset-filters">
                             <i class="fas fa-times-circle"></i>Clear Filters
