@@ -12,6 +12,7 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class GeneticScheduler
 {
@@ -19,11 +20,27 @@ class GeneticScheduler
     private const HARD_CONFLICT_WEIGHT = 1000;
     private const OVERLOAD_HOUR_WEIGHT = 200;
     private const SOFT_PENALTY_WEIGHT = 50;
+    private const NSTP_VIOLATION_WEIGHT = 2000;
+    private const BREAK_TIME_VIOLATION_WEIGHT = 500;
+    private const NON_NSTP_SATURDAY_WEIGHT = 800;
+    private const OVERFLOW_SATURDAY_WEIGHT = 200;
 
     private const WORKING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     private const DEFAULT_DAY_START = '07:00';
     private const DEFAULT_DAY_END = '19:00';
     private const TIME_SLOT_STEP_MINUTES = 30;
+
+    // Break time hours that must remain free globally (no classes during these times)
+    private const BREAK_TIMES = [
+        ['start' => '10:00', 'end' => '11:00'],
+        ['start' => '11:00', 'end' => '12:00'],
+        ['start' => '13:00', 'end' => '14:00'],
+        ['start' => '14:00', 'end' => '15:00'],
+    ];
+
+    // NSTP subjects must be exactly 3 hours and scheduled only on Saturday
+    private const NSTP_REQUIRED_DURATION_MINUTES = 180;
+    private const NSTP_REQUIRED_DAY = 'Saturday';
 
     /**
      * Execute full GA workflow and persist the best schedule.
@@ -47,10 +64,21 @@ class GeneticScheduler
         $blockSection = (string) $parameters['block_section'];
         $createdBy = (int) $parameters['created_by'];
 
+        Log::info('GA Start', [
+            'program_id' => $programId,
+            'academic_year_id' => $academicYearId,
+            'semester' => $semester,
+            'year_level' => $yearLevel,
+            'block_section' => $blockSection,
+            'population_size' => $populationSize,
+            'generations' => $generations,
+        ]);
+
         $program = Program::query()->findOrFail($programId);
         $academicYear = AcademicYear::query()->findOrFail($academicYearId);
 
         $subjects = $this->loadSubjects($programId, $yearLevel, $semester);
+        Log::info('Subjects Count', ['count' => $subjects->count()]);
         if ($subjects->isEmpty()) {
             return [
                 'success' => false,
@@ -73,6 +101,9 @@ class GeneticScheduler
             $yearLevel,
             $blockSection
         );
+        Log::info('Faculty Count', [
+            'count' => count(array_unique(array_merge(...array_values($facultyMap ?: [[]])))),
+        ]);
 
         $missingFacultySubjects = $this->findSubjectsWithNoFaculty($subjects, $facultyMap);
         if (!empty($missingFacultySubjects)) {
@@ -83,6 +114,10 @@ class GeneticScheduler
         }
 
         $roomsByType = $this->loadRoomsByType();
+        Log::info('Rooms Count', [
+            'lecture' => $roomsByType['lecture']->count(),
+            'lab' => $roomsByType['lab']->count(),
+        ]);
         if ($roomsByType['lecture']->isEmpty() || $roomsByType['lab']->isEmpty()) {
             return [
                 'success' => false,
@@ -207,7 +242,7 @@ class GeneticScheduler
                     'mutation_rate' => (int) ($parameters['mutation_rate'] ?? 15),
                     'crossover_rate' => (int) ($parameters['crossover_rate'] ?? 80),
                     'elite_size' => (int) ($parameters['elite_size'] ?? 5),
-                    'fitness_formula' => '10000 - (hard_conflicts*1000) - (overload_hours*200) - (soft_penalties*50)',
+                    'fitness_formula' => '10000 - (base_hard_conflicts*1000) - (nstp_violations*2000) - (break_time_conflicts*500) - (non_nstp_saturday_violations*800) - (overflow_saturday_assignments*200) - (overload_hours*200) - (soft_penalties*50)',
                 ],
             ]);
 
@@ -228,7 +263,7 @@ class GeneticScheduler
 
             ScheduleItem::query()->insert($rows);
 
-            return [
+            $result = [
                 'success' => true,
                 'schedule_id' => $schedule->id,
                 'program' => $program->program_name,
@@ -238,6 +273,14 @@ class GeneticScheduler
                 'genes' => $bestChromosome['genes'],
                 'faculty_workloads' => $this->buildFacultyWorkloadReport($bestChromosome['genes']),
             ];
+
+            Log::info('GA Completed', [
+                'schedule_id' => $schedule->id,
+                'fitness_score' => $result['fitness_score'],
+                'hard_conflicts' => $result['metrics']['hard_conflicts'] ?? null,
+            ]);
+
+            return $result;
         });
     }
 
@@ -270,11 +313,20 @@ class GeneticScheduler
         $analysis = $this->analyzeGenes($chromosome['genes'], $context);
 
         $hardConflicts = (int) $analysis['hard_conflicts'];
+        $nstpViolations = (int) ($analysis['nstp_violations'] ?? 0);
+        $breakTimeConflicts = (int) ($analysis['break_time_conflicts'] ?? 0);
+        $baseHardConflicts = max(0, $hardConflicts - $nstpViolations - $breakTimeConflicts);
+        $nonNstpSaturdayViolations = (int) ($analysis['non_nstp_saturday_violations'] ?? 0);
+        $overflowSaturdayAssignments = (int) ($analysis['overflow_saturday_assignments'] ?? 0);
         $overloadHours = (float) $analysis['overload_hours'];
         $softPenalties = (int) $analysis['soft_penalties'];
 
         $fitness = self::BASE_FITNESS
-            - ($hardConflicts * self::HARD_CONFLICT_WEIGHT)
+            - ($baseHardConflicts * self::HARD_CONFLICT_WEIGHT)
+            - ($nstpViolations * self::NSTP_VIOLATION_WEIGHT)
+            - ($breakTimeConflicts * self::BREAK_TIME_VIOLATION_WEIGHT)
+            - ($nonNstpSaturdayViolations * self::NON_NSTP_SATURDAY_WEIGHT)
+            - ($overflowSaturdayAssignments * self::OVERFLOW_SATURDAY_WEIGHT)
             - ($overloadHours * self::OVERLOAD_HOUR_WEIGHT)
             - ($softPenalties * self::SOFT_PENALTY_WEIGHT);
 
@@ -345,10 +397,27 @@ class GeneticScheduler
                 continue;
             }
 
-            $mutationType = random_int(1, 3);
+            $isNstp = (bool) ($gene['is_nstp'] ?? false);
+            $mutationType = $isNstp ? 2 : random_int(1, 3); // For NSTP, avoid time slot mutation
 
             if ($mutationType === 1) {
-                $slot = $this->pickRandomTimeSlot((int) $gene['duration_minutes'], $context['time_slots']);
+                // Time slot mutation: for NSTP, force Saturday slot
+                if ($isNstp) {
+                    $slot = $this->pickRandomTimeSlotForDay(
+                        (int) $gene['duration_minutes'],
+                        $context['time_slots'],
+                        self::NSTP_REQUIRED_DAY
+                    );
+                    $genes[$index]['overflow_saturday'] = false;
+                } else {
+                    $slot = $this->pickRandomTimeSlotWithDayPriority(
+                        (int) $gene['duration_minutes'],
+                        $context['time_slots'],
+                        $this->weekdayDays(),
+                        [self::NSTP_REQUIRED_DAY]
+                    );
+                    $genes[$index]['overflow_saturday'] = ((string) ($slot['day'] ?? '') === self::NSTP_REQUIRED_DAY);
+                }
                 $genes[$index]['day'] = $slot['day'];
                 $genes[$index]['start_time'] = $slot['start'];
                 $genes[$index]['end_time'] = $slot['end'];
@@ -401,6 +470,14 @@ class GeneticScheduler
             $errors[] = 'Block/section time conflicts detected.';
         }
 
+        if ((int) $analysis['nstp_violations'] > 0) {
+            $errors[] = 'NSTP scheduling constraints violated (must be Saturday and exactly 3 hours).';
+        }
+
+        if ((int) $analysis['break_time_conflicts'] > 0) {
+            $errors[] = 'Classes scheduled during mandatory break times.';
+        }
+
         return [
             'valid' => empty($errors),
             'errors' => $errors,
@@ -409,12 +486,14 @@ class GeneticScheduler
 
     private function loadSubjects(int $programId, int $yearLevel, string $semester): Collection
     {
+        $normalizedSemester = strtolower(trim($semester));
+
         return Subject::query()
             ->where('is_active', true)
-            ->whereHas('programs', function ($query) use ($programId, $yearLevel, $semester): void {
+            ->whereHas('programs', function ($query) use ($programId, $yearLevel, $normalizedSemester): void {
                 $query->where('program_id', $programId)
                     ->where('year_level', $yearLevel)
-                    ->where('semester', $semester);
+                    ->whereRaw('LOWER(semester) = ?', [$normalizedSemester]);
             })
             ->orderBy('subject_code')
             ->get();
@@ -428,29 +507,61 @@ class GeneticScheduler
         $sessions = [];
 
         foreach ($subjects as $subject) {
-            $lectureMinutes = (int) round((float) $subject->lecture_hours * 60);
-            $labMinutes = (int) round((float) $subject->lab_hours * 60);
-
-            foreach ($this->splitIntoDurations($lectureMinutes, 60) as $duration) {
+            // Special handling for NSTP subjects: force 3-hour duration on Saturday only
+            if ($this->isNstpSubject($subject)) {
+                // NSTP must be exactly 180 minutes (3 hours)
                 $sessions[] = [
                     'subject_id' => (int) $subject->id,
                     'class_type' => 'lecture',
-                    'duration_minutes' => $duration,
+                    'duration_minutes' => self::NSTP_REQUIRED_DURATION_MINUTES,
                     'block' => $blockSection,
+                    'is_nstp' => true,
                 ];
-            }
+            } else {
+                // Normal subjects use their lecture and lab hours
+                $lectureMinutes = (int) round((float) $subject->lecture_hours * 60);
+                $labMinutes = (int) round((float) $subject->lab_hours * 60);
 
-            foreach ($this->splitIntoDurations($labMinutes, 180) as $duration) {
-                $sessions[] = [
-                    'subject_id' => (int) $subject->id,
-                    'class_type' => 'lab',
-                    'duration_minutes' => $duration,
-                    'block' => $blockSection,
-                ];
+                foreach ($this->splitIntoDurations($lectureMinutes, 60) as $duration) {
+                    $sessions[] = [
+                        'subject_id' => (int) $subject->id,
+                        'class_type' => 'lecture',
+                        'duration_minutes' => $duration,
+                        'block' => $blockSection,
+                        'is_nstp' => false,
+                    ];
+                }
+
+                foreach ($this->splitIntoDurations($labMinutes, 180) as $duration) {
+                    $sessions[] = [
+                        'subject_id' => (int) $subject->id,
+                        'class_type' => 'lab',
+                        'duration_minutes' => $duration,
+                        'block' => $blockSection,
+                        'is_nstp' => false,
+                    ];
+                }
             }
         }
 
         return $sessions;
+    }
+
+    private function isNstpSubject(Subject $subject): bool
+    {
+        if ((bool) $subject->is_nstp) {
+            return true;
+        }
+
+        $subjectType = strtolower(trim((string) ($subject->subject_type ?? '')));
+        if ($subjectType === 'nstp') {
+            return true;
+        }
+
+        $subjectName = strtolower((string) ($subject->subject_name ?? ''));
+        $subjectCode = strtolower((string) ($subject->subject_code ?? ''));
+
+        return str_contains($subjectName, 'nstp') || str_contains($subjectCode, 'nstp');
     }
 
     /**
@@ -589,11 +700,15 @@ class GeneticScheduler
 
         while (($cursor + ($durationMinutes * 60)) <= $end) {
             $slotEnd = $cursor + ($durationMinutes * 60);
-            $slots[] = [
-                'day' => $day,
-                'start' => date('H:i', $cursor),
-                'end' => date('H:i', $slotEnd),
-            ];
+            
+            // Check if this slot overlaps with any break time
+            if (!$this->slotOverlapsWithBreakTime(date('H:i', $cursor), date('H:i', $slotEnd))) {
+                $slots[] = [
+                    'day' => $day,
+                    'start' => date('H:i', $cursor),
+                    'end' => date('H:i', $slotEnd),
+                ];
+            }
 
             $cursor += self::TIME_SLOT_STEP_MINUTES * 60;
         }
@@ -628,6 +743,7 @@ class GeneticScheduler
         $subjectId = (int) $session['subject_id'];
         $classType = (string) $session['class_type'];
         $duration = (int) $session['duration_minutes'];
+        $isNstp = (bool) ($session['is_nstp'] ?? false);
 
         $facultyCandidates = $context['faculty_map'][$subjectId] ?? [];
         $roomPool = $context['rooms_by_type'][$classType] ?? collect();
@@ -637,7 +753,49 @@ class GeneticScheduler
             $facultyId = (int) $facultyCandidates[array_rand($facultyCandidates)];
             /** @var Room $room */
             $room = $roomPool->random();
-            $slot = $this->pickRandomTimeSlot($duration, $context['time_slots']);
+            $overflowSaturday = false;
+            
+            // For NSTP subjects, force Saturday and 3-hour duration
+            if ($isNstp) {
+                $slot = $this->pickRandomTimeSlotForDay(
+                    $duration,
+                    $context['time_slots'],
+                    self::NSTP_REQUIRED_DAY
+                );
+            } else {
+                $slot = $this->findConflictFreeSlotForGene(
+                    $duration,
+                    $context['time_slots'],
+                    $this->weekdayDays(),
+                    $existingGenes,
+                    $facultyId,
+                    (int) $room->id,
+                    (string) $session['block']
+                );
+
+                if ($slot === null) {
+                    $slot = $this->findConflictFreeSlotForGene(
+                        $duration,
+                        $context['time_slots'],
+                        [self::NSTP_REQUIRED_DAY],
+                        $existingGenes,
+                        $facultyId,
+                        (int) $room->id,
+                        (string) $session['block']
+                    );
+                    $overflowSaturday = $slot !== null;
+                }
+
+                if ($slot === null) {
+                    $slot = $this->pickRandomTimeSlotWithDayPriority(
+                        $duration,
+                        $context['time_slots'],
+                        $this->weekdayDays(),
+                        [self::NSTP_REQUIRED_DAY]
+                    );
+                    $overflowSaturday = ((string) ($slot['day'] ?? '') === self::NSTP_REQUIRED_DAY);
+                }
+            }
 
             $gene = [
                 'subject_id' => $subjectId,
@@ -649,6 +807,8 @@ class GeneticScheduler
                 'block' => (string) $session['block'],
                 'class_type' => $classType,
                 'duration_minutes' => $duration,
+                'is_nstp' => $isNstp,
+                'overflow_saturday' => !$isNstp && $overflowSaturday,
             ];
 
             if (!$this->hasImmediateHardConflict($gene, $existingGenes)) {
@@ -658,9 +818,18 @@ class GeneticScheduler
 
         // If no conflict-free placement is found quickly, still return a gene
         // so GA can repair/penalize it instead of stalling.
-        $fallbackSlot = $this->pickRandomTimeSlot($duration, $context['time_slots']);
+        if ($isNstp) {
+            $fallbackSlot = $this->pickRandomTimeSlotForDay($duration, $context['time_slots'], self::NSTP_REQUIRED_DAY);
+        } else {
+            $fallbackSlot = $this->pickRandomTimeSlotWithDayPriority(
+                $duration,
+                $context['time_slots'],
+                $this->weekdayDays(),
+                [self::NSTP_REQUIRED_DAY]
+            );
+        }
 
-        return [
+        $fallbackGene = [
             'subject_id' => $subjectId,
             'faculty_id' => (int) $facultyCandidates[array_rand($facultyCandidates)],
             'room_id' => (int) $roomPool->random()->id,
@@ -670,7 +839,23 @@ class GeneticScheduler
             'block' => (string) $session['block'],
             'class_type' => $classType,
             'duration_minutes' => $duration,
+            'is_nstp' => $isNstp,
+            'overflow_saturday' => !$isNstp && ((string) ($fallbackSlot['day'] ?? '') === self::NSTP_REQUIRED_DAY),
         ];
+
+        // Ensure fallback gene respects NSTP constraints
+        if ($isNstp) {
+            if ($fallbackGene['day'] !== self::NSTP_REQUIRED_DAY) {
+                $fallbackGene['day'] = self::NSTP_REQUIRED_DAY;
+            }
+            if ($fallbackGene['duration_minutes'] !== self::NSTP_REQUIRED_DURATION_MINUTES) {
+                $fallbackGene['duration_minutes'] = self::NSTP_REQUIRED_DURATION_MINUTES;
+                $startTime = strtotime((string) $fallbackGene['start_time']);
+                $fallbackGene['end_time'] = date('H:i', $startTime + (self::NSTP_REQUIRED_DURATION_MINUTES * 60));
+            }
+        }
+
+        return $fallbackGene;
     }
 
     /**
@@ -682,15 +867,18 @@ class GeneticScheduler
         $slots = $timeSlotMap[$duration] ?? [];
 
         if (empty($slots)) {
-            $slots = $timeSlotMap[array_key_first($timeSlotMap)] ?? [];
+            // Try to find slots for any available duration
+            foreach ($timeSlotMap as $availableSlots) {
+                if (!empty($availableSlots)) {
+                    $slots = $availableSlots;
+                    break;
+                }
+            }
         }
 
         if (empty($slots)) {
-            return [
-                'day' => self::WORKING_DAYS[0],
-                'start' => self::DEFAULT_DAY_START,
-                'end' => date('H:i', strtotime(self::DEFAULT_DAY_START) + ($duration * 60)),
-            ];
+            // Last resort: generate a safe slot that doesn't overlap with break times
+            return $this->generateSafeTimeSlot($duration);
         }
 
         /** @var array<string, string> $slot */
@@ -700,11 +888,165 @@ class GeneticScheduler
     }
 
     /**
+     * Pick a random slot using prioritized day groups.
+     *
+     * @param array<int, array<int, array<string, string>>> $timeSlotMap
+     * @param array<int, string> $preferredDays
+     * @param array<int, string> $fallbackDays
+     * @return array<string, string>
+     */
+    private function pickRandomTimeSlotWithDayPriority(
+        int $duration,
+        array $timeSlotMap,
+        array $preferredDays,
+        array $fallbackDays = []
+    ): array {
+        $preferredSlots = $this->collectSlotsForDays($duration, $timeSlotMap, $preferredDays);
+        if (!empty($preferredSlots)) {
+            return $preferredSlots[array_rand($preferredSlots)];
+        }
+
+        $fallbackSlots = $this->collectSlotsForDays($duration, $timeSlotMap, $fallbackDays);
+        if (!empty($fallbackSlots)) {
+            return $fallbackSlots[array_rand($fallbackSlots)];
+        }
+
+        $fallbackDay = $preferredDays[0] ?? ($fallbackDays[0] ?? self::WORKING_DAYS[0]);
+        return $this->generateSafeTimeSlotForDay($duration, $fallbackDay);
+    }
+
+    /**
+     * @param array<int, array<int, array<string, string>>> $timeSlotMap
+     * @param array<int, string> $days
+     * @return array<int, array<string, string>>
+     */
+    private function collectSlotsForDays(int $duration, array $timeSlotMap, array $days): array
+    {
+        $slots = $timeSlotMap[$duration] ?? [];
+
+        if (empty($slots)) {
+            foreach ($timeSlotMap as $availableSlots) {
+                if (!empty($availableSlots)) {
+                    $slots = $availableSlots;
+                    break;
+                }
+            }
+        }
+
+        if (empty($slots) || empty($days)) {
+            return [];
+        }
+
+        $filtered = array_filter($slots, function (array $slot) use ($days): bool {
+            return in_array((string) ($slot['day'] ?? ''), $days, true);
+        });
+
+        return array_values($filtered);
+    }
+
+    /**
+     * Find a conflict-free slot for a specific faculty/room/block over preferred days.
+     *
+     * @param array<int, array<int, array<string, string>>> $timeSlotMap
+     * @param array<int, string> $preferredDays
+     * @param array<int, array<string, mixed>> $existingGenes
+     * @return array<string, string>|null
+     */
+    private function findConflictFreeSlotForGene(
+        int $duration,
+        array $timeSlotMap,
+        array $preferredDays,
+        array $existingGenes,
+        int $facultyId,
+        int $roomId,
+        string $block
+    ): ?array {
+        $candidateSlots = $this->collectSlotsForDays($duration, $timeSlotMap, $preferredDays);
+
+        if (empty($candidateSlots)) {
+            return null;
+        }
+
+        shuffle($candidateSlots);
+
+        foreach ($candidateSlots as $slot) {
+            $probeGene = [
+                'faculty_id' => $facultyId,
+                'room_id' => $roomId,
+                'day' => (string) ($slot['day'] ?? ''),
+                'start_time' => (string) ($slot['start'] ?? ''),
+                'end_time' => (string) ($slot['end'] ?? ''),
+                'block' => $block,
+                'is_nstp' => false,
+            ];
+
+            if (!$this->hasImmediateHardConflict($probeGene, $existingGenes)) {
+                return $slot;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function weekdayDays(): array
+    {
+        return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    }
+
+    /**
+     * Generate a safe time slot that doesn't overlap with break times.
+     * @return array<string, string>
+     */
+    private function generateSafeTimeSlot(int $durationMinutes): array
+    {
+        // Try to find a safe slot by iterating through the day
+        $cursor = strtotime(self::DEFAULT_DAY_START);
+        $end = strtotime(self::DEFAULT_DAY_END);
+
+        while (($cursor + ($durationMinutes * 60)) <= $end) {
+            $slotEnd = $cursor + ($durationMinutes * 60);
+            $startStr = date('H:i', $cursor);
+            $endStr = date('H:i', $slotEnd);
+            
+            if (!$this->slotOverlapsWithBreakTime($startStr, $endStr)) {
+                return [
+                    'day' => self::WORKING_DAYS[0],
+                    'start' => $startStr,
+                    'end' => $endStr,
+                ];
+            }
+
+            $cursor += self::TIME_SLOT_STEP_MINUTES * 60;
+        }
+
+        // If no safe slot found (shouldn't happen with proper break times), return earliest non-break slot
+        return [
+            'day' => self::WORKING_DAYS[0],
+            'start' => '07:00',
+            'end' => date('H:i', strtotime('07:00') + ($durationMinutes * 60)),
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $gene
      * @param array<int, array<string, mixed>> $existingGenes
      */
     private function hasImmediateHardConflict(array $gene, array $existingGenes): bool
     {
+        // Check NSTP day constraint
+        $isNstp = (bool) ($gene['is_nstp'] ?? false);
+        if ($isNstp && (string) $gene['day'] !== self::NSTP_REQUIRED_DAY) {
+            return true;
+        }
+
+        // Check break time overlap
+        if ($this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
+            return true;
+        }
+
         foreach ($existingGenes as $existing) {
             if ((string) $existing['day'] !== (string) $gene['day']) {
                 continue;
@@ -763,18 +1105,84 @@ class GeneticScheduler
         foreach ($genes as $index => $gene) {
             $subjectId = (int) $gene['subject_id'];
             $classType = (string) $gene['class_type'];
+            $isNstp = (bool) ($gene['is_nstp'] ?? false);
+            $duration = (int) $gene['duration_minutes'];
 
+            // Fix faculty assignment if invalid
             $facultyCandidates = $context['faculty_map'][$subjectId] ?? [];
             if (!in_array((int) $gene['faculty_id'], $facultyCandidates, true) && !empty($facultyCandidates)) {
                 $genes[$index]['faculty_id'] = (int) $facultyCandidates[array_rand($facultyCandidates)];
             }
 
+            // Fix room assignment if invalid
             $roomPool = $context['rooms_by_type'][$classType] ?? collect();
             if ($roomPool instanceof Collection && $roomPool->isNotEmpty()) {
                 $validRoomIds = $roomPool->pluck('id')->map(fn ($id): int => (int) $id)->all();
                 if (!in_array((int) $gene['room_id'], $validRoomIds, true)) {
                     $genes[$index]['room_id'] = (int) $roomPool->random()->id;
                 }
+            }
+
+            // Fix NSTP constraint: must be on Saturday
+            if ($isNstp && (string) $gene['day'] !== self::NSTP_REQUIRED_DAY) {
+                $slot = $this->pickRandomTimeSlotForDay(
+                    $duration,
+                    $context['time_slots'],
+                    self::NSTP_REQUIRED_DAY
+                );
+                $genes[$index]['day'] = $slot['day'];
+                $genes[$index]['start_time'] = $slot['start'];
+                $genes[$index]['end_time'] = $slot['end'];
+            }
+
+            // Fix NSTP constraint: must be exactly 3 hours
+            if ($isNstp && $duration !== self::NSTP_REQUIRED_DURATION_MINUTES) {
+                $genes[$index]['duration_minutes'] = self::NSTP_REQUIRED_DURATION_MINUTES;
+                // Update times to reflect 3-hour duration
+                $startTime = strtotime((string) $gene['start_time']);
+                $endTime = $startTime + (self::NSTP_REQUIRED_DURATION_MINUTES * 60);
+                $genes[$index]['end_time'] = date('H:i', $endTime);
+            }
+
+            // Fix break time overlap
+            if ($this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
+                $isNstpGene = (bool) ($gene['is_nstp'] ?? false);
+                $slot = $isNstpGene
+                    ? $this->pickRandomTimeSlotForDay(
+                        $duration,
+                        $context['time_slots'],
+                        self::NSTP_REQUIRED_DAY
+                    )
+                    : $this->pickRandomTimeSlot($duration, $context['time_slots']);
+                
+                $genes[$index]['day'] = $slot['day'];
+                $genes[$index]['start_time'] = $slot['start'];
+                $genes[$index]['end_time'] = $slot['end'];
+            }
+
+            if (!$isNstp && (string) ($genes[$index]['day'] ?? '') === self::NSTP_REQUIRED_DAY) {
+                $otherGenes = array_values(array_filter($genes, fn ($_, $key): bool => $key !== $index, ARRAY_FILTER_USE_BOTH));
+
+                $weekdaySlot = $this->findConflictFreeSlotForGene(
+                    $duration,
+                    $context['time_slots'],
+                    $this->weekdayDays(),
+                    $otherGenes,
+                    (int) ($genes[$index]['faculty_id'] ?? 0),
+                    (int) ($genes[$index]['room_id'] ?? 0),
+                    (string) ($genes[$index]['block'] ?? '')
+                );
+
+                if ($weekdaySlot !== null) {
+                    $genes[$index]['day'] = $weekdaySlot['day'];
+                    $genes[$index]['start_time'] = $weekdaySlot['start'];
+                    $genes[$index]['end_time'] = $weekdaySlot['end'];
+                    $genes[$index]['overflow_saturday'] = false;
+                } else {
+                    $genes[$index]['overflow_saturday'] = true;
+                }
+            } elseif (!$isNstp) {
+                $genes[$index]['overflow_saturday'] = false;
             }
         }
 
@@ -793,6 +1201,10 @@ class GeneticScheduler
         $blockConflicts = 0;
         $invalidFacultyAssignment = 0;
         $invalidRoomType = 0;
+        $nstpViolations = 0;
+        $breakTimeConflicts = 0;
+        $nonNstpSaturdayViolations = 0;
+        $overflowSaturdayAssignments = 0;
 
         $facultyHours = [];
         $facultyDaySlots = [];
@@ -803,6 +1215,7 @@ class GeneticScheduler
             $facultyId = (int) $gene['faculty_id'];
             $durationHours = ((int) $gene['duration_minutes']) / 60;
             $day = (string) $gene['day'];
+            $isNstp = (bool) ($gene['is_nstp'] ?? false);
 
             $allowedFaculty = $context['faculty_map'][$subjectId] ?? [];
             if (!in_array($facultyId, $allowedFaculty, true)) {
@@ -813,6 +1226,27 @@ class GeneticScheduler
             $roomType = $this->roomTypeForId((int) $gene['room_id'], $context['rooms_by_type']);
             if ($roomType !== $expectedType) {
                 $invalidRoomType++;
+            }
+
+            // Check NSTP constraints
+            if ($isNstp) {
+                if ($day !== self::NSTP_REQUIRED_DAY) {
+                    $nstpViolations++;
+                }
+                if ((int) $gene['duration_minutes'] !== self::NSTP_REQUIRED_DURATION_MINUTES) {
+                    $nstpViolations++;
+                }
+            } elseif ($day === self::NSTP_REQUIRED_DAY) {
+                if ((bool) ($gene['overflow_saturday'] ?? false)) {
+                    $overflowSaturdayAssignments++;
+                } else {
+                    $nonNstpSaturdayViolations++;
+                }
+            }
+
+            // Check break time conflicts
+            if ($this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
+                $breakTimeConflicts++;
             }
 
             if (!isset($facultyHours[$facultyId])) {
@@ -887,7 +1321,9 @@ class GeneticScheduler
             + $roomConflicts
             + $blockConflicts
             + $invalidFacultyAssignment
-            + $invalidRoomType;
+            + $invalidRoomType
+            + $nstpViolations
+            + $breakTimeConflicts;
 
         $softPenalties = $workloadImbalance + $gapPenalty + $roomSwitchPenalty;
 
@@ -898,6 +1334,10 @@ class GeneticScheduler
             'block_conflicts' => $blockConflicts,
             'invalid_faculty_assignment' => $invalidFacultyAssignment,
             'invalid_room_type' => $invalidRoomType,
+            'nstp_violations' => $nstpViolations,
+            'break_time_conflicts' => $breakTimeConflicts,
+            'non_nstp_saturday_violations' => $nonNstpSaturdayViolations,
+            'overflow_saturday_assignments' => $overflowSaturdayAssignments,
             'overload_hours' => round($overloadHours, 2),
             'soft_penalties' => $softPenalties,
             'workload_imbalance' => $workloadImbalance,
@@ -1025,6 +1465,83 @@ class GeneticScheduler
         $eB = strtotime($endB);
 
         return $sA < $eB && $eA > $sB;
+    }
+
+    /**
+     * Check if a time slot overlaps with any defined break time.
+     */
+    private function slotOverlapsWithBreakTime(string $slotStart, string $slotEnd): bool
+    {
+        foreach (self::BREAK_TIMES as $breakTime) {
+            if ($this->timesOverlap($slotStart, $slotEnd, $breakTime['start'], $breakTime['end'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pick a random time slot for a specific day.
+     *
+     * @param array<int, array<int, array<string, string>>> $timeSlotMap
+     * @return array<string, string>
+     */
+    private function pickRandomTimeSlotForDay(int $duration, array $timeSlotMap, string $targetDay): array
+    {
+        $slots = $timeSlotMap[$duration] ?? [];
+        
+        // Filter slots for the target day
+        $daySlots = array_filter($slots, fn (array $slot): bool => $slot['day'] === $targetDay);
+        $daySlots = array_values($daySlots);
+
+        if (!empty($daySlots)) {
+            return $daySlots[array_rand($daySlots)];
+        }
+
+        // Fallback: try to find any slots from any duration for this day
+        foreach ($timeSlotMap as $availableSlots) {
+            $daySlots = array_filter($availableSlots, fn (array $slot): bool => $slot['day'] === $targetDay);
+            if (!empty($daySlots)) {
+                $daySlots = array_values($daySlots);
+                return $daySlots[array_rand($daySlots)];
+            }
+        }
+
+        // Last resort: generate a safe slot for the target day
+        return $this->generateSafeTimeSlotForDay($duration, $targetDay);
+    }
+
+    /**
+     * Generate a safe time slot for a specific day that doesn't overlap with break times.
+     * @return array<string, string>
+     */
+    private function generateSafeTimeSlotForDay(int $durationMinutes, string $targetDay): array
+    {
+        $cursor = strtotime(self::DEFAULT_DAY_START);
+        $end = strtotime(self::DEFAULT_DAY_END);
+
+        while (($cursor + ($durationMinutes * 60)) <= $end) {
+            $slotEnd = $cursor + ($durationMinutes * 60);
+            $startStr = date('H:i', $cursor);
+            $endStr = date('H:i', $slotEnd);
+            
+            if (!$this->slotOverlapsWithBreakTime($startStr, $endStr)) {
+                return [
+                    'day' => $targetDay,
+                    'start' => $startStr,
+                    'end' => $endStr,
+                ];
+            }
+
+            $cursor += self::TIME_SLOT_STEP_MINUTES * 60;
+        }
+
+        // If no safe slot found, return earliest slot anyway (shouldn't happen)
+        return [
+            'day' => $targetDay,
+            'start' => '07:00',
+            'end' => date('H:i', strtotime('07:00') + ($durationMinutes * 60)),
+        ];
     }
 
     /**

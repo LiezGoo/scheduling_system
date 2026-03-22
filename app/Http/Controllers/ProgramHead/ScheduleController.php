@@ -11,6 +11,7 @@ use App\Models\Subject;
 use App\Models\User;
 use App\Models\Room;
 use App\Models\YearLevel;
+use App\Models\Block;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -171,7 +172,7 @@ class ScheduleController extends Controller
             'academic_year_id' => 'required|integer|exists:academic_years,id',
             'semester_id' => 'required|integer|exists:semesters,id',
             'year_level_id' => 'required|integer|exists:year_levels,id',
-            'block' => 'nullable|string|max:20',
+            'block_id' => 'nullable|integer|exists:blocks,id',
         ]);
 
         $academicYearName = AcademicYear::query()
@@ -193,6 +194,25 @@ class ScheduleController extends Controller
             ]);
         }
 
+        $selectedBlockName = null;
+        if (!empty($validated['block_id'])) {
+            $selectedBlockName = Block::query()
+                ->where('id', $validated['block_id'])
+                ->where('program_id', $user->program_id)
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->where('semester_id', $validated['semester_id'])
+                ->where('year_level_id', $validated['year_level_id'])
+                ->value('block_name');
+
+            if (!$selectedBlockName) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Selected block does not match the chosen filters.',
+                    'data' => [],
+                ], 422);
+            }
+        }
+
         $query = ScheduleItem::query()
             ->with([
                 'subject:id,subject_code,subject_name',
@@ -200,15 +220,15 @@ class ScheduleController extends Controller
                 'room:id,room_name',
                 'schedule:id,program_id,academic_year,semester,year_level,block',
             ])
-            ->whereHas('schedule', function ($scheduleQuery) use ($user, $academicYearName, $semesterName, $yearLevelValue, $validated) {
+            ->whereHas('schedule', function ($scheduleQuery) use ($user, $academicYearName, $semesterName, $yearLevelValue, $selectedBlockName) {
                 $scheduleQuery
                     ->where('program_id', $user->program_id)
                     ->where('academic_year', $academicYearName)
                     ->where('semester', $semesterName)
                     ->where('year_level', $yearLevelValue);
 
-                if (!empty($validated['block'])) {
-                    $scheduleQuery->where('block', trim((string) $validated['block']));
+                if (!empty($selectedBlockName)) {
+                    $scheduleQuery->where('block', trim((string) $selectedBlockName));
                 }
             })
             ->orderBy('day_of_week')
@@ -259,6 +279,42 @@ class ScheduleController extends Controller
                     ->all();
             })
             ->toArray();
+    }
+
+    /**
+     * Return blocks for Program Head schedule filters.
+     */
+    public function getBlocks(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'semester_id' => 'required|integer|exists:semesters,id',
+            'year_level_id' => 'required|integer|exists:year_levels,id',
+        ]);
+
+        $user = Auth::user();
+
+        if (!$user->isProgramHead() || !$user->program_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized access.',
+                'data' => [],
+            ], 403);
+        }
+
+        $blocks = Block::query()
+            ->where('program_id', $user->program_id)
+            ->where('academic_year_id', $validated['academic_year_id'])
+            ->where('semester_id', $validated['semester_id'])
+            ->where('year_level_id', $validated['year_level_id'])
+            ->where('status', Block::STATUS_ACTIVE)
+            ->orderBy('block_name')
+            ->get(['id', 'block_name']);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $blocks,
+        ]);
     }
 
     private function resolveYearLevelValue(?YearLevel $yearLevel): ?int

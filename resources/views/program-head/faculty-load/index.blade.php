@@ -955,5 +955,5 @@
     </style>
 
     <!-- JavaScript for Faculty Load Management -->
-    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260308"></script>
+    <script src="{{ asset('js/faculty-load-management.js') }}?v=20260322"></script>
 @endsection

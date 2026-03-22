@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Room;
 use App\Models\Program;
 use App\Models\ScheduleConfiguration;
+use App\Models\YearLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,20 @@ class ScheduleController extends Controller
     {
         $this->notificationService = $notificationService;
         $this->scheduleGenerationService = $scheduleGenerationService;
+    }
+
+    protected function getAllowedSemesterNames(): array
+    {
+        return Semester::query()
+            ->whereNotNull('name')
+            ->pluck('name')
+            ->push('1st Semester')
+            ->push('2nd Semester')
+            ->filter()
+            ->map(fn ($name) => trim((string) $name))
+            ->unique(fn ($name) => strtolower($name))
+            ->values()
+            ->all();
     }
 
     /**
@@ -167,49 +182,65 @@ class ScheduleController extends Controller
             abort(403, 'Unauthorized access. Only Department Heads can generate schedules.');
         }
 
-        // Fetch dynamic data for generation form
-        $academicYears = AcademicYear::where('is_active', true)
-            ->orderBy('start_year', 'desc')
+        $programQuery = Program::query()->with('department')->orderBy('program_name');
+
+        if ($user->role === User::ROLE_PROGRAM_HEAD && $user->program_id) {
+            $programQuery->where('id', (int) $user->program_id);
+        } elseif ($user->role === User::ROLE_ADMIN) {
+            // Admin can access all programs.
+        } else {
+            $programQuery->where('department_id', (int) $user->department_id);
+        }
+
+        $programs = $programQuery->get();
+
+        $defaultProgramId = old('program_id');
+        if (!$defaultProgramId) {
+            $defaultProgramId = $programs->first()?->id;
+        }
+
+        $academicYears = AcademicYear::query()
+            ->orderByDesc('is_active')
+            ->orderByDesc('start_year')
             ->get();
-        if ($academicYears->isEmpty()) {
-            $academicYears = AcademicYear::orderBy('start_year', 'desc')->get();
-        }
 
-        // Prefer an academic year that actually has semester records.
-        $defaultAcademicYearId = $academicYears
-            ->first(function ($academicYear) {
-                return Semester::where('academic_year_id', $academicYear->id)->exists();
-            })?->id ?? $academicYears->first()?->id;
+        $academicYearIdsWithSemesters = Semester::query()
+            ->select('academic_year_id')
+            ->whereNotNull('academic_year_id')
+            ->distinct()
+            ->pluck('academic_year_id');
 
-        $semesters = collect();
+        $defaultAcademicYearId = (int) (old('academic_year_id')
+            ?: $academicYears
+                ->first(function ($academicYear) use ($academicYearIdsWithSemesters) {
+                    return (bool) $academicYear->is_active
+                        && $academicYearIdsWithSemesters->contains($academicYear->id);
+                })?->id
+            ?: $academicYears
+                ->first(function ($academicYear) use ($academicYearIdsWithSemesters) {
+                    return $academicYearIdsWithSemesters->contains($academicYear->id);
+                })?->id
+            ?: $academicYears->first()?->id);
 
-        if ($defaultAcademicYearId) {
-            $semesters = Semester::where('academic_year_id', $defaultAcademicYearId)
-                ->orderBy('start_date')
-                ->orderBy('name')
-                ->get(['id', 'name']);
-        }
+        $semesters = Semester::query()
+            ->when($defaultAcademicYearId > 0, function ($query) use ($defaultAcademicYearId) {
+                $query->where('academic_year_id', $defaultAcademicYearId);
+            })
+            ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Semester::STATUS_ACTIVE])
+            ->orderBy('start_date')
+            ->orderBy('name')
+            ->get(['id', 'academic_year_id', 'name', 'status']);
 
-        // Fallback: if the selected/default academic year has no semesters,
-        // still surface available semester names from the database.
-        if ($semesters->isEmpty()) {
-            $semesters = Semester::select('name')
-                ->distinct()
-                ->orderBy('name')
-                ->get()
-                ->map(function ($semester) {
-                    return (object) [
-                        'id' => null,
-                        'name' => $semester->name,
-                    ];
-                });
-        }
+        $defaultSemesterId = (int) (old('semester_id')
+            ?: $semesters->firstWhere('status', Semester::STATUS_ACTIVE)?->id
+            ?: $semesters->first()?->id);
 
-        // Get all programs in this department
-        $programs = Program::where('department_id', $user->department_id)
-            ->with('department')
-            ->orderBy('program_name')
-            ->get();
+        $yearLevels = YearLevel::query()
+            ->where('status', YearLevel::STATUS_ACTIVE)
+            ->orderBy('id')
+            ->get(['id', 'name', 'code']);
+
+        $defaultYearLevelId = (int) (old('year_level_id') ?: $yearLevels->first()?->id);
 
         // Get faculty from department
         $faculty = User::where('department_id', $user->department_id)
@@ -222,10 +253,14 @@ class ScheduleController extends Controller
         $rooms = Room::orderBy('room_code')->get();
 
         return view('department-head.schedules.generate', compact(
+            'programs',
             'academicYears',
             'semesters',
             'defaultAcademicYearId',
-            'programs',
+            'defaultSemesterId',
+            'yearLevels',
+            'defaultProgramId',
+            'defaultYearLevelId',
             'faculty',
             'rooms'
         ));
@@ -259,7 +294,7 @@ class ScheduleController extends Controller
             'semester' => [
                 'required',
                 'string',
-                Rule::exists('semesters', 'name'),
+                Rule::in($this->getAllowedSemesterNames()),
             ],
             'year_level' => 'required|integer|min:1|max:4',
             'number_of_blocks' => 'required|integer|min:1',
@@ -322,6 +357,54 @@ class ScheduleController extends Controller
                     'fitness_score' => $result['fitness_score'],
                     'items_count' => count($result['genes'] ?? []),
                     'faculty_loads' => $result['faculty_loads'] ?? [],
+                    'items' => $result['schedule']->items
+                        ->sort(function ($a, $b) {
+                            $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                            $dayIndexA = array_search($a->day_of_week ?? 'Monday', $days);
+                            $dayIndexB = array_search($b->day_of_week ?? 'Monday', $days);
+
+                            if ($dayIndexA !== $dayIndexB) {
+                                return $dayIndexA <=> $dayIndexB;
+                            }
+
+                            return strcmp((string) $a->getRawOriginal('start_time'), (string) $b->getRawOriginal('start_time'));
+                        })
+                        ->values()
+                        ->map(function ($item) {
+                            $subject = $item->subject;
+                            $instructor = $item->instructor;
+                            $room = $item->room;
+
+                            $roomType = strtolower((string) ($room?->room_type ?? ''));
+                            $hasLecture = (float) ($subject?->lecture_hours ?? 0) > 0;
+                            $hasLab = (float) ($subject?->lab_hours ?? 0) > 0;
+
+                            $classType = match (true) {
+                                $hasLab && !$hasLecture => 'Laboratory',
+                                $hasLecture && !$hasLab => 'Lecture',
+                                $hasLecture && $hasLab && str_contains($roomType, 'lab') => 'Laboratory',
+                                default => 'Lecture',
+                            };
+
+                            return [
+                                'id' => $item->id,
+                                'subject_code' => $subject?->subject_code ?? 'N/A',
+                                'subject_name' => $subject?->subject_name ?? 'N/A',
+                                'class_type' => $classType,
+                                'subject_display' => trim(($subject?->subject_code ?? 'N/A') . ' (' . $classType . ')'),
+                                'instructor_name' => $instructor
+                                    ? trim(($instructor->first_name ?? '') . ' ' . ($instructor->last_name ?? ''))
+                                    : 'TBA',
+                                'room_name' => $room?->room_name ?? 'TBA',
+                                'room_type' => $room?->room_type ?? 'lecture',
+                                'day_of_week' => $item->day_of_week ?? 'Monday',
+                                'start_time' => $item->getRawOriginal('start_time') ?? '08:00',
+                                'end_time' => $item->getRawOriginal('end_time') ?? '09:00',
+                                'duration' => (strtotime($item->getRawOriginal('end_time')) - strtotime($item->getRawOriginal('start_time'))) / 3600,
+                                'section' => $item->section ?? 'A',
+                            ];
+                        })
+                        ->toArray(),
                 ];
             }
 
@@ -365,15 +448,22 @@ class ScheduleController extends Controller
 
         // Ensure schedule belongs to department head's department
         if (!$user->isDepartmentHead() || $schedule->program?->department_id !== $user->department_id) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access.',
+                ], 403);
+            }
+
             abort(403, 'Unauthorized access.');
         }
 
         if (!($schedule->isGenerated() || $schedule->isDraft())) {
-            return back()->withErrors('Only generated or draft schedules can be finalized.');
+            return $this->finalizeResponse(false, 'Only generated or draft schedules can be finalized.', 422);
         }
 
         if ($schedule->items->isEmpty()) {
-            return back()->withErrors('Cannot finalize empty schedule.');
+            return $this->finalizeResponse(false, 'Cannot finalize empty schedule.', 422);
         }
 
         if ($schedule->finalize()) {
@@ -392,15 +482,43 @@ class ScheduleController extends Controller
                 );
             }
 
-            return redirect()->route('department-head.schedules.index')
-                ->with('success', 'Schedule finalized and published successfully.');
+            return $this->finalizeResponse(
+                true,
+                'Schedule finalized and published successfully.',
+                200,
+                route('department-head.schedules.index')
+            );
         }
 
-        return back()->withErrors('Failed to finalize schedule.');
+        return $this->finalizeResponse(false, 'Failed to finalize schedule.', 500);
+    }
+
+    protected function finalizeResponse(bool $success, string $message, int $status = 200, ?string $redirect = null)
+    {
+        if (request()->expectsJson()) {
+            $payload = [
+                'success' => $success,
+                'message' => $message,
+            ];
+
+            if ($redirect) {
+                $payload['redirect'] = $redirect;
+            }
+
+            return response()->json($payload, $status);
+        }
+
+        if ($success) {
+            return redirect()
+                ->route('department-head.schedules.index')
+                ->with('success', $message);
+        }
+
+        return back()->withErrors($message);
     }
 
     /**
-     * Delete a schedule (only drafts or generated).
+     * Delete a schedule.
      */
     public function destroy(Schedule $schedule)
     {
@@ -413,8 +531,8 @@ class ScheduleController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        if (!($schedule->isDraft() || $schedule->isGenerated())) {
-            return back()->withErrors('Only draft or generated schedules can be deleted.');
+        if (!($schedule->isDraft() || $schedule->isGenerated() || $schedule->isPendingApproval() || $schedule->isFinalized())) {
+            return back()->withErrors('This schedule cannot be deleted in its current status.');
         }
 
         try {

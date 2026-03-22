@@ -1048,8 +1048,10 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.delete('subject_id');
             formData.delete('lecture_hours');
             formData.delete('lab_hours');
+            formData.delete('subject_ids[]');
 
             selectedSubjects.forEach((subject, index) => {
+                formData.append('subject_ids[]', subject.subject_id.toString());
                 formData.append(`subjects[${index}][subject_id]`, subject.subject_id.toString());
                 formData.append(`subjects[${index}][block]`, subject.block);
                 formData.append(`subjects[${index}][lecture_hours]`, subject.lecture_hours.toString());

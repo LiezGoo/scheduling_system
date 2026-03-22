@@ -17,6 +17,8 @@ class Subject extends Model
         'units',
         'lecture_hours',
         'lab_hours',
+        'subject_type',
+        'is_nstp',
         'is_active',
     ];
 
@@ -24,6 +26,7 @@ class Subject extends Model
         'units' => 'decimal:1',
         'lecture_hours' => 'decimal:1',
         'lab_hours' => 'decimal:1',
+        'is_nstp' => 'boolean',
         'is_active' => 'boolean',
     ];
 

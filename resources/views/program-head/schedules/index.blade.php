@@ -79,9 +79,10 @@
                                 <i class="fas fa-object-group text-maroon"></i>
                                 <span>Block/Section</span>
                             </label>
-                            <input type="text" class="form-control border-1 focus-maroon" id="blockSection" name="block" 
-                                   placeholder="e.g., Block 1" maxlength="10">
-                            <small class="form-text text-muted d-block mt-2">Leave blank to generate for all blocks</small>
+                            <select class="form-select border-1 focus-maroon" id="blockSection" name="block_id" disabled>
+                                <option value="">-- Select Academic Year, Semester, and Year Level first --</option>
+                            </select>
+                            <small class="form-text text-muted d-block mt-2">Leave blank to view schedule for all blocks</small>
                         </div>
 
                         <!-- Action Buttons -->
@@ -578,7 +579,87 @@
         tooltips.forEach(el => {
             new bootstrap.Tooltip(el);
         });
+
+        initializeDynamicBlockDropdown();
     });
+
+    function initializeDynamicBlockDropdown() {
+        const academicYearSelect = document.getElementById('academicYear');
+        const semesterSelect = document.getElementById('semester');
+        const yearLevelSelect = document.getElementById('yearLevel');
+        const blockSelect = document.getElementById('blockSection');
+
+        if (!academicYearSelect || !semesterSelect || !yearLevelSelect || !blockSelect) {
+            return;
+        }
+
+        const resetBlockDropdown = (message) => {
+            blockSelect.innerHTML = `<option value="">${message}</option>`;
+            blockSelect.disabled = true;
+        };
+
+        const loadBlocks = () => {
+            const academicYearId = academicYearSelect.value;
+            const semesterId = semesterSelect.value;
+            const yearLevelId = yearLevelSelect.value;
+
+            if (!academicYearId || !semesterId || !yearLevelId) {
+                resetBlockDropdown('-- Select Academic Year, Semester, and Year Level first --');
+                return;
+            }
+
+            blockSelect.disabled = true;
+            blockSelect.innerHTML = '<option value="">Loading blocks...</option>';
+
+            const params = new URLSearchParams({
+                academic_year_id: academicYearId,
+                semester_id: semesterId,
+                year_level_id: yearLevelId,
+            });
+
+            fetch(`{{ route('program-head.blocks.index') }}?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then(async (response) => {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to load blocks.');
+                    }
+                    return data;
+                })
+                .then((data) => {
+                    const blocks = Array.isArray(data.data) ? data.data : [];
+
+                    blockSelect.innerHTML = '<option value="">-- Select Block --</option>';
+
+                    if (blocks.length === 0) {
+                        blockSelect.innerHTML += '<option value="" disabled>No blocks available</option>';
+                        blockSelect.disabled = false;
+                        return;
+                    }
+
+                    blocks.forEach((block) => {
+                        blockSelect.innerHTML += `<option value="${block.id}">${block.block_name}</option>`;
+                    });
+
+                    blockSelect.disabled = false;
+                })
+                .catch((error) => {
+                    resetBlockDropdown('-- Select Block --');
+                    showToast(error.message || 'Failed to load blocks.');
+                });
+        };
+
+        [academicYearSelect, semesterSelect, yearLevelSelect].forEach((field) => {
+            field.addEventListener('change', loadBlocks);
+        });
+
+        loadBlocks();
+    }
 
     // State Management
     let isRunning = false;
@@ -598,7 +679,7 @@
             academic_year_id: document.getElementById('academicYear').value,
             semester_id: document.getElementById('semester').value,
             year_level_id: document.getElementById('yearLevel').value,
-            block: document.getElementById('blockSection').value.trim(),
+            block_id: document.getElementById('blockSection').value,
         };
 
         const button = document.getElementById('generateScheduleBtn');
@@ -610,8 +691,8 @@
         params.set('academic_year_id', payload.academic_year_id);
         params.set('semester_id', payload.semester_id);
         params.set('year_level_id', payload.year_level_id);
-        if (payload.block !== '') {
-            params.set('block', payload.block);
+        if (payload.block_id !== '') {
+            params.set('block_id', payload.block_id);
         }
 
         fetch(`{{ route('program-head.schedules.preview') }}?${params.toString()}`, {
@@ -661,7 +742,7 @@
         document.getElementById('summaryYearLevel').textContent = 
             'Year Level: ' + (yearLevel.options[yearLevel.selectedIndex]?.text || '--');
         document.getElementById('summaryBlockSection').textContent = 
-            'Block/Section: ' + (blockSection.value || 'All blocks');
+            'Block/Section: ' + (blockSection.options[blockSection.selectedIndex]?.text || 'All blocks');
 
         // Validate form
         if (!document.getElementById('scheduleConfigForm').checkValidity()) {

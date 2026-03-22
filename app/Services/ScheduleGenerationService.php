@@ -17,7 +17,7 @@ use Exception;
 
 /**
  * ScheduleGenerationService
- * 
+ *
  * Orchestrates the entire schedule generation process using Genetic Algorithm.
  * Handles data loading, GA execution, and result persistence.
  */
@@ -36,25 +36,28 @@ class ScheduleGenerationService
      */
     public function generateSchedule(array $parameters): array
     {
+        // Extend execution time for GA — generation can be CPU-intensive
+        set_time_limit(300);
+
         $generationStartTime = microtime(true);
-        
+
         try {
             DB::beginTransaction();
 
             // Extract parameters
             $academicYearId = $parameters['academic_year_id'];
-            $semester = $parameters['semester'];
-            $programId = $parameters['program_id'];
-            $yearLevel = $parameters['year_level'];
-            $blockSection = $parameters['block_section'] ?? 'Block 1';
-            $createdBy = $parameters['created_by'];
+            $semester       = $parameters['semester'];
+            $programId      = $parameters['program_id'];
+            $yearLevel      = $parameters['year_level'];
+            $blockSection   = $parameters['block_section'] ?? 'Block 1';
+            $createdBy      = $parameters['created_by'];
 
             // GA parameters
             $populationSize = $parameters['population_size'] ?? 50;
-            $generations = $parameters['generations'] ?? 100;
-            $mutationRate = ($parameters['mutation_rate'] ?? 15) / 100;
-            $crossoverRate = ($parameters['crossover_rate'] ?? 80) / 100;
-            $eliteSize = $parameters['elite_size'] ?? 5;
+            $generations    = $parameters['generations'] ?? 100;
+            $mutationRate   = ($parameters['mutation_rate'] ?? 15) / 100;
+            $crossoverRate  = ($parameters['crossover_rate'] ?? 80) / 100;
+            $eliteSize      = $parameters['elite_size'] ?? 5;
 
             // Initialize GA engine with parameters
             $this->gaEngine = new GeneticAlgorithmEngine(
@@ -67,7 +70,7 @@ class ScheduleGenerationService
 
             // Load academic year
             $academicYear = AcademicYear::findOrFail($academicYearId);
-            $program = Program::with('department')->findOrFail($programId);
+            $program      = Program::with('department')->findOrFail($programId);
 
             // Load subjects for this program, year level, and semester
             $subjects = $this->loadSubjects($programId, $yearLevel, $semester);
@@ -93,52 +96,40 @@ class ScheduleGenerationService
             // Create schedule record
             $schedule = Schedule::create([
                 'academic_year' => $academicYear->name,
-                'semester' => $semester,
-                'program_id' => $programId,
-                'year_level' => $yearLevel,
-                'block' => $blockSection,
-                'created_by' => $createdBy,
-                'status' => Schedule::STATUS_DRAFT,
+                'semester'      => $semester,
+                'program_id'    => $programId,
+                'year_level'    => $yearLevel,
+                'block'         => $blockSection,
+                'created_by'    => $createdBy,
+                'status'        => Schedule::STATUS_DRAFT,
                 'ga_parameters' => [
                     'population_size' => $populationSize,
-                    'generations' => $generations,
-                    'mutation_rate' => $mutationRate * 100,
-                    'crossover_rate' => $crossoverRate * 100,
-                    'elite_size' => $eliteSize,
+                    'generations'     => $generations,
+                    'mutation_rate'   => $mutationRate * 100,
+                    'crossover_rate'  => $crossoverRate * 100,
+                    'elite_size'      => $eliteSize,
                 ],
             ]);
 
             Log::info('Schedule generation started', [
-                'schedule_id' => $schedule->id,
-                'program' => $program->program_name,
-                'year_level' => $yearLevel,
-                'semester' => $semester,
-                'subjects_count' => $subjects->count(),
+                'schedule_id'       => $schedule->id,
+                'program'           => $program->program_name,
+                'year_level'        => $yearLevel,
+                'semester'          => $semester,
+                'subjects_count'    => $subjects->count(),
                 'instructors_count' => $instructors->count(),
-                'rooms_count' => $rooms->count(),
+                'rooms_count'       => $rooms->count(),
             ]);
 
-            // Generation parameters configured for optimal performance
-
-            // Run Genetic Algorithm with detailed progress tracking
-            $gaStartTime = microtime(true);
-            $currentGeneration = 0;
+            // Run Genetic Algorithm with progress tracking
+            $gaStartTime           = microtime(true);
+            $currentGeneration     = 0;
             $bestFitnessProgression = [];
 
-            $progressCallback = function ($currentGen, $totalGen, $fitness) use ($schedule, &$currentGeneration, &$bestFitnessProgression) {
-                $currentGeneration = $currentGen;
+            $progressCallback = function ($currentGen, $totalGen, $fitness) use (&$currentGeneration, &$bestFitnessProgression) {
+                $currentGeneration        = $currentGen;
                 $bestFitnessProgression[] = $fitness;
-
-                // Update progress in database
-                $schedule->update([
-                    'ga_progress' => [
-                        'current_generation' => $currentGen,
-                        'total_generations' => $totalGen,
-                        'best_fitness' => $fitness,
-                    ],
-                ]);
-
-                // Progress tracking in database, no debug output
+                // Progress tracked in-memory only — no DB write per generation
             };
 
             $bestSolution = $this->gaEngine->evolve(
@@ -151,103 +142,246 @@ class ScheduleGenerationService
                 $progressCallback
             );
 
-            $gaEndTime = microtime(true);
-            $gaExecutionTime = $gaEndTime - $gaStartTime;
+            $gaExecutionTime = microtime(true) - $gaStartTime;
 
             // Save schedule items
             $this->saveScheduleItems($schedule, $bestSolution['genes']);
 
             // Update schedule with fitness score (keep as DRAFT for review)
             $schedule->update([
-                'status' => Schedule::STATUS_DRAFT,
+                'status'        => Schedule::STATUS_DRAFT,
                 'fitness_score' => $bestSolution['fitness'],
             ]);
 
-            // Schedule validation and metrics computed
-            $validationReport = $this->validateGeneratedSchedule($schedule);
-
-            $generationEndTime = microtime(true);
-            $totalExecutionTime = $generationEndTime - $generationStartTime;
-
-            // Performance metrics and validation results stored in database
+            $validationReport  = $this->validateGeneratedSchedule($schedule);
+            $totalExecutionTime = microtime(true) - $generationStartTime;
 
             DB::commit();
 
             Log::info('Schedule generation completed', [
-                'schedule_id' => $schedule->id,
-                'fitness_score' => number_format($bestSolution['fitness'], 4),
-                'items_count' => count($bestSolution['genes']),
-                'execution_time' => number_format($totalExecutionTime, 2) . 's',
+                'schedule_id'       => $schedule->id,
+                'fitness_score'     => number_format($bestSolution['fitness'], 4),
+                'items_count'       => count($bestSolution['genes']),
+                'execution_time'    => number_format($totalExecutionTime, 2) . 's',
                 'validation_status' => $validationReport['all_valid'] ? 'VALID' : 'CONFLICTS FOUND',
             ]);
 
             return [
-                'success' => true,
-                'schedule_id' => $schedule->id,
-                'fitness_score' => $bestSolution['fitness'],
-                'schedule' => $schedule->fresh(['items.subject', 'items.instructor', 'items.room']),
-                'genes' => $bestSolution['genes'],
-                'faculty_loads' => $bestSolution['faculty_loads'],
-                'metrics' => [
-                    'execution_time' => $totalExecutionTime,
-                    'ga_execution_time' => $gaExecutionTime,
+                'success'      => true,
+                'schedule_id'  => $schedule->id,
+                'fitness_score'=> $bestSolution['fitness'],
+                'schedule'     => $schedule->fresh(['items.subject', 'items.instructor', 'items.room']),
+                'genes'        => $bestSolution['genes'],
+                'faculty_loads'=> $bestSolution['faculty_loads'],
+                'metrics'      => [
+                    'execution_time'     => $totalExecutionTime,
+                    'ga_execution_time'  => $gaExecutionTime,
                     'actual_generations' => $currentGeneration,
-                    'validation' => $validationReport,
+                    'validation'         => $validationReport,
                 ],
             ];
 
         } catch (Exception $e) {
             DB::rollBack();
 
-            $generationEndTime = microtime(true);
-            $totalExecutionTime = $generationEndTime - $generationStartTime;
+            $totalExecutionTime = microtime(true) - $generationStartTime;
 
             Log::error('Schedule generation failed', [
-                'error' => $e->getMessage(),
+                'error'          => $e->getMessage(),
                 'execution_time' => number_format($totalExecutionTime, 2) . 's',
-                'trace' => $e->getTraceAsString(),
+                'trace'          => $e->getTraceAsString(),
             ]);
 
             if (isset($schedule)) {
                 $schedule->update([
-                    'status' => 'failed',
+                    'status'        => 'failed',
                     'error_message' => $e->getMessage(),
                 ]);
             }
 
             return [
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ];
         }
     }
 
     /**
-     * Load subjects for program, year level, and semester
+     * Load subjects for program, year level, and semester.
+     *
+     * Uses four progressively-relaxed tiers so that a missing or differently-named
+     * pivot column never silently blocks schedule generation.  Each fallback logs a
+     * warning so you can identify and fix the underlying data issue.
+     *
+     * Tier 1 — exact match: program_id + year_level + semester   (ideal)
+     * Tier 2 — program_id + year_level                           (semester column absent/different)
+     * Tier 3 — program_id only                                   (year_level also absent)
+     * Tier 4 — diagnostic log + empty collection                  (nothing found at all)
      */
     protected function loadSubjects(int $programId, int $yearLevel, string $semester): \Illuminate\Support\Collection
     {
-        return Subject::whereHas('programs', function ($query) use ($programId, $yearLevel, $semester) {
-            $query->where('program_id', $programId)
-                  ->where('year_level', $yearLevel)
-                  ->where('semester', $semester);
+        $semesterVariants = $this->getSemesterVariants($semester);
+
+        // ── Tier 1: full match ───────────────────────────────────────────────
+        $subjects = Subject::whereHas('programs', function ($q) use ($programId, $yearLevel, $semesterVariants) {
+            $q->where('program_id', $programId)
+              ->where('year_level', $yearLevel)
+              ->whereIn('semester', $semesterVariants);
         })
         ->where('is_active', true)
         ->with('programs')
         ->get();
+
+        if ($subjects->isNotEmpty()) {
+            return $subjects;
+        }
+
+        Log::warning('loadSubjects Tier 1 returned 0 results — trying Tier 2 (program + year_level)', [
+            'program_id' => $programId, 'year_level' => $yearLevel, 'semester' => $semester,
+        ]);
+
+        // ── Tier 2: program + year_level (semester may be stored differently) ─
+        $subjects = Subject::whereHas('programs', function ($q) use ($programId, $yearLevel) {
+            $q->where('program_id', $programId)
+              ->where('year_level', $yearLevel);
+        })
+        ->where('is_active', true)
+        ->with('programs')
+        ->get();
+
+        if ($subjects->isNotEmpty()) {
+            Log::warning('loadSubjects using Tier 2 match (semester column ignored)', [
+                'program_id' => $programId, 'year_level' => $yearLevel,
+            ]);
+            return $subjects;
+        }
+
+        Log::warning('loadSubjects Tier 2 returned 0 results — trying Tier 3 (program only)', [
+            'program_id' => $programId, 'year_level' => $yearLevel,
+        ]);
+
+        // ── Tier 3: program only (year_level may not exist on the pivot) ─────
+        $subjects = Subject::whereHas('programs', function ($q) use ($programId) {
+            $q->where('program_id', $programId);
+        })
+        ->where('is_active', true)
+        ->with('programs')
+        ->get();
+
+        if ($subjects->isNotEmpty()) {
+            Log::warning('loadSubjects using Tier 3 match (year_level + semester ignored)', [
+                'program_id' => $programId,
+            ]);
+            return $subjects;
+        }
+
+        // ── Tier 4: nothing found — log diagnostic pivot sample ───────────────
+        $pivotTable  = 'program_subjects';
+        $pivotSample = DB::table($pivotTable)
+            ->where('program_id', $programId)
+            ->select('program_id', 'subject_id', 'year_level', 'semester')
+            ->limit(10)
+            ->get();
+
+        $pivotCount = DB::table($pivotTable)->where('program_id', $programId)->count();
+
+        Log::error('loadSubjects: no subjects found at any tier — check pivot data', [
+            'program_id'   => $programId,
+            'year_level'   => $yearLevel,
+            'semester'     => $semester,
+            'pivot_table'  => $pivotTable,
+            'pivot_count'  => $pivotCount,
+            'pivot_sample' => $pivotSample->toArray(),
+        ]);
+
+        return collect();
+    }
+
+    protected function getSemesterVariants(string $semester): array
+    {
+        $raw = trim($semester);
+        $normalized = strtolower($raw);
+
+        $variants = [$raw];
+
+        if (preg_match('/^(\d+)/', $normalized, $matches)) {
+            $number = (int) $matches[1];
+            $variants[] = (string) $number;
+            $variants[] = "{$number}st";
+            $variants[] = "{$number}nd";
+            $variants[] = "{$number}rd";
+            $variants[] = "{$number}th";
+
+            if ($number === 1) {
+                $variants[] = '1st Semester';
+                $variants[] = '1st';
+                $variants[] = 'First Semester';
+                $variants[] = 'first semester';
+            } elseif ($number === 2) {
+                $variants[] = '2nd Semester';
+                $variants[] = '2nd';
+                $variants[] = 'Second Semester';
+                $variants[] = 'second semester';
+            }
+        }
+
+        if (str_contains($normalized, 'first')) {
+            $variants[] = '1';
+            $variants[] = '1st Semester';
+            $variants[] = '1st';
+        }
+
+        if (str_contains($normalized, 'second')) {
+            $variants[] = '2';
+            $variants[] = '2nd Semester';
+            $variants[] = '2nd';
+        }
+
+        return collect($variants)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
-     * Load available instructors from department
+     * Load available instructors from department.
+     *
+     * Tier 1: active instructors WITH daily_scheme configured  (ideal — GA can
+     *         respect time-window constraints)
+     * Tier 2: all active instructors regardless of scheme      (scheme fields
+     *         not filled in — GA will still run, just without time-window limits)
      */
     protected function loadInstructors(int $departmentId): \Illuminate\Support\Collection
     {
-        return User::where('department_id', $departmentId)
+        $base = User::where('department_id', $departmentId)
             ->whereIn('role', [User::ROLE_INSTRUCTOR, User::ROLE_DEPARTMENT_HEAD, User::ROLE_PROGRAM_HEAD])
-            ->where('is_active', true)
+            ->where('is_active', true);
+
+        // Tier 1: instructors with a daily scheme configured
+        $instructors = (clone $base)
             ->whereNotNull('daily_scheme_start')
             ->whereNotNull('daily_scheme_end')
             ->get();
+
+        if ($instructors->isNotEmpty()) {
+            return $instructors;
+        }
+
+        Log::warning('loadInstructors: no instructors with daily_scheme — falling back to all active instructors', [
+            'department_id' => $departmentId,
+        ]);
+
+        // Tier 2: any active instructor in the department (scheme columns may be null)
+        $instructors = $base->get();
+
+        if ($instructors->isEmpty()) {
+            Log::error('loadInstructors: no active instructors found at all', [
+                'department_id' => $departmentId,
+            ]);
+        }
+
+        return $instructors;
     }
 
     /**
@@ -263,27 +397,25 @@ class ScheduleGenerationService
      */
     protected function saveScheduleItems(Schedule $schedule, array $genes): void
     {
-        // Clear existing items
         $schedule->items()->delete();
 
         $scheduleItems = [];
 
         foreach ($genes as $gene) {
             $scheduleItems[] = [
-                'schedule_id' => $schedule->id,
-                'subject_id' => $gene['subject_id'],
+                'schedule_id'   => $schedule->id,
+                'subject_id'    => $gene['subject_id'],
                 'instructor_id' => $gene['instructor_id'],
-                'room_id' => $gene['room_id'],
-                'day_of_week' => $gene['day'],
-                'start_time' => $gene['start_time'],
-                'end_time' => $gene['end_time'],
-                'section' => $gene['section'],
-                'created_at' => now(),
-                'updated_at' => now(),
+                'room_id'       => $gene['room_id'],
+                'day_of_week'   => $gene['day'],
+                'start_time'    => $gene['start_time'],
+                'end_time'      => $gene['end_time'],
+                'section'       => $gene['section'],
+                'created_at'    => now(),
+                'updated_at'    => now(),
             ];
         }
 
-        // Batch insert for performance
         if (!empty($scheduleItems)) {
             ScheduleItem::insert($scheduleItems);
         }
@@ -294,80 +426,58 @@ class ScheduleGenerationService
      */
     public function validateSchedule(Schedule $schedule): array
     {
-        $items = $schedule->items()
-            ->with(['subject', 'instructor', 'room'])
-            ->get();
-
-        $violations = [];
-        $facultyLoads = [];
+        $items         = $schedule->items()->with(['subject', 'instructor', 'room'])->get();
+        $violations    = [];
+        $facultyLoads  = [];
 
         foreach ($items as $item) {
-            // Track faculty loads
             $instructorId = $item->instructor_id;
             if (!isset($facultyLoads[$instructorId])) {
                 $facultyLoads[$instructorId] = ['lecture' => 0, 'lab' => 0];
             }
 
-            // Determine type based on subject
-            $subject = $item->subject;
+            $subject  = $item->subject;
             $duration = Carbon::parse($item->start_time)->diffInHours(Carbon::parse($item->end_time), true);
 
             if ($subject->lecture_hours > 0 && $subject->lab_hours > 0) {
-                // Mixed - assume based on room type or distribute evenly
                 $facultyLoads[$instructorId]['lecture'] += $duration / 2;
-                $facultyLoads[$instructorId]['lab'] += $duration / 2;
+                $facultyLoads[$instructorId]['lab']     += $duration / 2;
             } elseif ($subject->lecture_hours > 0) {
                 $facultyLoads[$instructorId]['lecture'] += $duration;
             } else {
                 $facultyLoads[$instructorId]['lab'] += $duration;
             }
 
-            // Check scheme violation
             $instructor = $item->instructor;
             if (!$this->validator->isWithinInstructorScheme($instructor, $item->start_time, $item->end_time, $item->day_of_week, $schedule->program_id)) {
                 $violations[] = [
-                    'type' => 'scheme_violation',
-                    'item_id' => $item->id,
+                    'type'       => 'scheme_violation',
+                    'item_id'    => $item->id,
                     'instructor' => $instructor->first_name . ' ' . $instructor->last_name,
-                    'day' => $item->day_of_week,
-                    'time' => $item->start_time . ' - ' . $item->end_time,
+                    'day'        => $item->day_of_week,
+                    'time'       => $item->start_time . ' - ' . $item->end_time,
                 ];
             }
         }
 
-        // Check faculty loads
         foreach ($facultyLoads as $instructorId => $loads) {
             $instructor = User::find($instructorId);
             if ($instructor) {
-                $loadValidation = $this->validator->validateFacultyLoad(
-                    $instructor,
-                    $loads['lecture'],
-                    $loads['lab']
-                );
-
+                $loadValidation = $this->validator->validateFacultyLoad($instructor, $loads['lecture'], $loads['lab']);
                 if (!$loadValidation['valid']) {
-                    $overloadHours = collect($loadValidation['violations'] ?? [])->sum(function ($violation) {
-                        return (float) ($violation['excess'] ?? 0);
-                    });
-
                     $violations[] = [
-                        'type' => 'faculty_overload',
-                        'instructor_id' => $instructorId,
-                        'instructor' => $instructor->first_name . ' ' . $instructor->last_name,
-                        'overload_hours' => $overloadHours,
-                        'violations' => $loadValidation['violations'],
+                        'type'           => 'faculty_overload',
+                        'instructor_id'  => $instructorId,
+                        'instructor'     => $instructor->first_name . ' ' . $instructor->last_name,
+                        'violations'     => $loadValidation['violations'],
                     ];
                 }
             }
         }
 
-        $hardViolations = collect($violations)->reject(function ($violation) {
-            return ($violation['type'] ?? null) === 'faculty_overload';
-        });
-
         return [
-            'valid' => $hardViolations->isEmpty(),
-            'violations' => $violations,
+            'valid'         => empty($violations),
+            'violations'    => $violations,
             'faculty_loads' => $facultyLoads,
         ];
     }
@@ -380,47 +490,32 @@ class ScheduleGenerationService
         $schedule = Schedule::findOrFail($scheduleId);
 
         return [
-            'schedule_id' => $schedule->id,
-            'status' => $schedule->status,
-            'progress' => $schedule->ga_progress ?? [],
+            'schedule_id'   => $schedule->id,
+            'status'        => $schedule->status,
+            'progress'      => $schedule->ga_progress ?? [],
             'fitness_score' => $schedule->fitness_score,
-            'created_at' => $schedule->created_at,
-            'updated_at' => $schedule->updated_at,
+            'created_at'    => $schedule->created_at,
+            'updated_at'    => $schedule->updated_at,
         ];
     }
 
     /**
      * Comprehensive validation of generated schedule
-     * Returns detailed conflict report for testing
-     * 
-     * @param Schedule $schedule
-     * @return array {
-     *     room_conflicts: int,
-     *     instructor_conflicts: int,
-     *     overload_violations: int,
-     *     break_violations: int,
-     *     scheme_violations: int,
-     *     section_conflicts: int,
-     *     total_items: int,
-     *     all_valid: bool
-     * }
      */
     public function validateGeneratedSchedule(Schedule $schedule): array
     {
-        $items = $schedule->items()
-            ->with(['subject', 'instructor', 'room'])
-            ->get();
+        $items = $schedule->items()->with(['subject', 'instructor', 'room'])->get();
 
         $report = [
-            'room_conflicts' => 0,
-            'instructor_conflicts' => 0,
-            'overload_violations' => 0,
-            'break_violations' => 0,
-            'scheme_violations' => 0,
-            'section_conflicts' => 0,
-            'total_items' => $items->count(),
-            'conflicts_detail' => [],
-            'all_valid' => true,
+            'room_conflicts'        => 0,
+            'instructor_conflicts'  => 0,
+            'overload_violations'   => 0,
+            'break_violations'      => 0,
+            'scheme_violations'     => 0,
+            'section_conflicts'     => 0,
+            'total_items'           => $items->count(),
+            'conflicts_detail'      => [],
+            'all_valid'             => true,
         ];
 
         if ($items->isEmpty()) {
@@ -428,29 +523,28 @@ class ScheduleGenerationService
         }
 
         $facultyLoads = [];
-        $itemsArray = $items->toArray();
 
-        // 1. Check room conflicts
-        foreach ($items as $index => $item) {
-            $conflictingItems = $items->where('room_id', $item->room_id)
+        // 1. Room conflicts
+        foreach ($items as $item) {
+            $conflicting = $items->where('room_id', $item->room_id)
                 ->where('day_of_week', $item->day_of_week)
                 ->where('id', '!=', $item->id);
 
-            foreach ($conflictingItems as $conflicting) {
-                if ($this->timesOverlap($item->start_time, $item->end_time, $conflicting->start_time, $conflicting->end_time)) {
+            foreach ($conflicting as $other) {
+                if ($this->timesOverlap($item->start_time, $item->end_time, $other->start_time, $other->end_time)) {
                     $report['room_conflicts']++;
                     $report['conflicts_detail'][] = [
-                        'type' => 'room_conflict',
-                        'room' => $item->room->room_name,
-                        'day' => $item->day_of_week,
+                        'type'  => 'room_conflict',
+                        'room'  => $item->room->room_name,
+                        'day'   => $item->day_of_week,
                         'time1' => $item->start_time . '-' . $item->end_time,
-                        'time2' => $conflicting->start_time . '-' . $conflicting->end_time,
+                        'time2' => $other->start_time . '-' . $other->end_time,
                     ];
                 }
             }
         }
 
-        // 2. Check instructor time conflicts
+        // 2. Instructor conflicts + load tracking
         foreach ($items as $item) {
             $instructorItems = $items->where('instructor_id', $item->instructor_id)
                 ->where('day_of_week', $item->day_of_week)
@@ -460,27 +554,26 @@ class ScheduleGenerationService
                 if ($this->timesOverlap($item->start_time, $item->end_time, $other->start_time, $other->end_time)) {
                     $report['instructor_conflicts']++;
                     $report['conflicts_detail'][] = [
-                        'type' => 'instructor_conflict',
+                        'type'       => 'instructor_conflict',
                         'instructor' => $item->instructor->first_name . ' ' . $item->instructor->last_name,
-                        'day' => $item->day_of_week,
-                        'time1' => $item->start_time . '-' . $item->end_time,
-                        'time2' => $other->start_time . '-' . $other->end_time,
+                        'day'        => $item->day_of_week,
+                        'time1'      => $item->start_time . '-' . $item->end_time,
+                        'time2'      => $other->start_time . '-' . $other->end_time,
                     ];
                 }
             }
 
-            // Track faculty loads
             $instructorId = $item->instructor_id;
             if (!isset($facultyLoads[$instructorId])) {
                 $facultyLoads[$instructorId] = ['lecture' => 0, 'lab' => 0];
             }
 
             $duration = Carbon::parse($item->start_time)->diffInHours(Carbon::parse($item->end_time), true);
-            $subject = $item->subject;
+            $subject  = $item->subject;
 
             if ($subject->lecture_hours > 0 && $subject->lab_hours > 0) {
                 $facultyLoads[$instructorId]['lecture'] += $duration / 2;
-                $facultyLoads[$instructorId]['lab'] += $duration / 2;
+                $facultyLoads[$instructorId]['lab']     += $duration / 2;
             } elseif ($subject->lecture_hours > 0) {
                 $facultyLoads[$instructorId]['lecture'] += $duration;
             } else {
@@ -488,20 +581,15 @@ class ScheduleGenerationService
             }
         }
 
-        // 3. Check faculty load violations
+        // 3. Faculty load violations
         foreach ($facultyLoads as $instructorId => $loads) {
             $instructor = User::find($instructorId);
             if ($instructor) {
-                $loadValidation = $this->validator->validateFacultyLoad(
-                    $instructor,
-                    $loads['lecture'],
-                    $loads['lab']
-                );
-
+                $loadValidation = $this->validator->validateFacultyLoad($instructor, $loads['lecture'], $loads['lab']);
                 if (!$loadValidation['valid']) {
                     $report['overload_violations']++;
                     $report['conflicts_detail'][] = [
-                        'type' => 'faculty_overload',
+                        'type'       => 'faculty_overload',
                         'instructor' => $instructor->first_name . ' ' . $instructor->last_name,
                         'violations' => $loadValidation['violations'],
                     ];
@@ -509,50 +597,41 @@ class ScheduleGenerationService
             }
         }
 
-        // 4. Check scheme violations
+        // 4. Scheme violations
         foreach ($items as $item) {
             if (!$this->validator->isWithinInstructorScheme($item->instructor, $item->start_time, $item->end_time, $item->day_of_week, $schedule->program_id)) {
                 $allowedRange = $this->validator->getAllowedRangeForDay($item->instructor_id, $item->day_of_week, $schedule->program_id);
-
                 $report['scheme_violations']++;
                 $report['conflicts_detail'][] = [
-                    'type' => 'scheme_violation',
-                    'instructor' => $item->instructor->first_name . ' ' . $item->instructor->last_name,
-                    'day' => $item->day_of_week,
+                    'type'           => 'scheme_violation',
+                    'instructor'     => $item->instructor->first_name . ' ' . $item->instructor->last_name,
+                    'day'            => $item->day_of_week,
                     'scheduled_time' => $item->start_time . '-' . $item->end_time,
-                    'allowed_range' => $allowedRange
+                    'allowed_range'  => $allowedRange
                         ? ($allowedRange['start'] . '-' . $allowedRange['end'])
                         : 'Not configured',
                 ];
             }
         }
 
-        // 5. Check break time violations (no more than 4 consecutive hours)
+        // 5. Break time violations (no more than 4 consecutive hours)
         foreach ($items->groupBy('instructor_id') as $instructorId => $instructorItems) {
             foreach ($instructorItems->groupBy('day_of_week') as $day => $dayItems) {
                 $sorted = $dayItems->sortBy('start_time')->values();
 
                 for ($i = 0; $i < $sorted->count() - 1; $i++) {
-                    $current = $sorted[$i];
-                    $next = $sorted[$i + 1];
-
-                    $currentEnd = Carbon::parse($current->end_time);
-                    $nextStart = Carbon::parse($next->start_time);
-
-                    $gapMinutes = $nextStart->diffInMinutes($currentEnd);
+                    $current    = $sorted[$i];
+                    $next       = $sorted[$i + 1];
+                    $gapMinutes = Carbon::parse($next->start_time)->diffInMinutes(Carbon::parse($current->end_time));
 
                     if ($gapMinutes < 60) {
-                        // Check if teaching consecutively
-                        $firstStart = Carbon::parse($current->start_time);
-                        $lastEnd = Carbon::parse($next->end_time);
-                        $totalHours = $firstStart->diffInHours($lastEnd, true);
-
+                        $totalHours = Carbon::parse($current->start_time)->diffInHours(Carbon::parse($next->end_time), true);
                         if ($totalHours > 4) {
                             $report['break_violations']++;
                             $report['conflicts_detail'][] = [
-                                'type' => 'break_violation',
-                                'instructor' => $current->instructor->first_name . ' ' . $current->instructor->last_name,
-                                'day' => $day,
+                                'type'              => 'break_violation',
+                                'instructor'        => $current->instructor->first_name . ' ' . $current->instructor->last_name,
+                                'day'               => $day,
                                 'consecutive_hours' => round($totalHours, 2),
                             ];
                         }
@@ -561,35 +640,32 @@ class ScheduleGenerationService
             }
         }
 
-        // 6. Check section time conflict (same section can't have 2 subjects at same time)
+        // 6. Section time conflicts
         foreach ($items->groupBy('section') as $section => $sectionItems) {
             foreach ($sectionItems as $item) {
-                $conflicts = $sectionItems
-                    ->where('day_of_week', $item->day_of_week)
-                    ->where('id', '!=', $item->id);
-
+                $conflicts = $sectionItems->where('day_of_week', $item->day_of_week)->where('id', '!=', $item->id);
                 foreach ($conflicts as $other) {
                     if ($this->timesOverlap($item->start_time, $item->end_time, $other->start_time, $other->end_time)) {
                         $report['section_conflicts']++;
                         $report['conflicts_detail'][] = [
-                            'type' => 'section_conflict',
+                            'type'    => 'section_conflict',
                             'section' => $section,
-                            'day' => $item->day_of_week,
-                            'time1' => $item->start_time . '-' . $item->end_time,
-                            'time2' => $other->start_time . '-' . $other->end_time,
+                            'day'     => $item->day_of_week,
+                            'time1'   => $item->start_time . '-' . $item->end_time,
+                            'time2'   => $other->start_time . '-' . $other->end_time,
                         ];
                     }
                 }
             }
         }
 
-        // Determine overall validity
         $report['all_valid'] = (
-            $report['room_conflicts'] === 0 &&
+            $report['room_conflicts']       === 0 &&
             $report['instructor_conflicts'] === 0 &&
-            $report['break_violations'] === 0 &&
-            $report['scheme_violations'] === 0 &&
-            $report['section_conflicts'] === 0
+            $report['overload_violations']  === 0 &&
+            $report['break_violations']     === 0 &&
+            $report['scheme_violations']    === 0 &&
+            $report['section_conflicts']    === 0
         );
 
         return $report;

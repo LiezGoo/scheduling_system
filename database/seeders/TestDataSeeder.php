@@ -334,18 +334,24 @@ class TestDataSeeder extends Seeder
                 continue;
             }
 
-            // Assign 10-15 subjects to each program
+            // Assign 10-15 subjects to each program.
+            // The schema now enforces one unique program-subject pair,
+            // so we store a single curriculum context per pair.
             $selectedSubjects = $subjects->random(min(rand(10, 15), $subjects->count()));
 
             foreach ($selectedSubjects as $subject) {
-                for ($yearLevel = 1; $yearLevel <= 2; $yearLevel++) {
-                    for ($semester = 1; $semester <= 2; $semester++) {
-                        $program->subjects()->attach($subject->id, [
-                            'year_level' => $yearLevel,
-                            'semester' => $semester,
-                        ]);
-                    }
-                }
+                DB::table('program_subjects')->updateOrInsert(
+                    [
+                        'program_id' => $program->id,
+                        'subject_id' => $subject->id,
+                    ],
+                    [
+                        'year_level' => 1,
+                        'semester' => 1,
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
             }
         }
 

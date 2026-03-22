@@ -16,7 +16,7 @@
                         <label for="rooms_csv_file" class="form-label fw-bold">CSV File <span class="text-danger">*</span></label>
                         <input type="file" class="form-control" id="rooms_csv_file" name="file" accept=".csv,text/csv" required>
                         <div class="form-text">
-                            Required column order: room_code,room_name,building,floor,capacity,type
+                            Upload CSV with columns: room_code, room_name, room_type
                         </div>
                         <div class="invalid-feedback">Please select a valid non-empty CSV file.</div>
                     </div>

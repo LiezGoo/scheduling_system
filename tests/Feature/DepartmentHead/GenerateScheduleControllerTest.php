@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Program;
 use App\Models\Schedule;
 use App\Models\Semester;
+use App\Models\Subject;
 use App\Models\User;
 use App\Services\GeneticScheduler;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,6 +22,7 @@ class GenerateScheduleControllerTest extends TestCase
     public function test_department_head_can_generate_multiple_blocks(): void
     {
         [$departmentHead, $program, $academicYear, $semester] = $this->createGenerationContext();
+        $this->seedGenerationPrerequisites($program->id, $academicYear->id, $semester->name, $departmentHead->department_id);
 
         $mock = Mockery::mock(GeneticScheduler::class);
         $mock->shouldReceive('generate')
@@ -185,6 +187,69 @@ class GenerateScheduleControllerTest extends TestCase
         ]);
 
         return [$department, $program, $academicYear, $semester];
+    }
+
+    private function seedGenerationPrerequisites(int $programId, int $academicYearId, string $semesterName, int $departmentId): void
+    {
+        $instructor = User::factory()->create([
+            'role' => User::ROLE_INSTRUCTOR,
+            'status' => User::STATUS_ACTIVE,
+            'is_active' => true,
+            'department_id' => $departmentId,
+        ]);
+
+        $subject = Subject::query()->create([
+            'subject_code' => 'IT101',
+            'subject_name' => 'Intro to IT',
+            'description' => 'Foundational computing concepts',
+            'department_id' => $departmentId,
+            'created_by' => $instructor->id,
+            'units' => 3.0,
+            'lecture_hours' => 3.0,
+            'lab_hours' => 0.0,
+            'is_active' => true,
+        ]);
+
+        DB::table('program_subjects')->insert([
+            'program_id' => $programId,
+            'subject_id' => $subject->id,
+            'year_level' => 1,
+            'semester' => strtolower($semesterName),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('instructor_loads')->insert([
+            'instructor_id' => $instructor->id,
+            'program_id' => $programId,
+            'subject_id' => $subject->id,
+            'academic_year_id' => $academicYearId,
+            'semester' => $semesterName,
+            'year_level' => 1,
+            'block_section' => 'Block 1',
+            'lec_hours' => 3,
+            'lab_hours' => 0,
+            'total_hours' => 3,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('rooms')->insert([
+            [
+                'room_code' => 'RM101',
+                'room_name' => 'Lecture Room 101',
+                'room_type' => 'Lecture',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'room_code' => 'LAB201',
+                'room_name' => 'Computer Lab 201',
+                'room_type' => 'Laboratory',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
     }
 
     protected function tearDown(): void

@@ -13,6 +13,12 @@ class RoomController extends Controller
     private const ROOM_CSV_HEADERS = [
         'room_code',
         'room_name',
+        'room_type',
+    ];
+
+    private const LEGACY_ROOM_CSV_HEADERS = [
+        'room_code',
+        'room_name',
         'building',
         'floor',
         'capacity',
@@ -238,10 +244,17 @@ class RoomController extends Controller
                 $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
             }
 
+            if ($header === self::LEGACY_ROOM_CSV_HEADERS) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Outdated CSV format. Please download the new template.',
+                ], 422);
+            }
+
             if ($header !== self::ROOM_CSV_HEADERS) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Invalid CSV format. Please use the template.',
+                    'message' => 'Invalid CSV format. Please use the updated template.',
                     'expected' => self::ROOM_CSV_HEADERS,
                     'received' => $header,
                 ], 422);
@@ -283,10 +296,7 @@ class RoomController extends Controller
                 $payload = [
                     'room_code' => trim((string) $row[0]),
                     'room_name' => trim((string) $row[1]),
-                    'building' => trim((string) $row[2]),
-                    'floor' => trim((string) $row[3]),
-                    'capacity' => trim((string) $row[4]),
-                    'room_type' => ucfirst(strtolower(trim((string) $row[5]))),
+                    'room_type' => ucfirst(strtolower(trim((string) $row[2]))),
                 ];
 
                 if (in_array($payload['room_code'], $uploadedRoomCodes, true)) {
@@ -301,9 +311,6 @@ class RoomController extends Controller
                 $rowValidator = Validator::make($payload, [
                     'room_code' => 'required|string|max:50|unique:rooms,room_code',
                     'room_name' => 'required|string|max:255',
-                    'building' => 'required|string|max:255',
-                    'floor' => 'required|integer|min:0',
-                    'capacity' => 'required|integer|min:1',
                     'room_type' => ['required', Rule::in(['Lecture', 'Laboratory'])],
                 ]);
 

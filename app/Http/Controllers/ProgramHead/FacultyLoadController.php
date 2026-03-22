@@ -50,11 +50,11 @@ class FacultyLoadController extends Controller
             // SQLite: GROUP_CONCAT without DISTINCT to avoid syntax errors
             // GROUP BY prevents most duplicates; default separator is comma
             $subjectCodesConcat = "GROUP_CONCAT(subjects.subject_code)";
-            $subjectNamesConcat = "GROUP_CONCAT(subjects.subject_name)";
+            $subjectNamesConcat = "GROUP_CONCAT(subjects.subject_code || ' - ' || subjects.subject_name)";
         } else {
             // MySQL: use DISTINCT and explicit separator
             $subjectCodesConcat = "GROUP_CONCAT(DISTINCT subjects.subject_code)";
-            $subjectNamesConcat = "GROUP_CONCAT(DISTINCT subjects.subject_name SEPARATOR ', ')";
+            $subjectNamesConcat = "GROUP_CONCAT(DISTINCT CONCAT(subjects.subject_code, ' - ', subjects.subject_name) SEPARATOR ', ')";
         }
         
         $baseQuery = DB::table('instructor_loads')
@@ -226,6 +226,8 @@ class FacultyLoadController extends Controller
             'faculty_id' => 'required_without:user_id|integer|exists:users,id',
             'program_id' => 'required|integer|exists:programs,id',
             'subject_id' => 'required_without:subjects|nullable|integer|exists:subjects,id',
+            'subject_ids' => 'nullable|array|min:1',
+            'subject_ids.*' => 'integer|exists:subjects,id',
             'academic_year_id' => 'required|integer|exists:academic_years,id',
             'semester_id' => 'required|integer|exists:semesters,id',
             'year_level' => ['required', 'integer', Rule::in($yearLevelOptions->all())],
@@ -296,7 +298,45 @@ class FacultyLoadController extends Controller
                 ->all();
         }
 
+        if (empty($subjectRows) && !empty($validated['subject_ids'])) {
+            $subjectIds = collect($validated['subject_ids'])
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            $subjectsById = Subject::query()
+                ->whereIn('id', $subjectIds->all())
+                ->get(['id', 'department_id', 'lecture_hours', 'lab_hours'])
+                ->keyBy('id');
+
+            $subjectRows = $subjectIds
+                ->map(function (int $subjectId) use ($subjectsById, $blockSectionName) {
+                    $subject = $subjectsById->get($subjectId);
+
+                    return [
+                        'subject_id' => $subjectId,
+                        'block' => $blockSectionName,
+                        'block_section' => $blockSectionName,
+                        'lecture_hours' => (int) ($subject->lecture_hours ?? 0),
+                        'lab_hours' => (int) ($subject->lab_hours ?? 0),
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
         if (!empty($subjectRows)) {
+            Log::debug('ProgramHead bulk faculty load payload', [
+                'faculty_id' => $userId,
+                'program_id' => (int) $validated['program_id'],
+                'academic_year_id' => (int) $validated['academic_year_id'],
+                'semester' => $semesterName,
+                'year_level' => (int) $validated['year_level'],
+                'subject_count' => count($subjectRows),
+                'subject_ids' => collect($subjectRows)->pluck('subject_id')->map(fn ($id) => (int) $id)->values()->all(),
+            ]);
+
             foreach ($subjectRows as $index => $subjectRow) {
                 $subject = Subject::find($subjectRow['subject_id']);
                 if (!$subject || (int) $subject->department_id !== (int) $department->id) {
