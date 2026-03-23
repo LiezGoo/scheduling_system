@@ -13,6 +13,7 @@ use App\Models\Room;
 use App\Models\Program;
 use App\Models\ScheduleConfiguration;
 use App\Models\YearLevel;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -125,7 +126,13 @@ class ScheduleController extends Controller
             $query->where('year_level', $request->year_level);
         }
 
-        $schedules = $query->orderBy('created_at', 'desc')->paginate(15);
+        $perPage = (int) $request->input('per_page', 15);
+        $allowedPerPage = [10, 15, 25, 50, 100];
+        if (!in_array($perPage, $allowedPerPage, true)) {
+            $perPage = 15;
+        }
+
+        $schedules = $query->latest()->paginate($perPage)->withQueryString();
 
         // Get faculty from department
         $faculty = User::where('department_id', $user->department_id)
@@ -136,6 +143,10 @@ class ScheduleController extends Controller
 
         // Get all rooms
         $rooms = Room::orderBy('room_code')->get();
+
+        if ($request->ajax()) {
+            return view('department-head.schedules.partials.table', compact('schedules'))->render();
+        }
 
         return view('department-head.schedules.index', compact(
             'schedules',
@@ -161,9 +172,21 @@ class ScheduleController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $schedule->load(['items.subject', 'items.instructor', 'items.room.building', 'program']);
+        $schedule->load(['items.subject', 'items.instructor', 'items.room', 'program']);
 
-        return view('department-head.schedules.show', compact('schedule'));
+        $scheduleGrid = [];
+        foreach ($schedule->items as $item) {
+            $day = strtolower((string) ($item->day_of_week ?? ''));
+
+            if ($day === '') {
+                continue;
+            }
+
+            $start = Carbon::parse((string) $item->start_time)->format('H:i');
+            $scheduleGrid[$day][$start][] = $item;
+        }
+
+        return view('department-head.schedules.show', compact('schedule', 'scheduleGrid'));
     }
 
     /**
@@ -194,53 +217,30 @@ class ScheduleController extends Controller
 
         $programs = $programQuery->get();
 
-        $defaultProgramId = old('program_id');
-        if (!$defaultProgramId) {
-            $defaultProgramId = $programs->first()?->id;
-        }
+        // Keep Generate form in a clean state: do not preselect previous or first values.
+        $defaultProgramId = null;
 
         $academicYears = AcademicYear::query()
             ->orderByDesc('is_active')
             ->orderByDesc('start_year')
             ->get();
 
-        $academicYearIdsWithSemesters = Semester::query()
-            ->select('academic_year_id')
-            ->whereNotNull('academic_year_id')
-            ->distinct()
-            ->pluck('academic_year_id');
-
-        $defaultAcademicYearId = (int) (old('academic_year_id')
-            ?: $academicYears
-                ->first(function ($academicYear) use ($academicYearIdsWithSemesters) {
-                    return (bool) $academicYear->is_active
-                        && $academicYearIdsWithSemesters->contains($academicYear->id);
-                })?->id
-            ?: $academicYears
-                ->first(function ($academicYear) use ($academicYearIdsWithSemesters) {
-                    return $academicYearIdsWithSemesters->contains($academicYear->id);
-                })?->id
-            ?: $academicYears->first()?->id);
+        $defaultAcademicYearId = null;
 
         $semesters = Semester::query()
-            ->when($defaultAcademicYearId > 0, function ($query) use ($defaultAcademicYearId) {
-                $query->where('academic_year_id', $defaultAcademicYearId);
-            })
             ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Semester::STATUS_ACTIVE])
             ->orderBy('start_date')
             ->orderBy('name')
             ->get(['id', 'academic_year_id', 'name', 'status']);
 
-        $defaultSemesterId = (int) (old('semester_id')
-            ?: $semesters->firstWhere('status', Semester::STATUS_ACTIVE)?->id
-            ?: $semesters->first()?->id);
+        $defaultSemesterId = null;
 
         $yearLevels = YearLevel::query()
             ->where('status', YearLevel::STATUS_ACTIVE)
             ->orderBy('id')
             ->get(['id', 'name', 'code']);
 
-        $defaultYearLevelId = (int) (old('year_level_id') ?: $yearLevels->first()?->id);
+        $defaultYearLevelId = null;
 
         // Get faculty from department
         $faculty = User::where('department_id', $user->department_id)
@@ -252,18 +252,22 @@ class ScheduleController extends Controller
         // Get all rooms
         $rooms = Room::orderBy('room_code')->get();
 
-        return view('department-head.schedules.generate', compact(
-            'programs',
-            'academicYears',
-            'semesters',
-            'defaultAcademicYearId',
-            'defaultSemesterId',
-            'yearLevels',
-            'defaultProgramId',
-            'defaultYearLevelId',
-            'faculty',
-            'rooms'
-        ));
+        return response()
+            ->view('department-head.schedules.generate', compact(
+                'programs',
+                'academicYears',
+                'semesters',
+                'defaultAcademicYearId',
+                'defaultSemesterId',
+                'yearLevels',
+                'defaultProgramId',
+                'defaultYearLevelId',
+                'faculty',
+                'rooms'
+            ))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     /**

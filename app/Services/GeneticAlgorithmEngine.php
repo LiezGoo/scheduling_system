@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 class GeneticAlgorithmEngine
 {
     protected ConstraintValidator $validator;
+    protected FacultyConstraintValidator $facultyValidator;
     protected int $populationSize;
     protected int $generations;
     protected float $mutationRate;
@@ -29,6 +30,11 @@ class GeneticAlgorithmEngine
     // Instructor cache — populated in evolve(), used in calculateFitness/mutate to avoid DB queries
     protected Collection $cachedInstructors;
     protected Collection $cachedSubjects;
+    
+    // Faculty constraint data for current generation
+    protected int $currentAcademicYearId;
+    protected string $currentSemester;
+    protected ?int $currentProgramId;
 
     // Working days
     protected array $workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -93,6 +99,7 @@ class GeneticAlgorithmEngine
         int $eliteSize      = 5
     ) {
         $this->validator          = new ConstraintValidator();
+        $this->facultyValidator   = new FacultyConstraintValidator($this->validator);
         $this->populationSize     = $populationSize;
         $this->generations        = $generations;
         $this->mutationRate       = $mutationRate;
@@ -205,11 +212,51 @@ class GeneticAlgorithmEngine
                             continue;
                         }
 
+                        // ═══════════════════════════════════════════════════════════
+                        // NEW: Check faculty availability during time slot
+                        // ═══════════════════════════════════════════════════════════
+                        if (!$this->facultyValidator->isFacultyAvailableAtTimeSlot(
+                            $instructor,
+                            $day,
+                            $timeSlot['start'],
+                            $timeSlot['end'],
+                            $this->currentProgramId
+                        )) {
+                            continue;
+                        }
+
+                        // ═══════════════════════════════════════════════════════════
+                        // NEW: Check for faculty time conflicts
+                        // ═══════════════════════════════════════════════════════════
+                        if ($this->facultyValidator->hasFacultyTimeConflict(
+                            $instructor,
+                            $day,
+                            $timeSlot['start'],
+                            $timeSlot['end'],
+                            $existingCollection
+                        )) {
+                            continue;
+                        }
+
                         if (!isset($facultyLoads[$instructor->id])) {
                             $facultyLoads[$instructor->id] = ['lecture' => 0, 'lab' => 0];
                         }
 
                         $facultyLoads[$instructor->id][$type] += $duration;
+
+                        // ═══════════════════════════════════════════════════════════
+                        // NEW: Check if assignment would exceed workload limit
+                        // ═══════════════════════════════════════════════════════════
+                        if ($this->facultyValidator->wouldExceedWorkloadLimit(
+                            $instructor,
+                            $type,
+                            $duration,
+                            $existingCollection,
+                            $this->currentProgramId
+                        )) {
+                            $facultyLoads[$instructor->id][$type] -= $duration;
+                            continue;
+                        }
 
                         $loadValidation = $this->validator->validateFacultyLoad(
                             $instructor,
@@ -347,6 +394,12 @@ class GeneticAlgorithmEngine
 
     /**
      * Create genes for a specific subject (may span multiple time slots)
+     *
+     * Now enforces faculty constraints:
+     * - Only assigns subject to designated instructors (via InstructorLoad)
+     * - Checks instructor availability during scheduling time
+     * - Prevents time conflicts for instructors
+     * - Respects workload limits
      */
     protected function createGenesForSubject(
         Subject $subject,
@@ -373,6 +426,26 @@ class GeneticAlgorithmEngine
             return [];
         }
 
+        // ═══════════════════════════════════════════════════════════
+        // NEW: Filter instructors to only those assigned to the subject
+        // ═══════════════════════════════════════════════════════════
+        $validInstructorsForSubject = $this->facultyValidator->getValidInstructorsForSubject(
+            $subject,
+            $this->currentAcademicYearId,
+            $this->currentSemester
+        );
+
+        if ($validInstructorsForSubject->isEmpty()) {
+            Log::warning('createGenesForSubject: no instructors assigned to subject', [
+                'subject_id' => $subject->id,
+                'subject_code' => $subject->subject_code,
+                'type' => $type,
+                'academic_year_id' => $this->currentAcademicYearId,
+                'semester' => $this->currentSemester,
+            ]);
+            return [];
+        }
+
         $genes = [];
         $remainingHours = $hours;
         $maxAttempts = max(100, (int) ceil($hours * 40));
@@ -394,8 +467,10 @@ class GeneticAlgorithmEngine
                 : min($remainingHours, $this->selectDuration($type, $remainingHours));
             $durationMinutes = (int) round($duration * 60);
 
-            // Pick a random instructor
-            $instructor = $instructors->random();
+            // ═══════════════════════════════════════════════════════════
+            // NEW: Pick from valid instructors only (not random pool)
+            // ═══════════════════════════════════════════════════════════
+            $instructor = $validInstructorsForSubject->random();
 
             $timeSlots = $this->getCandidateTimeSlots(
                 $subject,
@@ -427,7 +502,7 @@ class GeneticAlgorithmEngine
 
             $existingCollection = collect($existingGenes);
 
-            // Hard conflict checks
+            // Hard conflict checks (existing)
             if (!$this->validator->checkRoomAvailability($room->id, $day, $timeSlot['start'], $timeSlot['end'], $existingCollection)) {
                 continue;
             }
@@ -438,12 +513,52 @@ class GeneticAlgorithmEngine
                 continue;
             }
 
+            // ═══════════════════════════════════════════════════════════
+            // NEW: Check faculty availability during time slot
+            // ═══════════════════════════════════════════════════════════
+            if (!$this->facultyValidator->isFacultyAvailableAtTimeSlot(
+                $instructor,
+                $day,
+                $timeSlot['start'],
+                $timeSlot['end'],
+                $this->currentProgramId
+            )) {
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // NEW: Check for faculty time conflicts
+            // ═══════════════════════════════════════════════════════════
+            if ($this->facultyValidator->hasFacultyTimeConflict(
+                $instructor,
+                $day,
+                $timeSlot['start'],
+                $timeSlot['end'],
+                $existingCollection
+            )) {
+                continue;
+            }
+
             // Faculty load check
             if (!isset($facultyLoads[$instructor->id])) {
                 $facultyLoads[$instructor->id] = ['lecture' => 0, 'lab' => 0];
             }
 
             $facultyLoads[$instructor->id][$type] += $duration;
+
+            // ═══════════════════════════════════════════════════════════
+            // NEW: Check if assignment would exceed workload limit
+            // ═══════════════════════════════════════════════════════════
+            if ($this->facultyValidator->wouldExceedWorkloadLimit(
+                $instructor,
+                $type,
+                $duration,
+                $existingCollection,
+                $this->currentProgramId
+            )) {
+                $facultyLoads[$instructor->id][$type] -= $duration;
+                continue;
+            }
 
             $loadValidation = $this->validator->validateFacultyLoad(
                 $instructor,
@@ -471,7 +586,7 @@ class GeneticAlgorithmEngine
                 $subject,
                 $type,
                 $duration,
-                $instructors,
+                $validInstructorsForSubject,
                 $rooms,
                 $section,
                 $existingGenes,
@@ -496,6 +611,7 @@ class GeneticAlgorithmEngine
                 'scheduled_hours' => $hours - $remainingHours,
                 'remaining_hours' => $remainingHours,
                 'section' => $section,
+                'valid_instructor_count' => $validInstructorsForSubject->count(),
             ]);
         }
 
@@ -546,7 +662,33 @@ class GeneticAlgorithmEngine
 
         foreach ($genes as $index => $gene) {
             $existingGenes = collect(array_slice($genes, 0, $index));
-            $penalty += $this->validator->calculateGenePenalty($gene, $existingGenes, $facultyLoads, $instructors);
+            $penalty += $this->validator->calculateGenePenalty($gene, $existingGenes, $facultyLoads);
+            
+            // ═══════════════════════════════════════════════════════════
+            // NEW: Apply faculty constraint penalties
+            // ═══════════════════════════════════════════════════════════
+            $instructorId = $gene['instructor_id'] ?? null;
+            $subjectId = $gene['subject_id'] ?? null;
+            
+            if ($instructorId && $subjectId) {
+                $instructor = $this->cachedInstructors[$instructorId] ?? null;
+                $subject = $this->cachedSubjects[$subjectId] ?? null;
+                
+                if ($instructor && $subject) {
+                    $facultyPenalty = $this->facultyValidator->calculateFacultyConstraintPenalty(
+                        $instructor,
+                        $subject,
+                        $gene['day'] ?? 'Monday',
+                        $gene['start_time'] ?? '07:00',
+                        $gene['end_time'] ?? '08:00',
+                        $existingGenes,
+                        $this->currentAcademicYearId,
+                        $this->currentSemester,
+                        $this->currentProgramId
+                    );
+                    $penalty += (int) $facultyPenalty;
+                }
+            }
         }
 
         foreach ($facultyLoads as $instructorId => $loads) {
@@ -675,8 +817,19 @@ class GeneticAlgorithmEngine
 
             switch ($mutationType) {
                 case 0: // Change instructor
-                    if ($instructors->isNotEmpty()) {
-                        $gene['instructor_id'] = $instructors->random()->id;
+                    // ═══════════════════════════════════════════════════════════
+                    // UPDATED: Only pick from valid instructors for the subject
+                    // ═══════════════════════════════════════════════════════════
+                    $subject = $this->cachedSubjects[(int) ($gene['subject_id'] ?? 0)] ?? null;
+                    if ($subject) {
+                        $validInstructors = $this->facultyValidator->getValidInstructorsForSubject(
+                            $subject,
+                            $this->currentAcademicYearId,
+                            $this->currentSemester
+                        );
+                        if ($validInstructors->isNotEmpty()) {
+                            $gene['instructor_id'] = $validInstructors->random()->id;
+                        }
                     }
                     break;
 
@@ -826,8 +979,15 @@ class GeneticAlgorithmEngine
         string $section,
         int $yearLevel,
         string $semester,
+        int $academicYearId,
+        ?int $programId = null,
         callable $progressCallback = null
     ): array {
+        // Store context for faculty constraint validation
+        $this->currentAcademicYearId = $academicYearId;
+        $this->currentSemester = $semester;
+        $this->currentProgramId = $programId;
+
         // Cache instructors on instance so calculateFitness never hits the DB
         $this->cachedInstructors = $instructors->keyBy('id');
         $this->cachedSubjects = $subjects->keyBy('id');

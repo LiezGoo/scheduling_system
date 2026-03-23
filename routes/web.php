@@ -253,6 +253,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/schedules/generation-progress/{configuration}', [DepartmentHeadGenerateScheduleController::class, 'progress'])->name('schedules.generation-progress');
         Route::get('/schedules/{schedule}/audit', [DepartmentHeadGenerateScheduleController::class, 'audit'])->name('schedules.audit');
         Route::get('/schedules/{schedule}', [DepartmentHeadScheduleController::class, 'show'])->name('schedules.show');
+        Route::post('/schedules/{schedule}/approve', [DepartmentHeadScheduleReviewController::class, 'approve'])->name('schedules.approve');
+        Route::post('/schedules/{schedule}/reject', [DepartmentHeadScheduleReviewController::class, 'reject'])->name('schedules.reject');
         Route::get('/schedules/{schedule}/edit', [ScheduleAdjustmentController::class, 'edit'])->name('schedules.edit');
         Route::put('/schedules/{schedule}/items/{item}', [ScheduleAdjustmentController::class, 'updateItem'])->name('schedules.items.update');
         Route::post('/schedules/{schedule}/finalize', [DepartmentHeadScheduleController::class, 'finalize'])->name('schedules.finalize');

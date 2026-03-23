@@ -1149,9 +1149,13 @@
 
     // Approve and Submit
     function approveAndSubmit() {
-        if (confirm('Are you sure you want to approve and submit this schedule?')) {
+        showConfirmModal('Are you sure you want to approve and submit this schedule?', function() {
             showToast('Schedule approved and submitted successfully!');
-        }
+        }, {
+            title: 'Approve and Submit',
+            btnClass: 'btn-danger',
+            btnText: '<i class="fa-solid fa-check me-1"></i>Yes, Continue'
+        });
     }
 
     // Show Conflict Summary

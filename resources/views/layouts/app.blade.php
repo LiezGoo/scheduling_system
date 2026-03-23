@@ -570,6 +570,27 @@
         </div>
     </div>
 
+    <!-- Global System Message Modal -->
+    <div class="modal fade" id="systemMessageModal" tabindex="-1" aria-labelledby="systemMessageModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white" id="systemMessageHeader">
+                    <h5 class="modal-title" id="systemMessageModalTitle">
+                        <i class="fa-solid fa-circle-exclamation me-2" id="systemMessageIcon"></i>
+                        <span id="systemMessageTitleText">Error</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="systemMessageBody">
+                    Message here.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSystemModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Global Confirmation Modal Handler -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -579,6 +600,44 @@
             const confirmButton = document.getElementById('confirmActionButton');
             const confirmMessage = document.getElementById('confirmModalMessage');
             const confirmTitle = document.getElementById('confirmModalTitle');
+            let confirmAction = null;
+
+            function setConfirmButton(btnClass, btnText) {
+                confirmButton.className = `btn ${btnClass}`;
+                confirmButton.innerHTML = btnText;
+            }
+
+            window.showConfirmModal = function(message, callback, options = {}) {
+                confirmAction = typeof callback === 'function' ? callback : null;
+                confirmMessage.textContent = message || 'Are you sure you want to proceed?';
+
+                const titleText = options.title || 'Confirm Action';
+                confirmTitle.innerHTML = `<i class="fa-solid fa-circle-question me-2"></i>${titleText}`;
+
+                const btnClass = options.btnClass || 'btn-danger';
+                const btnText = options.btnText || '<i class="fa-solid fa-check me-1"></i>Yes, Continue';
+                setConfirmButton(btnClass, btnText);
+
+                confirmForm.onsubmit = function (e) {
+                    if (confirmAction) {
+                        e.preventDefault();
+                    }
+                };
+
+                confirmModalInstance.show();
+            };
+
+            confirmButton.addEventListener('click', function (e) {
+                if (!confirmAction) {
+                    return;
+                }
+
+                e.preventDefault();
+                const action = confirmAction;
+                confirmAction = null;
+                confirmModalInstance.hide();
+                action();
+            });
 
             // Handle all elements with class 'confirm-action'
             document.addEventListener('click', function(e) {
@@ -589,20 +648,16 @@
 
                 const url = trigger.dataset.url;
                 const message = trigger.dataset.message || 'Are you sure you want to proceed?';
-                const title = trigger.dataset.title || '<i class="fa-solid fa-circle-question me-2"></i>Confirm Action';
+                const title = trigger.dataset.title || 'Confirm Action';
                 const btnClass = trigger.dataset.btnClass || 'btn-success';
                 const btnText = trigger.dataset.btnText || '<i class="fa-solid fa-check me-1"></i>Yes, Confirm';
 
-                // Update modal content
+                confirmAction = null;
                 confirmMessage.textContent = message;
-                confirmTitle.innerHTML = title;
+                confirmTitle.innerHTML = `<i class="fa-solid fa-circle-question me-2"></i>${title}`;
                 confirmForm.action = url;
-                
-                // Update button styling
-                confirmButton.className = 'btn ' + btnClass;
-                confirmButton.innerHTML = btnText;
-
-                // Show modal
+                confirmForm.onsubmit = null;
+                setConfirmButton(btnClass, btnText);
                 confirmModalInstance.show();
             });
         });
@@ -682,6 +737,81 @@
 
             return toast;
         };
+    </script>
+
+    <script>
+        (() => {
+            let systemModalInstance = null;
+
+            const typeMap = {
+                success: {
+                    headerClass: 'bg-success',
+                    icon: 'fa-circle-check',
+                    title: 'Success',
+                },
+                warning: {
+                    headerClass: 'bg-warning',
+                    icon: 'fa-triangle-exclamation',
+                    title: 'Warning',
+                },
+                info: {
+                    headerClass: 'bg-info',
+                    icon: 'fa-circle-info',
+                    title: 'Information',
+                },
+                error: {
+                    headerClass: 'bg-danger',
+                    icon: 'fa-circle-exclamation',
+                    title: 'Error',
+                },
+            };
+
+            function getSystemModalInstance() {
+                const modalEl = document.getElementById('systemMessageModal');
+                if (!modalEl) {
+                    return null;
+                }
+
+                if (!systemModalInstance) {
+                    systemModalInstance = new bootstrap.Modal(modalEl);
+                }
+
+                return systemModalInstance;
+            }
+
+            window.showSystemModal = function(message, type = 'error') {
+                const modal = getSystemModalInstance();
+                const header = document.getElementById('systemMessageHeader');
+                const title = document.getElementById('systemMessageTitleText');
+                const body = document.getElementById('systemMessageBody');
+                const icon = document.getElementById('systemMessageIcon');
+
+                if (!modal || !header || !title || !body || !icon) {
+                    return;
+                }
+
+                const normalizedType = String(type || 'error').toLowerCase();
+                const style = typeMap[normalizedType] || typeMap.error;
+
+                header.classList.remove('bg-success', 'bg-warning', 'bg-info', 'bg-danger');
+                header.classList.add(style.headerClass);
+
+                title.textContent = style.title;
+                body.textContent = message || 'No message provided.';
+
+                icon.classList.remove('fa-circle-check', 'fa-triangle-exclamation', 'fa-circle-info', 'fa-circle-exclamation');
+                icon.classList.add(style.icon);
+
+                modal.show();
+            };
+
+            window.closeSystemModal = function() {
+                const modal = getSystemModalInstance();
+                if (modal) {
+                    modal.hide();
+                }
+            };
+        })();
     </script>
 
     @stack('scripts')

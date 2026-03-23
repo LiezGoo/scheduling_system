@@ -384,33 +384,13 @@
         }
 
         function deleteConfiguration(configId, facultyName) {
-            const confirmModalEl = document.getElementById('confirmActionModal');
-            const confirmTitle = document.getElementById('confirmModalTitle');
-            const confirmMessage = document.getElementById('confirmModalMessage');
-            const confirmButton = document.getElementById('confirmActionButton');
-            const confirmForm = document.getElementById('confirmActionForm');
-
-            if (!confirmModalEl || !confirmTitle || !confirmMessage || !confirmButton || !confirmForm) {
-                if (confirm(`Are you sure you want to delete the workload configuration for ${facultyName}? This action cannot be undone.`)) {
-                    performDelete(configId);
-                }
-                return;
-            }
-
-            const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
-
-            confirmTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-2"></i>Confirm Deletion';
-            confirmMessage.textContent = `Are you sure you want to delete the workload configuration for ${facultyName}? This action cannot be undone.`;
-            confirmButton.className = 'btn btn-maroon';
-            confirmButton.innerHTML = '<i class="fa-solid fa-trash me-1"></i>Delete';
-
-            confirmForm.onsubmit = function(e) {
-                e.preventDefault();
-                confirmModal.hide();
+            showConfirmModal(`Are you sure you want to delete the workload configuration for ${facultyName}? This action cannot be undone.`, function() {
                 performDelete(configId);
-            };
-
-            confirmModal.show();
+            }, {
+                title: 'Confirm Deletion',
+                btnClass: 'btn-danger',
+                btnText: '<i class="fa-solid fa-trash me-1"></i>Delete'
+            });
         }
 
         function performDelete(configId) {

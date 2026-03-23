@@ -139,6 +139,8 @@ class ScheduleGenerationService
                 $blockSection,
                 $yearLevel,
                 $semester,
+                $academicYearId,
+                $programId,
                 $progressCallback
             );
 

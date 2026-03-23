@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('page-title', 'Review Schedule')
+@section('page-title', 'View Schedule')
 
 @push('styles')
     <style>
@@ -94,11 +94,11 @@
     <div class="container-fluid py-4">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
             <div>
-                <p class="text-muted mb-0">Review schedule details before approval.</p>
+                <p class="text-muted mb-0">View schedule details and submit adjustment requests if needed.</p>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge {{ $schedule->getStatusBadgeClass() }}">{{ $schedule->status_label }}</span>
-                <a href="{{ route('department-head.schedules.index') }}" class="btn btn-outline-secondary">
+                <a href="{{ route('program-head.schedules.index') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-arrow-left me-2"></i>Back
                 </a>
             </div>
@@ -114,6 +114,7 @@
             </div>
         @endif
 
+        <!-- Schedule Details Card -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <div class="row g-3">
@@ -143,7 +144,16 @@
                     </div>
                     <div class="col-md-4">
                         <div class="text-muted small">Submitted At</div>
-                        <div class="fw-semibold">{{ optional($schedule->submitted_at)->format('M d, Y h:i A') ?? '—' }}
+                        <div class="fw-semibold">{{ optional($schedule->submitted_at)->format('M d, Y h:i A') ?? '—' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">Fitness Score</div>
+                        <div class="fw-semibold">
+                            @if ($schedule->fitness_score)
+                                {{ number_format($schedule->fitness_score, 2) }}
+                            @else
+                                No data
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -168,6 +178,7 @@
             $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         @endphp
 
+        <!-- Timetable Card -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-light">
                 <strong>Weekly Timetable</strong>
@@ -232,51 +243,65 @@
             </div>
         </div>
 
+        <!-- Adjustment Request Section -->
         <div class="card shadow-sm">
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <div class="text-muted small">
-                        Approve to publish the schedule or reject with remarks for revision.
+                    <div>
+                        <h6 class="mb-2">Request Schedule Adjustment</h6>
+                        <p class="text-muted small mb-0">
+                            Submit an adjustment request if you would like any changes to this schedule. The department head will review your request.
+                        </p>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <form method="POST" action="{{ route('department-head.schedules.approve', $schedule) }}">
-                            @csrf
-                            <button type="submit" class="btn btn-success">
-                                <i class="fa-solid fa-check me-2"></i>Approve
-                            </button>
-                        </form>
-                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
-                            data-bs-target="#rejectScheduleModal">
-                            <i class="fa-solid fa-xmark me-2"></i>Reject
+                    @if ($schedule->status === \App\Models\Schedule::STATUS_FINALIZED)
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#adjustmentRequestModal">
+                            <i class="fa-solid fa-plus me-2"></i>Submit Request
                         </button>
-                    </div>
+                    @else
+                        <span class="badge bg-secondary">
+                            Schedule not available for adjustments (Status: {{ $schedule->status_label }})
+                        </span>
+                    @endif
                 </div>
             </div>
         </div>
 
-        <!-- Reject Modal -->
-        <div class="modal fade" id="rejectScheduleModal" tabindex="-1" aria-labelledby="rejectScheduleLabel"
-            aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="rejectScheduleLabel">Reject Schedule</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <!-- Adjustment Request Modal -->
+        @if ($schedule->status === \App\Models\Schedule::STATUS_FINALIZED)
+            <div class="modal fade" id="adjustmentRequestModal" tabindex="-1" aria-labelledby="adjustmentRequestLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="adjustmentRequestLabel">Submit Schedule Adjustment Request</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form method="POST" action="{{ route('program-head.schedules.adjustments.store', $schedule) }}">
+                            @csrf
+                            <div class="modal-body">
+                                <label for="adjustment_reason" class="form-label">Reason for Adjustment (required)</label>
+                                <textarea class="form-control @error('adjustment_reason') is-invalid @enderror" 
+                                    id="adjustment_reason" name="adjustment_reason" rows="4" required
+                                    placeholder="Describe the changes you would like to make to this schedule."></textarea>
+                                @error('adjustment_reason')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+
+                                <label for="adjustment_details" class="form-label mt-3">Additional Details (optional)</label>
+                                <textarea class="form-control @error('adjustment_details') is-invalid @enderror" 
+                                    id="adjustment_details" name="adjustment_details" rows="3"
+                                    placeholder="Provide any additional context or specific items affected."></textarea>
+                                @error('adjustment_details')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Submit Request</button>
+                            </div>
+                        </form>
                     </div>
-                    <form method="POST" action="{{ route('department-head.schedules.reject', $schedule) }}">
-                        @csrf
-                        <div class="modal-body">
-                            <label for="review_remarks" class="form-label">Remarks (required)</label>
-                            <textarea class="form-control" id="review_remarks" name="review_remarks" rows="4" required
-                                placeholder="Provide review remarks for rejection."></textarea>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-danger">Reject</button>
-                        </div>
-                    </form>
                 </div>
             </div>
-        </div>
+        @endif
     </div>
 @endsection

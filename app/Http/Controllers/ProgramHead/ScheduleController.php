@@ -151,9 +151,28 @@ class ScheduleController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $schedule->load(['items.subject', 'items.instructor', 'items.room.building', 'program']);
+        $schedule->load(['items.subject', 'items.instructor', 'items.room', 'program']);
 
-        return view('program-head.schedules.show', compact('schedule'));
+        // Build schedule grid for timetable visualization
+        $scheduleGrid = [];
+        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        
+        foreach ($days as $day) {
+            $scheduleGrid[$day] = [];
+        }
+
+        foreach ($schedule->items as $item) {
+            $day = strtolower($item->day_of_week);
+            $start = \Carbon\Carbon::parse($item->start_time)->format('H:i');
+            
+            if (!isset($scheduleGrid[$day][$start])) {
+                $scheduleGrid[$day][$start] = [];
+            }
+            
+            $scheduleGrid[$day][$start][] = $item;
+        }
+
+        return view('program-head.schedules.show', compact('schedule', 'scheduleGrid'));
     }
 
     /**

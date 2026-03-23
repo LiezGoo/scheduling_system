@@ -93,55 +93,9 @@
             display: block;
         }
 
-        .filter-actions {
-            display: flex;
-            gap: 0.75rem;
-            align-items: flex-end;
-        }
-
-        .btn-apply-filters {
-            background-color: #8B3A3A;
-            color: #fff;
-            border: none;
-            height: 38px;
-            padding: 0 1.5rem;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border-radius: 0.5rem;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            white-space: nowrap;
-        }
-
-        .btn-apply-filters:hover {
-            background-color: #6f2d2d;
-            box-shadow: 0 4px 12px rgba(139, 58, 58, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .btn-reset-filters {
-            background-color: #f8f9fa;
-            color: #495057;
-            border: 1px solid #dee2e6;
-            height: 38px;
-            padding: 0 1.5rem;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border-radius: 0.5rem;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            white-space: nowrap;
-            text-decoration: none;
-        }
-
-        .btn-reset-filters:hover {
-            background-color: #e9ecef;
-            border-color: #adb5bd;
-            color: #212529;
+        #schedule-table-container.is-loading {
+            opacity: 0.6;
+            transition: opacity 0.2s ease;
         }
 
         .btn-generate-schedule {
@@ -246,10 +200,9 @@
 
         .table thead th {
             font-weight: 700;
-            color: #495057;
+            color: #000000;
             padding: 1rem;
             font-size: 0.85rem;
-            text-transform: uppercase;
             letter-spacing: 0.5px;
             border: none;
         }
@@ -297,75 +250,6 @@
         .badge.bg-danger {
             background-color: #dc3545 !important;
             color: #fff;
-        }
-
-        .btn-group-sm .btn {
-            padding: 0.4rem 0.75rem;
-            font-size: 0.85rem;
-            border-radius: 0.4rem;
-            transition: all 0.2s ease;
-            border: 1px solid #dee2e6;
-        }
-
-        .btn-outline-primary {
-            color: #0056b3;
-            border-color: #0056b3;
-        }
-
-        .btn-outline-primary:hover {
-            background-color: #0056b3;
-            border-color: #0056b3;
-            color: #fff;
-        }
-
-        .btn-outline-warning {
-            color: #ff9800;
-            border-color: #ff9800;
-        }
-
-        .btn-outline-warning:hover {
-            background-color: #ff9800;
-            border-color: #ff9800;
-            color: #fff;
-        }
-
-        .btn-outline-success {
-            color: #28a745;
-            border-color: #28a745;
-        }
-
-        .btn-outline-success:hover {
-            background-color: #28a745;
-            border-color: #28a745;
-            color: #fff;
-        }
-
-        .btn-group-sm .btn[title] {
-            position: relative;
-        }
-
-        .pagination {
-            margin: 0;
-            padding: 1rem;
-            border-top: 1px solid #e9ecef;
-        }
-
-        .pagination .page-link {
-            color: #8B3A3A;
-            border-color: #dee2e6;
-            margin: 0 0.25rem;
-            border-radius: 0.4rem;
-        }
-
-        .pagination .page-link:hover {
-            color: #6f2d2d;
-            background-color: #f8f9fa;
-            border-color: #8B3A3A;
-        }
-
-        .pagination .page-item.active .page-link {
-            background-color: #8B3A3A;
-            border-color: #8B3A3A;
         }
 
         /* Alerts */
@@ -416,17 +300,6 @@
 
             .filter-card .card-body {
                 padding: 1.5rem !important;
-            }
-
-            .filter-actions {
-                flex-direction: column;
-                width: 100%;
-            }
-
-            .btn-apply-filters,
-            .btn-reset-filters {
-                width: 100%;
-                justify-content: center;
             }
 
             .btn-generate-schedule {
@@ -483,10 +356,10 @@
     <!-- Filter Section -->
     <div class="filter-card">
         <div class="card-body p-4">
-            <form method="GET" action="{{ route('department-head.schedules.index') }}" class="row g-3">
+            <form method="GET" action="{{ route('department-head.schedules.index') }}" class="row g-3" id="scheduleFilterForm">
                 <div class="col-lg-2 col-md-3 col-sm-6">
-                    <label for="program_id" class="form-label">Program</label>
-                    <select class="form-select" id="program_id" name="program_id">
+                    <label for="filter_program" class="form-label">Program</label>
+                    <select class="form-select" id="filter_program" name="program_id">
                         <option value="">All Programs</option>
                         @foreach ($programs as $program)
                             <option value="{{ $program->id }}" {{ request('program_id') == $program->id ? 'selected' : '' }}>
@@ -497,8 +370,8 @@
                 </div>
 
                 <div class="col-lg-2 col-md-3 col-sm-6">
-                    <label for="academic_year_id" class="form-label">Academic Year</label>
-                    <select class="form-select" id="academic_year_id" name="academic_year_id">
+                    <label for="filter_academic_year" class="form-label">Academic Year</label>
+                    <select class="form-select" id="filter_academic_year" name="academic_year_id">
                         <option value="">All Years</option>
                         @foreach ($academicYears as $year)
                             <option value="{{ $year->id }}" {{ request('academic_year_id') == $year->id ? 'selected' : '' }}>
@@ -509,8 +382,8 @@
                 </div>
 
                 <div class="col-lg-2 col-md-3 col-sm-6">
-                    <label for="semester" class="form-label">Semester</label>
-                    <select class="form-select" id="semester" name="semester">
+                    <label for="filter_semester" class="form-label">Semester</label>
+                    <select class="form-select" id="filter_semester" name="semester">
                         <option value="">All Semesters</option>
                         @foreach ($semesters as $semester)
                             <option value="{{ $semester }}" {{ request('semester') == $semester ? 'selected' : '' }}>
@@ -521,8 +394,8 @@
                 </div>
 
                 <div class="col-lg-2 col-md-3 col-sm-6">
-                    <label for="year_level" class="form-label">Year Level</label>
-                    <select class="form-select" id="year_level" name="year_level">
+                    <label for="filter_year_level" class="form-label">Year Level</label>
+                    <select class="form-select" id="filter_year_level" name="year_level">
                         <option value="">All Levels</option>
                         @foreach ($yearLevelOptions as $yearLevelOption)
                             <option value="{{ $yearLevelOption['value'] }}" {{ request('year_level') == $yearLevelOption['value'] ? 'selected' : '' }}>
@@ -533,124 +406,23 @@
                 </div>
 
                 <div class="col-lg-2 col-md-3 col-sm-6">
-                    <label for="status" class="form-label">Status</label>
-                    <select class="form-select" id="status" name="status">
+                    <label for="filter_status" class="form-label">Status</label>
+                    <select class="form-select" id="filter_status" name="status">
                         <option value="">All Status</option>
                         <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
                         <option value="generated" {{ request('status') == 'generated' ? 'selected' : '' }}>Generated</option>
                         <option value="finalized" {{ request('status') == 'finalized' ? 'selected' : '' }}>Finalized</option>
                     </select>
                 </div>
-
-                <div class="col-lg-2 col-md-3 col-sm-6">
-                    <label class="form-label" style="opacity: 0;">Action</label>
-                    <div class="filter-actions">
-                        <button type="submit" class="btn-apply-filters">
-                            <i class="fas fa-search"></i>Apply Filters
-                        </button>
-                    </div>
-                </div>
             </form>
-
-            <!-- Reset Filters Option -->
-            @if (request()->anyFilled(['program_id', 'academic_year_id', 'semester', 'year_level', 'status']))
-                <div class="mt-3">
-                    <a href="{{ route('department-head.schedules.index') }}" class="btn-reset-filters">
-                        <i class="fas fa-times-circle"></i>Clear All Filters
-                    </a>
-                </div>
-            @endif
         </div>
     </div>
 
     <!-- Content Section -->
     <div class="content-card">
-        @if ($schedules->isEmpty())
-            <!-- Empty State -->
-            <div class="empty-state">
-                <i class="fas fa-calendar-times empty-state-icon"></i>
-                <h2 class="empty-state-title">No Schedules Found</h2>
-                <p class="empty-state-text">No schedules match the selected filters.</p>
-                <div class="empty-state-actions">
-                    @if (request()->anyFilled(['program_id', 'academic_year_id', 'semester', 'year_level', 'status']))
-                        <a href="{{ route('department-head.schedules.index') }}" class="btn-reset-filters">
-                            <i class="fas fa-times-circle"></i>Clear Filters
-                        </a>
-                    @endif
-                </div>
-            </div>
-        @else
-            <!-- Schedules Table -->
-            <div class="table-wrapper">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead>
-                        <tr>
-                            <th>Program</th>
-                            <th>Academic Year</th>
-                            <th>Semester</th>
-                            <th>Year Level</th>
-                            <th>Block</th>
-                            <th>Status</th>
-                            <th>Created By</th>
-                            <th>Created At</th>
-                            <th class="text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($schedules as $schedule)
-                            <tr>
-                                <td class="fw-semibold">{{ $schedule->program->program_name ?? 'N/A' }}</td>
-                                <td>{{ $schedule->academic_year ?? 'N/A' }}</td>
-                                <td>{{ $schedule->semester ?? 'N/A' }}</td>
-                                <td>{{ $schedule->year_level ? $schedule->year_level . ' Year' : 'N/A' }}</td>
-                                <td>{{ $schedule->block ?? 'N/A' }}</td>
-                                <td>
-                                    @php($status = strtolower($schedule->status ?? 'draft'))
-                                    @if ($status === 'finalized')
-                                        <span class="badge bg-success">Finalized</span>
-                                    @elseif ($status === 'generated')
-                                        <span class="badge bg-info">Generated</span>
-                                    @else
-                                        <span class="badge bg-secondary">Draft</span>
-                                    @endif
-                                </td>
-                                <td>{{ $schedule->creator->first_name ?? 'N/A' }} {{ $schedule->creator->last_name ?? '' }}</td>
-                                <td>
-                                    <span title="{{ optional($schedule->created_at)->format('M d, Y h:i A') }}">
-                                        {{ optional($schedule->created_at)->format('M d, Y') }}
-                                    </span>
-                                </td>
-                                <td class="text-center">
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <a href="{{ route('department-head.schedules.show', $schedule) }}" class="btn btn-outline-primary" title="View Schedule">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        @if (in_array($status, ['draft', 'generated']))
-                                            <a href="{{ route('department-head.schedules.edit', $schedule) }}" class="btn btn-outline-warning" title="Edit Schedule">
-                                                <i class="fas fa-pen"></i>
-                                            </a>
-                                            <form method="POST" action="{{ route('department-head.schedules.finalize', $schedule) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to finalize and publish this schedule?');">
-                                                @csrf
-                                                <button type="submit" class="btn btn-outline-success" title="Finalize & Publish">
-                                                    <i class="fas fa-upload"></i>
-                                                </button>
-                                            </form>
-                                        @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            @if ($schedules->hasPages())
-                <div class="pagination">
-                    {{ $schedules->withQueryString()->links() }}
-                </div>
-            @endif
-        @endif
+        <div id="schedule-table-container">
+            @include('department-head.schedules.partials.table')
+        </div>
     </div>
 </div>
 
@@ -661,6 +433,99 @@
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        const filterForm = document.getElementById('scheduleFilterForm');
+        const tableContainer = document.getElementById('schedule-table-container');
+        const filterIds = [
+            'filter_program',
+            'filter_academic_year',
+            'filter_semester',
+            'filter_year_level',
+            'filter_status'
+        ];
+        let debounceTimer;
+
+        const buildFilterUrl = () => {
+            const params = new URLSearchParams(new FormData(filterForm));
+            params.delete('page');
+            const query = params.toString();
+            return `${filterForm.action}${query ? '?' + query : ''}`;
+        };
+
+        const applyFilters = async (url = null) => {
+            const targetUrl = url || buildFilterUrl();
+            tableContainer.classList.add('is-loading');
+
+            try {
+                const response = await fetch(targetUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                tableContainer.innerHTML = await response.text();
+                window.history.replaceState({}, '', targetUrl);
+            } catch (error) {
+                console.error('Filter error:', error);
+            } finally {
+                tableContainer.classList.remove('is-loading');
+            }
+        };
+
+        filterIds.forEach((id) => {
+            const element = document.getElementById(id);
+            if (!element) return;
+
+            element.addEventListener('change', function () {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => applyFilters(), 300);
+            });
+        });
+
+        document.addEventListener('click', function (event) {
+            const paginationLink = event.target.closest('#schedule-table-container .pagination a.page-link');
+            if (!paginationLink) return;
+
+            event.preventDefault();
+            applyFilters(paginationLink.href);
+        });
+
+        document.addEventListener('change', function (event) {
+            const perPageSelect = event.target.closest('#schedule-table-container .pagination-per-page-select');
+            if (!perPageSelect) return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', perPageSelect.value);
+            url.searchParams.set('page', '1');
+            applyFilters(url.toString());
+        }, true);
+
+        // Handle schedule delete via global confirmation modal (delegated for AJAX updates)
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('.schedule-delete-btn');
+            if (!button) return;
+
+            const id = button.getAttribute('data-id');
+            const message = button.getAttribute('data-message') || 'Delete this schedule?';
+
+            showConfirmModal(message, function () {
+                const deleteForm = document.getElementById('delete-form-' + id);
+                if (deleteForm) {
+                    deleteForm.submit();
+                }
+            }, {
+                title: 'Confirm Delete',
+                btnClass: 'btn-danger',
+                btnText: '<i class="fa-solid fa-trash me-1"></i>Delete'
+            });
         });
 
         // Close alerts after 5 seconds

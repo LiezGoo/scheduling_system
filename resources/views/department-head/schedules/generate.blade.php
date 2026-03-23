@@ -8,11 +8,6 @@
         --maroon: #800000;
         --maroon-dark: #600000;
         --maroon-light: rgba(128, 0, 0, 0.05);
-        --grid-border: #e9ecef;
-        --lecture-blue: #0d6efd;
-        --lecture-blue-dark: #0a58ca;
-        --lab-green: #28a745;
-        --lab-green-dark: #1e7e34;
     }
 
     .card-maroon {
@@ -37,113 +32,6 @@
         transform: translateY(-1px);
     }
 
-    .schedule-grid-container {
-        background: white;
-        border-radius: 8px;
-        overflow: visible; /* FIXED: was 'hidden', clipped multi-hour items */
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-
-    /* Wrapper that holds table + overlay */
-    .grid-wrapper {
-        position: relative;
-    }
-
-    .schedule-table {
-        table-layout: fixed;
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 0;
-    }
-
-    .schedule-table th {
-        background-color: #f8f9fa;
-        color: #495057;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.5px;
-        padding: 12px 8px;
-        text-align: center;
-        border: 1px solid var(--grid-border);
-    }
-
-    .time-column {
-        width: 80px;
-        background-color: #f8f9fa;
-        font-weight: 600;
-        font-size: 0.7rem;
-        color: #6c757d;
-        text-align: center;
-        vertical-align: middle;
-        border-right: 2px solid var(--grid-border);
-    }
-
-    .schedule-slot {
-        height: 80px;
-        border: 1px solid var(--grid-border);
-        padding: 0;
-        vertical-align: top;
-        transition: background-color 0.2s;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .schedule-slot:hover {
-        background-color: var(--maroon-light);
-    }
-
-    /* Overlay — no bottom: so items are never clipped vertically */
-    #scheduleOverlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        pointer-events: none;
-        z-index: 5;
-    }
-
-    .schedule-item {
-        background: linear-gradient(135deg, var(--lecture-blue), var(--lecture-blue-dark));
-        color: white;
-        padding: 6px 8px;
-        border-radius: 4px;
-        font-size: 0.65rem;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        border-left: 4px solid rgba(255,255,255,0.35);
-        cursor: help;
-        animation: fadeIn 0.3s ease-out;
-        position: absolute;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        pointer-events: all;
-        overflow: hidden;
-        box-sizing: border-box;
-    }
-
-    .schedule-item.lab {
-        background: linear-gradient(135deg, var(--lab-green), var(--lab-green-dark));
-    }
-
-    .lecture-badge {
-        background: rgba(13, 110, 253, 0.12);
-        color: var(--lecture-blue-dark);
-        border: 1px solid rgba(13, 110, 253, 0.25);
-    }
-
-    .lab-badge {
-        background: rgba(40, 167, 69, 0.12);
-        color: var(--lab-green-dark);
-        border: 1px solid rgba(40, 167, 69, 0.25);
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to   { opacity: 1; transform: scale(1); }
-    }
-
     .form-label-custom {
         font-size: 0.85rem;
         font-weight: 600;
@@ -156,49 +44,107 @@
         box-shadow: 0 0 0 0.2rem var(--maroon-light);
     }
 
-    .legend-indicator {
-        width: 12px;
-        height: 12px;
-        border-radius: 3px;
-        display: inline-block;
-        margin-right: 6px;
-    }
-
     #tableViewContainer {
         overflow-x: auto;
     }
 
-    #scheduleReviewTable {
+    #universityTimetable {
         width: 100%;
-        min-width: 860px;
+        min-width: 980px;
         table-layout: fixed;
         margin-bottom: 0;
+        border-collapse: collapse;
     }
 
-    #scheduleReviewTable th,
-    #scheduleReviewTable td {
+    #universityTimetable th,
+    #universityTimetable td {
         vertical-align: middle;
+        border: 1px solid #d8dce0;
+        padding: 10px 8px;
     }
 
-    #scheduleReviewTable th:nth-child(1),
-    #scheduleReviewTable td:nth-child(1) { width: 52px; text-align: center; }
-    #scheduleReviewTable th:nth-child(2),
-    #scheduleReviewTable td:nth-child(2) { width: 240px; }
-    #scheduleReviewTable th:nth-child(3),
-    #scheduleReviewTable td:nth-child(3) { width: 90px; }
-    #scheduleReviewTable th:nth-child(4),
-    #scheduleReviewTable td:nth-child(4) { width: 150px; white-space: nowrap; }
-    #scheduleReviewTable th:nth-child(5),
-    #scheduleReviewTable td:nth-child(5) { width: 180px; }
-    #scheduleReviewTable th:nth-child(6),
-    #scheduleReviewTable td:nth-child(6) { width: 120px; }
-    #scheduleReviewTable th:nth-child(7),
-    #scheduleReviewTable td:nth-child(7) { width: 90px; text-align: center; }
+    .uni-meta-row th {
+        background: #f8f9fb;
+        color: #4b5563;
+        font-size: 0.72rem;
+        letter-spacing: 0.2px;
+        text-transform: uppercase;
+        font-weight: 700;
+        text-align: center;
+    }
 
-    .schedule-table-subject,
-    .schedule-table-instructor {
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .uni-header-row th {
+        background: #edf1f5;
+        color: #1f2937;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .uni-time-col {
+        width: 120px;
+        background: #f8f9fa;
+        color: #4b5563;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .uni-break-row td {
+        background: #e9ecef;
+        color: #374151;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 9px 8px;
+    }
+
+    .uni-cell {
+        text-align: center;
+        font-size: 0.72rem;
+        min-height: 68px;
+    }
+
+    .uni-cell-empty {
+        background: #fcfcfd;
+    }
+
+    .uni-cell-empty .placeholder {
+        color: #c0c7cf;
+        font-size: 0.68rem;
+        letter-spacing: 0.3px;
+    }
+
+    .uni-subject {
+        font-weight: 800;
+        font-size: 0.76rem;
+        color: #1f2937;
+        margin-bottom: 2px;
+    }
+
+    .uni-faculty,
+    .uni-room,
+    .uni-time {
+        display: block;
+        color: #374151;
+        font-size: 0.67rem;
+        line-height: 1.25;
+    }
+
+    .uni-lecture {
+        background: #e9f4ff;
+    }
+
+    .uni-lab {
+        background: #eaf8ee;
+    }
+
+    .uni-nstp {
+        background: #fff0dd;
     }
 
     /* ========== PRINT STYLES ========== */
@@ -221,16 +167,6 @@
             border: none !important;
         }
 
-        .schedule-grid-container { box-shadow: none !important; }
-
-        .schedule-item {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            animation: none !important;
-        }
-
-        .schedule-slot:hover { background-color: transparent !important; }
-
         #tableViewContainer { overflow: visible !important; }
 
         .table { font-size: 0.75rem; }
@@ -251,15 +187,15 @@
                     </h5>
                     <hr class="mb-4">
 
-                    <form id="scheduleConfigForm">
+                    <form id="scheduleConfigForm" autocomplete="off">
                         @csrf
 
                         <div class="mb-3">
                             <label class="form-label-custom">Program</label>
                             <select class="form-select focus-maroon" id="programSelect" name="program_id" required>
-                                <option value="">Select Program</option>
+                                <option value="" selected>Select Program</option>
                                 @foreach ($programs as $program)
-                                    <option value="{{ $program->id }}" {{ (string) old('program_id', $defaultProgramId ?? '') === (string) $program->id ? 'selected' : '' }}>{{ $program->program_name }}</option>
+                                    <option value="{{ $program->id }}" {{ (string) ($defaultProgramId ?? '') === (string) $program->id ? 'selected' : '' }}>{{ $program->program_name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -267,9 +203,9 @@
                         <div class="mb-3">
                             <label class="form-label-custom">Academic Year</label>
                             <select class="form-select focus-maroon" id="academicYear" name="academic_year_id" required>
-                                <option value="">Select Academic Year</option>
+                                <option value="" selected>Select Academic Year</option>
                                 @foreach ($academicYears as $year)
-                                    <option value="{{ $year->id }}" {{ (string) old('academic_year_id', $defaultAcademicYearId ?? '') === (string) $year->id ? 'selected' : '' }}>{{ $year->name }}</option>
+                                    <option value="{{ $year->id }}" {{ (string) ($defaultAcademicYearId ?? '') === (string) $year->id ? 'selected' : '' }}>{{ $year->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -277,9 +213,9 @@
                         <div class="mb-3">
                             <label class="form-label-custom">Semester</label>
                             <select class="form-select focus-maroon" id="semester" name="semester_id" required>
-                                <option value="">Select Semester</option>
+                                <option value="" selected>Select Semester</option>
                                 @foreach ($semesters as $semester)
-                                    <option value="{{ $semester->id }}" {{ (string) old('semester_id', $defaultSemesterId ?? '') === (string) $semester->id ? 'selected' : '' }}>{{ $semester->name }}</option>
+                                    <option value="{{ $semester->id }}" {{ (string) ($defaultSemesterId ?? '') === (string) $semester->id ? 'selected' : '' }}>{{ $semester->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -287,9 +223,9 @@
                         <div class="mb-3">
                             <label class="form-label-custom">Year Level</label>
                             <select class="form-select focus-maroon" id="yearLevel" name="year_level_id" required>
-                                <option value="">Select Year Level</option>
+                                <option value="" selected>Select Year Level</option>
                                 @foreach ($yearLevels as $yearLevel)
-                                    <option value="{{ $yearLevel->id }}" {{ (string) old('year_level_id', $defaultYearLevelId ?? '') === (string) $yearLevel->id ? 'selected' : '' }}>
+                                    <option value="{{ $yearLevel->id }}" {{ (string) ($defaultYearLevelId ?? '') === (string) $yearLevel->id ? 'selected' : '' }}>
                                         {{ $yearLevel->name }}
                                     </option>
                                 @endforeach
@@ -326,15 +262,6 @@
                     </h5>
 
                     <div class="d-flex align-items-center gap-2">
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-maroon active" id="btnGridView" onclick="switchView('grid')">
-                                <i class="fas fa-th me-1"></i> Grid
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="btnTableView" onclick="switchView('table')">
-                                <i class="fas fa-list me-1"></i> Table
-                            </button>
-                        </div>
-
                         <div id="blockSelectorContainer" class="d-none">
                             <div class="input-group input-group-sm">
                                 <label class="input-group-text bg-light border-0 small fw-bold">BLOCK</label>
@@ -345,67 +272,37 @@
                 </div>
 
                 <div class="card-body p-0">
-                    <div class="schedule-grid-container">
-                        <div class="grid-wrapper">
-                            <table class="table schedule-table" id="scheduleGridTable">
-                                <thead>
-                                    <tr>
-                                        <th class="time-column">TIME</th>
-                                        <th>MONDAY</th>
-                                        <th>TUESDAY</th>
-                                        <th>WEDNESDAY</th>
-                                        <th>THURSDAY</th>
-                                        <th>FRIDAY</th>
-                                        <th>SATURDAY</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="scheduleGridBody">
-                                    @php
-                                        $timeSlots = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
-                                    @endphp
-                                    @foreach ($timeSlots as $time)
-                                    <tr>
-                                        <td class="time-column">{{ $time }}</td>
-                                        @for ($day = 0; $day < 6; $day++)
-                                        <td class="schedule-slot" data-day="{{ $day }}" data-time="{{ $time }}"></td>
-                                        @endfor
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                            <!-- Overlay: all schedule items are absolutely positioned here -->
-                            <div id="scheduleOverlay"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Table View -->
-                <div id="tableViewContainer" class="d-none">
-                    <table class="table table-hover table-sm mb-0 align-middle" id="scheduleReviewTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">#</th>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">Subject</th>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">Day</th>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">Time</th>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">Instructor</th>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">Room</th>
-                                <th class="px-3 py-2 small fw-bold text-uppercase text-muted">Type</th>
+                    <div id="tableViewContainer">
+                    <table class="table mb-0" id="universityTimetable">
+                        <thead>
+                            <tr class="uni-meta-row">
+                                <th colspan="7">
+                                    <span class="me-3">Flag Raising: Monday 7:15 AM</span>
+                                    <span>Flag Lowering: Friday 4:45 PM</span>
+                                </th>
+                            </tr>
+                            <tr class="uni-header-row">
+                                <th class="uni-time-col">Time</th>
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                                <th>Saturday</th>
                             </tr>
                         </thead>
-                        <tbody id="scheduleTableBody">
-                            <tr><td colspan="7" class="text-center py-4 text-muted">No data yet.</td></tr>
+                        <tbody id="universityTimetableBody">
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No data yet.</td>
+                            </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
                 <div class="card-footer bg-white border-0 py-3">
                     <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex gap-4" id="gridLegend">
-                            <small class="d-flex align-items-center"><span class="legend-indicator bg-primary"></span> Lecture</small>
-                            <small class="d-flex align-items-center"><span class="legend-indicator bg-success"></span> Laboratory</small>
-                        </div>
-                        <div id="tableSummary" class="d-none small text-muted"></div>
+                        <div id="tableSummary" class="small text-muted"></div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
                                 <i class="fas fa-redo me-1"></i> Reset
@@ -455,20 +352,7 @@
 @push('scripts')
 <script>
     let allGeneratedSchedules = [];
-    const selectedSemesterId = '{{ (string) old('semester_id', $defaultSemesterId ?? '') }}';
-
-    const GRID_START_HOUR = 7;   // 07:00 is the first row
-    const ROW_HEIGHT      = 80;  // px — must match .schedule-slot height in CSS
-    const ITEM_INSET      = 3;   // px gap from cell edges
-
-    const DAY_MAP = {
-        'monday': 0,    'mon': 0,
-        'tuesday': 1,   'tue': 1,
-        'wednesday': 2, 'wed': 2,
-        'thursday': 3,  'thu': 3,
-        'friday': 4,    'fri': 4,
-        'saturday': 5,  'sat': 5
-    };
+    const selectedSemesterId = '{{ (string) ($defaultSemesterId ?? '') }}';
 
     async function loadSemesters(academicYearId, preferredSemesterId = '') {
         const semesterSelect = document.getElementById('semester');
@@ -525,6 +409,11 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('scheduleConfigForm');
+        if (form) {
+            form.reset();
+        }
+
         const academicYearSelect = document.getElementById('academicYear');
         if (!academicYearSelect) {
             return;
@@ -539,18 +428,24 @@
         }
     });
 
+    window.addEventListener('pageshow', () => {
+        const form = document.getElementById('scheduleConfigForm');
+        const academicYearSelect = document.getElementById('academicYear');
+        if (!form || !academicYearSelect) {
+            return;
+        }
+
+        form.reset();
+        if (academicYearSelect.value) {
+            loadSemesters(academicYearSelect.value, selectedSemesterId);
+        }
+    });
+
     /* ── helpers ─────────────────────────────────────── */
     function extractHourMinute(value) {
         const match = (value || '').toString().match(/(\d{1,2}):(\d{2})/);
         if (!match) return null;
         return { hour: parseInt(match[1], 10), minute: parseInt(match[2], 10) };
-    }
-
-    function getDurationMinutes(startValue, endValue) {
-        const s = extractHourMinute(startValue);
-        const e = extractHourMinute(endValue);
-        if (!s || !e) return 60;
-        return Math.max(30, (e.hour * 60 + e.minute) - (s.hour * 60 + s.minute));
     }
 
     // Strip seconds — handles "10:00:00" → "10:00"
@@ -603,11 +498,11 @@
                 allGeneratedSchedules = result.data.generated_schedules;
                 setupPreview(allGeneratedSchedules);
             } else {
-                alert('Generation failed: ' + (result.message || 'Error occurred'));
+                showSystemModal('Generation failed: ' + (result.message || 'Error occurred'), 'error');
             }
         } catch (err) {
             console.error(err);
-            alert('A system error occurred. Please try again.');
+            showSystemModal('A system error occurred. Please try again.', 'error');
         } finally {
             btn.disabled  = false;
             btn.innerHTML = originalText;
@@ -637,6 +532,214 @@
         });
     }
 
+    const UNIVERSITY_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const TABLE_SLOT_START_HOUR = 7;
+    const TABLE_SLOT_END_HOUR = 18;
+    const TABLE_SLOT_MINUTES = 60;
+    const NOON_BREAK_START = '12:00';
+    const NOON_BREAK_END = '13:00';
+
+    function minutesFromHHMM(value) {
+        const parsed = extractHourMinute(value);
+        if (!parsed) {
+            return null;
+        }
+
+        return parsed.hour * 60 + parsed.minute;
+    }
+
+    function overlaps(startA, endA, startB, endB) {
+        return startA < endB && endA > startB;
+    }
+
+    function toHHMM(totalMinutes) {
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    }
+
+    function formatTimeRange(start, end) {
+        return `${start}-${end}`;
+    }
+
+    function shouldRenderNoonBreak(scheduleData = []) {
+        const noonStart = minutesFromHHMM(NOON_BREAK_START);
+        const noonEnd = minutesFromHHMM(NOON_BREAK_END);
+
+        if (noonStart === null || noonEnd === null) {
+            return false;
+        }
+
+        return !(scheduleData || []).some((item) => {
+            const start = minutesFromHHMM(item.start_time);
+            const end = minutesFromHHMM(item.end_time);
+            if (start === null || end === null) {
+                return false;
+            }
+
+            return overlaps(start, end, noonStart, noonEnd);
+        });
+    }
+
+    function generateTimeSlots(scheduleData = []) {
+        const slots = [];
+        const dayStart = TABLE_SLOT_START_HOUR * 60;
+        const dayEnd = TABLE_SLOT_END_HOUR * 60;
+        const renderNoonBreak = shouldRenderNoonBreak(scheduleData);
+
+        for (let cursor = dayStart; cursor < dayEnd; cursor += TABLE_SLOT_MINUTES) {
+            const start = toHHMM(cursor);
+            const end = toHHMM(cursor + TABLE_SLOT_MINUTES);
+
+            if (renderNoonBreak && start === NOON_BREAK_START && end === NOON_BREAK_END) {
+                slots.push({
+                    type: 'break',
+                    label: 'NOON BREAK',
+                    start,
+                    end,
+                });
+                continue;
+            }
+
+            slots.push({
+                type: 'slot',
+                key: start,
+                start,
+                end,
+                label: formatTimeRange(start, end),
+            });
+        }
+
+        return slots;
+    }
+
+    function mapSchedule(scheduleData) {
+        const map = {};
+
+        (scheduleData || []).forEach((item) => {
+            const day = item?.day_of_week || '';
+            const start = fmtTime(item?.start_time || '');
+
+            if (!day || !start) {
+                return;
+            }
+
+            const key = `${day}_${start}`;
+            if (!map[key]) {
+                map[key] = item;
+            }
+        });
+
+        return map;
+    }
+
+    function calculateRowSpan(item, slotRows) {
+        const start = minutesFromHHMM(item.start_time);
+        const end = minutesFromHHMM(item.end_time);
+        if (start === null || end === null || end <= start) {
+            return 1;
+        }
+
+        let touched = 0;
+        slotRows.forEach((slot) => {
+            const slotStart = minutesFromHHMM(slot.start);
+            const slotEnd = minutesFromHHMM(slot.end);
+            if (slotStart === null || slotEnd === null) {
+                return;
+            }
+
+            if (overlaps(start, end, slotStart, slotEnd)) {
+                touched++;
+            }
+        });
+
+        return Math.max(1, touched);
+    }
+
+    function cellTypeClass(item) {
+        const subjectText = `${item.subject_display || ''} ${item.subject_name || ''} ${item.subject_code || ''}`.toLowerCase();
+        if (subjectText.includes('nstp')) {
+            return 'uni-nstp';
+        }
+
+        const classType = (item.class_type || '').toLowerCase();
+        const isLab = classType === 'laboratory'
+            || (item.room_type || '').toLowerCase().includes('lab')
+            || (item.room_name || '').toLowerCase().includes('lab');
+
+        return isLab ? 'uni-lab' : 'uni-lecture';
+    }
+
+    function renderUniversityTimetable(items) {
+        const tbody = document.getElementById('universityTimetableBody');
+        if (!tbody) {
+            return;
+        }
+
+        const timeRows = generateTimeSlots(items);
+        const slotRows = timeRows.filter((row) => row.type === 'slot');
+        const scheduleMap = mapSchedule(items);
+        const occupied = Object.fromEntries(UNIVERSITY_DAYS.map((day) => [day, 0]));
+
+        const sortedItems = [...items].sort((a, b) => {
+            const dayDiff = UNIVERSITY_DAYS.indexOf(a.day_of_week) - UNIVERSITY_DAYS.indexOf(b.day_of_week);
+            if (dayDiff !== 0) {
+                return dayDiff;
+            }
+
+            return (minutesFromHHMM(a.start_time) || 0) - (minutesFromHHMM(b.start_time) || 0);
+        });
+
+        let html = '';
+
+        timeRows.forEach((row) => {
+            if (row.type === 'break') {
+                html += `
+                    <tr class="uni-break-row">
+                        <td colspan="7"><strong>${row.label}</strong></td>
+                    </tr>
+                `;
+                return;
+            }
+
+            html += `<tr><td class="uni-time-col">${row.label}</td>`;
+
+            UNIVERSITY_DAYS.forEach((day) => {
+                if (occupied[day] > 0) {
+                    occupied[day] -= 1;
+                    return;
+                }
+
+                const key = `${day}_${row.start}`;
+                const item = scheduleMap[key];
+
+                if (item) {
+                    const subjectDisplay = item.subject_display || item.subject_code || 'N/A';
+                    const faculty = item.instructor_name || 'TBA';
+                    const room = item.room_name || 'TBA';
+                    const timeLabel = `${fmtTime(item.start_time)} - ${fmtTime(item.end_time)}`;
+                    const rowSpan = calculateRowSpan(item, slotRows);
+                    occupied[day] = Math.max(0, rowSpan - 1);
+
+                    html += `
+                        <td class="uni-cell ${cellTypeClass(item)}" rowspan="${rowSpan}">
+                            <div class="uni-subject">${subjectDisplay}</div>
+                            <span class="uni-faculty">${faculty}</span>
+                            <span class="uni-room">${room}</span>
+                            <span class="uni-time">${timeLabel}</span>
+                        </td>
+                    `;
+                } else {
+                    html += '<td class="uni-cell uni-cell-empty"><span class="placeholder">-</span></td>';
+                }
+            });
+
+            html += '</tr>';
+        });
+
+        tbody.innerHTML = html;
+    }
+
     function setupPreview(schedules) {
         document.getElementById('welcomePlaceholder').classList.add('d-none');
         document.getElementById('previewSection').classList.remove('d-none');
@@ -658,182 +761,24 @@
         document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
     }
 
-    /* ── view toggle ─────────────────────────────────── */
-    function switchView(view) {
-        const gridWrapper    = document.querySelector('.schedule-grid-container');
-        const tableContainer = document.getElementById('tableViewContainer');
-        const gridLegend     = document.getElementById('gridLegend');
-        const tableSummary   = document.getElementById('tableSummary');
-        const btnGrid        = document.getElementById('btnGridView');
-        const btnTable       = document.getElementById('btnTableView');
-
-        if (view === 'table') {
-            gridWrapper?.classList.add('d-none');
-            tableContainer.classList.remove('d-none');
-            gridLegend.classList.add('d-none');
-            tableSummary.classList.remove('d-none');
-            btnTable.classList.replace('btn-outline-secondary', 'btn-maroon');
-            btnTable.classList.add('active');
-            btnGrid.classList.replace('btn-maroon', 'btn-outline-secondary');
-            btnGrid.classList.remove('active');
-        } else {
-            gridWrapper?.classList.remove('d-none');
-            tableContainer.classList.add('d-none');
-            gridLegend.classList.remove('d-none');
-            tableSummary.classList.add('d-none');
-            btnGrid.classList.replace('btn-outline-secondary', 'btn-maroon');
-            btnGrid.classList.add('active');
-            btnTable.classList.replace('btn-maroon', 'btn-outline-secondary');
-            btnTable.classList.remove('active');
-        }
-    }
-
-    /* ── core render ─────────────────────────────────── */
+    /* ── render ──────────────────────────────────────── */
     function switchBlock(idx) {
         idx = parseInt(idx, 10);
 
-        /* ======================================================
-           GRID VIEW — overlay-based absolute positioning
-           ====================================================== */
-        const overlay = document.getElementById('scheduleOverlay');
-        overlay.innerHTML = '';
-
         const items = normalizeScheduleItems(allGeneratedSchedules[idx] || {});
-
-        // Measure the table to get column positions
-        const table       = document.getElementById('scheduleGridTable');
-        const thead       = table.querySelector('thead');
-        const headerCells = thead.querySelectorAll('th'); // [TIME, MON, TUE, WED, THU, FRI, SAT]
-        const theadHeight = thead.offsetHeight;
-
-        // Build cumulative left offsets for each day column (0 = Mon … 5 = Sat)
-        const colLefts  = [];
-        const colWidths = [];
-        let cumLeft     = headerCells[0].offsetWidth; // skip TIME column
-        for (let d = 0; d < 6; d++) {
-            const cell   = headerCells[d + 1];
-            colLefts[d]  = cumLeft;
-            colWidths[d] = cell ? cell.offsetWidth : 0;
-            cumLeft     += colWidths[d];
-        }
-
-        items.forEach((item, i) => {
-            // ── resolve day index ──────────────────────────────
-            const dayRaw = (item.day_of_week || '').toLowerCase().trim();
-            let dayIdx   = DAY_MAP[dayRaw] ?? DAY_MAP[dayRaw.substring(0, 3)] ?? null;
-            if (dayIdx === null) {
-                for (const [key, val] of Object.entries(DAY_MAP)) {
-                    if (dayRaw.includes(key)) { dayIdx = val; break; }
-                }
-            }
-            if (dayIdx === null) {
-                console.warn(`Item ${i}: Unrecognized day "${item.day_of_week}"`);
-                return;
-            }
-
-            // ── resolve times ──────────────────────────────────
-            const startParts = extractHourMinute(item.start_time || '');
-            const endParts   = extractHourMinute(item.end_time   || '');
-            if (!startParts || !endParts) {
-                console.warn(`Item ${i}: Cannot parse time "${item.start_time}" / "${item.end_time}"`);
-                return;
-            }
-
-            const durationMins = getDurationMinutes(item.start_time, item.end_time);
-            const durationHrs  = durationMins / 60;
-            const startDisplay = fmtTime(item.start_time);
-            const endDisplay   = fmtTime(item.end_time);
-
-            // ── pixel geometry ─────────────────────────────────
-            // top = thead height + rows above + minute offset within starting row + inset
-            const rowIndex = startParts.hour - GRID_START_HOUR;
-            const topPx    = theadHeight
-                           + rowIndex * ROW_HEIGHT
-                           + (startParts.minute / 60) * ROW_HEIGHT
-                           + ITEM_INSET;
-
-            // height = full duration in pixels minus only the top inset (not both sides),
-            // so the block visually fills exactly to the end-time row boundary
-            const heightPx = Math.max(24, (durationMins / 60) * ROW_HEIGHT - ITEM_INSET);
-            const leftPx   = (colLefts[dayIdx]  ?? 0) + ITEM_INSET;
-            const widthPx  = (colWidths[dayIdx] ?? 120) - ITEM_INSET * 2;
-
-            // ── type detection ─────────────────────────────────
-            const classType = (item.class_type || '').toLowerCase();
-            const isLab     = classType === 'laboratory'
-                           || (item.room_type || '').toLowerCase().includes('lab')
-                           || (item.room_name || '').toLowerCase().includes('lab');
-
-            // ── build element ──────────────────────────────────
-            const div         = document.createElement('div');
-            div.className     = `schedule-item${isLab ? ' lab' : ''}`;
-            div.style.cssText = `top:${topPx}px; left:${leftPx}px; width:${widthPx}px; height:${heightPx}px;`;
-            div.title         = `${item.subject_display || item.subject_code} — ${item.instructor_name} (${item.room_name}) @ ${startDisplay}–${endDisplay}`;
-
-            div.innerHTML = `
-                <div class="fw-bold" style="font-size:0.72rem; line-height:1.2; margin-bottom:2px;">${item.subject_display || item.subject_code}</div>
-                <div style="opacity:0.9; font-size:0.62rem; margin-bottom:2px;">${item.instructor_name}</div>
-                <div style="opacity:0.8; font-size:0.58rem;"><i class="fas fa-door-open me-1"></i>${item.room_name}</div>
-                ${durationHrs >= 1
-                    ? `<div style="margin-top:auto; padding-top:3px; border-top:1px solid rgba(255,255,255,0.25); font-size:0.52rem; opacity:0.75;">${startDisplay} – ${endDisplay}</div>`
-                    : ''}
-            `;
-            overlay.appendChild(div);
-        });
-
-        /* ======================================================
-           TABLE VIEW
-           ====================================================== */
-        const tbody = document.getElementById('scheduleTableBody');
-
-        if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No items generated.</td></tr>';
-        } else {
-            const shortDay = { Monday:'Mon', Tuesday:'Tue', Wednesday:'Wed', Thursday:'Thu', Friday:'Fri', Saturday:'Sat', Sunday:'Sun' };
-
-            tbody.innerHTML = items.map((item, i) => {
-                const timeDisplay = `${fmtTime(item.start_time)} – ${fmtTime(item.end_time)}`;
-                const dayShort    = shortDay[item.day_of_week] || item.day_of_week;
-                const classType   = (item.class_type || '').toLowerCase();
-                const isLab       = classType === 'laboratory'
-                                 || (item.room_type || '').toLowerCase().includes('lab')
-                                 || (item.room_name || '').toLowerCase().includes('lab');
-                const typeBadge   = isLab
-                    ? `<span class="badge lab-badge py-1 px-2" style="font-size:0.6rem;">Lab</span>`
-                    : `<span class="badge lecture-badge py-1 px-2" style="font-size:0.6rem;">Lecture</span>`;
-
-                return `
-                <tr>
-                    <td class="px-3 text-muted text-center" style="font-size:0.65rem;">${i + 1}</td>
-                    <td class="px-3">
-                        <div class="fw-bold text-dark mb-0 schedule-table-subject" style="font-size:0.8rem;">${item.subject_display || item.subject_code}</div>
-                        <div class="text-muted text-truncate schedule-table-subject" style="font-size:0.65rem;">${item.subject_name}</div>
-                    </td>
-                    <td class="px-3 fw-medium text-secondary" style="font-size:0.75rem;">${dayShort}</td>
-                    <td class="px-3 text-dark fw-semibold" style="font-size:0.75rem; white-space:nowrap;">${timeDisplay}</td>
-                    <td class="px-3 small text-muted schedule-table-instructor text-truncate">${item.instructor_name}</td>
-                    <td class="px-3">
-                        <span class="badge bg-light text-dark border fw-normal" style="font-size:0.7rem;">
-                            <i class="fas fa-door-open me-1 opacity-50"></i>${item.room_name}
-                        </span>
-                    </td>
-                    <td class="px-3 text-center">${typeBadge}</td>
-                </tr>`;
-            }).join('');
-        }
+        renderUniversityTimetable(items);
 
         document.getElementById('tableSummary').textContent =
-            `${items.length} class${items.length !== 1 ? 'es' : ''} assigned`;
+            `${items.length} class${items.length !== 1 ? 'es' : ''} mapped to university timetable`;
     }
 
     /* ── print ───────────────────────────────────────── */
     function printSchedule() {
-        if (!allGeneratedSchedules.length) { alert('Please generate a schedule first.'); return; }
+        if (!allGeneratedSchedules.length) { showSystemModal('Please generate a schedule first.', 'warning'); return; }
 
         const idx          = parseInt(document.getElementById('blockSelector')?.value ?? 0);
         const blockData    = allGeneratedSchedules[idx];
         const blockName    = blockData?.block ?? 'Block 1';
-        const isTableView  = !document.getElementById('tableViewContainer').classList.contains('d-none');
 
         const programSel   = document.getElementById('programSelect');
         const semesterSel  = document.getElementById('semester');
@@ -842,9 +787,7 @@
         const semesterName = semesterSel?.options[semesterSel.selectedIndex]?.text ?? '';
         const yearName     = yearSel?.options[yearSel.selectedIndex]?.text          ?? '';
 
-        const contentEl    = isTableView
-            ? document.getElementById('tableViewContainer')
-            : document.querySelector('.schedule-grid-container');
+        const contentEl    = document.getElementById('tableViewContainer');
         const contentHTML  = contentEl?.innerHTML ?? '<p>No content to print.</p>';
 
         const win = window.open('', '_blank', 'width=1100,height=800');
@@ -860,15 +803,6 @@
     .print-header h1 { font-size:1.15rem; font-weight:700; color:#800000; margin-bottom:4px; }
     .print-header .meta { display:flex; gap:24px; font-size:0.8rem; color:#555; margin-top:6px; }
     .print-header .meta span strong { color:#1a1a1a; }
-    /* Grid */
-    .grid-wrapper { position:relative; }
-    table.schedule-table { width:100%; border-collapse:collapse; table-layout:fixed; }
-    table.schedule-table th { background:#f0f0f0; font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:8px 4px; text-align:center; border:1px solid #ccc; }
-    .time-column { width:68px; background:#f8f8f8; font-size:0.65rem; font-weight:600; color:#666; text-align:center; vertical-align:middle; border:1px solid #ccc; padding:4px; }
-    .schedule-slot { height:80px; border:1px solid #ddd; padding:0; vertical-align:top; overflow:hidden; }
-    #scheduleOverlay { position:absolute; top:0; left:0; right:0; pointer-events:none; }
-    .schedule-item { position:absolute; background:#007bff; color:white; padding:5px 6px; border-radius:3px; font-size:0.58rem; border-left:3px solid rgba(255,255,255,0.4); -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box; }
-    .schedule-item.lab { background:#28a745; }
     /* Table */
     table.table { width:100%; border-collapse:collapse; font-size:0.75rem; }
     table.table th { background:#f8f8f8; padding:10px; text-align:left; font-size:0.65rem; font-weight:700; text-transform:uppercase; color:#444; border-bottom:2px solid #ddd; }
@@ -888,7 +822,7 @@
         <span><strong>Program:</strong> ${programName}</span>
         <span><strong>Year Level:</strong> ${yearName}</span>
         <span><strong>Semester:</strong> ${semesterName}</span>
-        <span><strong>View:</strong> ${isTableView ? 'Table' : 'Weekly Grid'}</span>
+        <span><strong>View:</strong> Table</span>
     </div>
 </div>
 ${contentHTML
@@ -903,40 +837,44 @@ ${contentHTML
 
     /* ── save ────────────────────────────────────────── */
     async function saveSchedules() {
-        if (!confirm('Finalize and save all generated schedules?')) return;
+        showConfirmModal('Finalize and save all generated schedules?', async function() {
+            const btn      = document.getElementById('saveBtn');
+            const original = btn.innerHTML;
+            btn.disabled  = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
 
-        const btn      = document.getElementById('saveBtn');
-        const original = btn.innerHTML;
-        btn.disabled  = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            try {
+                let count = 0;
+                for (const s of allGeneratedSchedules) {
+                    const res = await fetch(`/department-head/schedules/${s.schedule_id}/finalize`, {
+                        method:  'POST',
+                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
+                    });
 
-        try {
-            let count = 0;
-            for (const s of allGeneratedSchedules) {
-                const res = await fetch(`/department-head/schedules/${s.schedule_id}/finalize`, {
-                    method:  'POST',
-                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
-                });
+                    const contentType = res.headers.get('content-type') || '';
+                    const payload = contentType.includes('application/json')
+                        ? await res.json()
+                        : { success: false, message: await res.text() };
 
-                const contentType = res.headers.get('content-type') || '';
-                const payload = contentType.includes('application/json')
-                    ? await res.json()
-                    : { success: false, message: await res.text() };
+                    if (!res.ok || !payload.success) {
+                        throw new Error(payload.message || `Failed to save schedule ${s.schedule_id}.`);
+                    }
 
-                if (!res.ok || !payload.success) {
-                    throw new Error(payload.message || `Failed to save schedule ${s.schedule_id}.`);
+                    count++;
                 }
-
-                count++;
+                showSystemModal(`Successfully saved ${count} schedules.`, 'success');
+                window.location.href = '{{ route("department-head.schedules.index") }}';
+            } catch (err) {
+                showSystemModal('Error saving: ' + err.message, 'error');
+            } finally {
+                btn.disabled  = false;
+                btn.innerHTML = original;
             }
-            alert(`Successfully saved ${count} schedules.`);
-            window.location.href = '{{ route("department-head.schedules.index") }}';
-        } catch (err) {
-            alert('Error saving: ' + err.message);
-        } finally {
-            btn.disabled  = false;
-            btn.innerHTML = original;
-        }
+        }, {
+            title: 'Finalize Schedules',
+            btnClass: 'btn-danger',
+            btnText: '<i class="fa-solid fa-check me-1"></i>Yes, Continue'
+        });
     }
 </script>
 @endpush

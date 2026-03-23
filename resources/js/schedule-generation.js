@@ -518,10 +518,14 @@ class ScheduleGenerationUI {
      * Approve and Submit
      */
     approveAndSubmit() {
-        if (confirm('Are you sure you want to approve and submit this schedule? This action cannot be undone.')) {
+        window.showConfirmModal('Are you sure you want to approve and submit this schedule? This action cannot be undone.', () => {
             // TODO: Send approval to backend
             this.showToast('Schedule approved and submitted successfully!');
-        }
+        }, {
+            title: 'Approve and Submit',
+            btnClass: 'btn-danger',
+            btnText: '<i class="fa-solid fa-check me-1"></i>Yes, Continue'
+        });
     }
 
     /**

@@ -494,10 +494,14 @@
 
     // Save Generated Schedule
     function saveGeneratedSchedule() {
-        if (confirm('Are you sure you want to save this generated schedule?')) {
+        showConfirmModal('Are you sure you want to save this generated schedule?', function() {
             showToast('Saving schedule...');
             // TODO: Implement save functionality
-        }
+        }, {
+            title: 'Save Generated Schedule',
+            btnClass: 'btn-danger',
+            btnText: '<i class="fa-solid fa-check me-1"></i>Yes, Continue'
+        });
     }
 
     // Show Toast

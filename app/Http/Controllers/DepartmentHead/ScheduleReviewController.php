@@ -7,6 +7,7 @@ use App\Models\AcademicYear;
 use App\Models\Program;
 use App\Models\Schedule;
 use App\Services\NotificationService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -120,10 +121,22 @@ class ScheduleReviewController extends Controller
             'creator',
             'items.subject',
             'items.instructor',
-            'items.room.building',
+            'items.room',
         ]);
 
-        return view('department-head.schedules.show', compact('schedule'));
+        $scheduleGrid = [];
+        foreach ($schedule->items as $item) {
+            $day = strtolower((string) ($item->day_of_week ?? ''));
+
+            if ($day === '') {
+                continue;
+            }
+
+            $start = Carbon::parse((string) $item->start_time)->format('H:i');
+            $scheduleGrid[$day][$start][] = $item;
+        }
+
+        return view('department-head.schedules.show', compact('schedule', 'scheduleGrid'));
     }
 
     /**

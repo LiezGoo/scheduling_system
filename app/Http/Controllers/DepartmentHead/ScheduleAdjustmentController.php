@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Schedule;
 use App\Models\ScheduleAdjustmentRequest;
 use App\Models\ScheduleItem;
+use App\Models\Room;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -167,9 +168,23 @@ class ScheduleAdjustmentController extends Controller
             ->with(['subject', 'instructor', 'room'])
             ->get();
 
+        $rooms = Room::query()
+            ->orderBy('room_code')
+            ->get();
+
+        $instructors = User::query()
+            ->where('department_id', $schedule->program?->department_id)
+            ->where('is_active', true)
+            ->whereIn('role', [User::ROLE_INSTRUCTOR, User::ROLE_PROGRAM_HEAD, User::ROLE_DEPARTMENT_HEAD])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
         return view('department-head.schedules.edit', [
             'schedule' => $schedule,
             'items' => $scheduleItems,
+            'rooms' => $rooms,
+            'instructors' => $instructors,
         ]);
     }
 
@@ -200,10 +215,16 @@ class ScheduleAdjustmentController extends Controller
         );
 
         if (!empty($validation_errors)) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validation_errors,
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validation_errors,
+                ], 422);
+            }
+
+            return back()
+                ->withErrors($validation_errors)
+                ->withInput();
         }
 
         DB::beginTransaction();
@@ -216,17 +237,27 @@ class ScheduleAdjustmentController extends Controller
             
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Schedule item updated successfully.',
-            ]);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Schedule item updated successfully.',
+                ]);
+            }
+
+            return back()->with('success', 'Schedule item updated successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to update schedule: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->withErrors([
                 'error' => 'Failed to update schedule: ' . $e->getMessage(),
-            ], 500);
+            ])->withInput();
         }
     }
 

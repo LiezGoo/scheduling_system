@@ -41,6 +41,8 @@ class GeneticScheduler
     // NSTP subjects must be exactly 3 hours and scheduled only on Saturday
     private const NSTP_REQUIRED_DURATION_MINUTES = 180;
     private const NSTP_REQUIRED_DAY = 'Saturday';
+    private const NSTP_EARLIEST_START = '07:00';
+    private const NSTP_LATEST_END = '15:00';
 
     /**
      * Execute full GA workflow and persist the best schedule.
@@ -433,6 +435,10 @@ class GeneticScheduler
                     $genes[$index]['faculty_id'] = (int) $facultyCandidates[array_rand($facultyCandidates)];
                 }
             }
+
+            if ($isNstp) {
+                $genes[$index] = $this->enforceNstpConstraintsOnGene($genes[$index]);
+            }
         }
 
         $chromosome['genes'] = $this->repairChromosome($genes, $context);
@@ -757,11 +763,7 @@ class GeneticScheduler
             
             // For NSTP subjects, force Saturday and 3-hour duration
             if ($isNstp) {
-                $slot = $this->pickRandomTimeSlotForDay(
-                    $duration,
-                    $context['time_slots'],
-                    self::NSTP_REQUIRED_DAY
-                );
+                $slot = $this->pickRandomNstpSlot();
             } else {
                 $slot = $this->findConflictFreeSlotForGene(
                     $duration,
@@ -811,6 +813,10 @@ class GeneticScheduler
                 'overflow_saturday' => !$isNstp && $overflowSaturday,
             ];
 
+            if ($isNstp) {
+                $gene = $this->enforceNstpConstraintsOnGene($gene);
+            }
+
             if (!$this->hasImmediateHardConflict($gene, $existingGenes)) {
                 return $gene;
             }
@@ -819,7 +825,7 @@ class GeneticScheduler
         // If no conflict-free placement is found quickly, still return a gene
         // so GA can repair/penalize it instead of stalling.
         if ($isNstp) {
-            $fallbackSlot = $this->pickRandomTimeSlotForDay($duration, $context['time_slots'], self::NSTP_REQUIRED_DAY);
+            $fallbackSlot = $this->pickRandomNstpSlot();
         } else {
             $fallbackSlot = $this->pickRandomTimeSlotWithDayPriority(
                 $duration,
@@ -845,14 +851,7 @@ class GeneticScheduler
 
         // Ensure fallback gene respects NSTP constraints
         if ($isNstp) {
-            if ($fallbackGene['day'] !== self::NSTP_REQUIRED_DAY) {
-                $fallbackGene['day'] = self::NSTP_REQUIRED_DAY;
-            }
-            if ($fallbackGene['duration_minutes'] !== self::NSTP_REQUIRED_DURATION_MINUTES) {
-                $fallbackGene['duration_minutes'] = self::NSTP_REQUIRED_DURATION_MINUTES;
-                $startTime = strtotime((string) $fallbackGene['start_time']);
-                $fallbackGene['end_time'] = date('H:i', $startTime + (self::NSTP_REQUIRED_DURATION_MINUTES * 60));
-            }
+            $fallbackGene = $this->enforceNstpConstraintsOnGene($fallbackGene);
         }
 
         return $fallbackGene;
@@ -997,6 +996,82 @@ class GeneticScheduler
     }
 
     /**
+     * @return array<int, string>
+     */
+    private function nstpAllowedStartTimes(): array
+    {
+        return ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00'];
+    }
+
+    /**
+     * @return array{day:string,start:string,end:string}
+     */
+    private function pickRandomNstpSlot(): array
+    {
+        $start = $this->nstpAllowedStartTimes()[array_rand($this->nstpAllowedStartTimes())];
+        $end = date('H:i', strtotime($start) + (self::NSTP_REQUIRED_DURATION_MINUTES * 60));
+
+        if (strtotime($end) > strtotime(self::NSTP_LATEST_END)) {
+            $start = '12:00';
+            $end = '15:00';
+        }
+
+        return [
+            'day' => self::NSTP_REQUIRED_DAY,
+            'start' => $start,
+            'end' => $end,
+        ];
+    }
+
+    private function isValidNstpSlot(string $day, string $startTime, string $endTime, int $durationMinutes): bool
+    {
+        if ($day !== self::NSTP_REQUIRED_DAY) {
+            return false;
+        }
+
+        if ($durationMinutes !== self::NSTP_REQUIRED_DURATION_MINUTES) {
+            return false;
+        }
+
+        $startTs = strtotime($startTime);
+        $endTs = strtotime($endTime);
+
+        if ($startTs === false || $endTs === false || $endTs <= $startTs) {
+            return false;
+        }
+
+        if ($startTs < strtotime(self::NSTP_EARLIEST_START) || $endTs > strtotime(self::NSTP_LATEST_END)) {
+            return false;
+        }
+
+        return (int) (($endTs - $startTs) / 60) === self::NSTP_REQUIRED_DURATION_MINUTES;
+    }
+
+    /**
+     * @param array<string, mixed> $gene
+     * @return array<string, mixed>
+     */
+    private function enforceNstpConstraintsOnGene(array $gene): array
+    {
+        $gene['is_nstp'] = true;
+        $gene['day'] = self::NSTP_REQUIRED_DAY;
+        $gene['duration_minutes'] = self::NSTP_REQUIRED_DURATION_MINUTES;
+        $gene['overflow_saturday'] = false;
+
+        $start = (string) ($gene['start_time'] ?? '');
+        $end = (string) ($gene['end_time'] ?? '');
+
+        if (!$this->isValidNstpSlot((string) $gene['day'], $start, $end, (int) $gene['duration_minutes'])) {
+            $slot = $this->pickRandomNstpSlot();
+            $gene['day'] = $slot['day'];
+            $gene['start_time'] = $slot['start'];
+            $gene['end_time'] = $slot['end'];
+        }
+
+        return $gene;
+    }
+
+    /**
      * Generate a safe time slot that doesn't overlap with break times.
      * @return array<string, string>
      */
@@ -1042,8 +1117,8 @@ class GeneticScheduler
             return true;
         }
 
-        // Check break time overlap
-        if ($this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
+        // Check break time overlap (non-NSTP only)
+        if (!$isNstp && $this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
             return true;
         }
 
@@ -1144,6 +1219,11 @@ class GeneticScheduler
                 $genes[$index]['end_time'] = date('H:i', $endTime);
             }
 
+            if ($isNstp) {
+                $genes[$index] = $this->enforceNstpConstraintsOnGene($genes[$index]);
+                continue;
+            }
+
             // Fix break time overlap
             if ($this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
                 $isNstpGene = (bool) ($gene['is_nstp'] ?? false);
@@ -1230,10 +1310,12 @@ class GeneticScheduler
 
             // Check NSTP constraints
             if ($isNstp) {
-                if ($day !== self::NSTP_REQUIRED_DAY) {
-                    $nstpViolations++;
-                }
-                if ((int) $gene['duration_minutes'] !== self::NSTP_REQUIRED_DURATION_MINUTES) {
+                if (!$this->isValidNstpSlot(
+                    $day,
+                    (string) $gene['start_time'],
+                    (string) $gene['end_time'],
+                    (int) $gene['duration_minutes']
+                )) {
                     $nstpViolations++;
                 }
             } elseif ($day === self::NSTP_REQUIRED_DAY) {
@@ -1245,7 +1327,7 @@ class GeneticScheduler
             }
 
             // Check break time conflicts
-            if ($this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
+            if (!$isNstp && $this->slotOverlapsWithBreakTime((string) $gene['start_time'], (string) $gene['end_time'])) {
                 $breakTimeConflicts++;
             }
 

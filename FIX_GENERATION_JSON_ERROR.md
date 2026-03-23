@@ -19,7 +19,7 @@ This happens when:
 
 ### 1. Backend Controller: `app/Http/Controllers/DepartmentHead/GenerateScheduleController.php`
 
-**Changes:**
+**Changes:**        
 - ✅ Added `use Illuminate\Support\Facades\Log;` import
 - ✅ Wrapped entire `generate()` method in try-catch blocks
 - ✅ Added try-catch around `$this->geneticScheduler->generate()` call
